@@ -1,0 +1,547 @@
+name: Migrate Verified Clean Baseline
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .ci/migration-request.txt
+      - .github/workflows/migrate-clean-baseline.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: migrate-clean-baseline
+  cancel-in-progress: true
+
+jobs:
+  migrate-verify-and-commit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Check out target repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Resolve verified source commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_sha="$(head -n 1 .ci/migration-request.txt | tr -d '\r\n')"
+          [[ "$source_sha" =~ ^[0-9a-f]{40}$ ]]
+          echo "SOURCE_SHA=$source_sha" >> "$GITHUB_ENV"
+          echo "MIGRATION_RUN_ID=$GITHUB_RUN_ID" >> "$GITHUB_ENV"
+
+      - name: Download source snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 \
+            "https://api.github.com/repos/tonghe0922-glitch/PublicCompany/tarball/$SOURCE_SHA" \
+            --output /tmp/source.tar.gz
+          mkdir -p /tmp/source
+          tar -xzf /tmp/source.tar.gz -C /tmp/source --strip-components=1
+          test -f /tmp/source/pom.xml
+          test -f /tmp/source/technical-platform/web/package.json
+          test -f /tmp/source/technical-platform/web/work.html
+          test -f /tmp/source/technical-platform/web/tech.html
+          test ! -f /tmp/source/.github/workflows/harden-s8020-baseline.yml
+
+      - name: Replace repository with the audited whitelist
+        shell: bash
+        run: |
+          set -euo pipefail
+          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          for file in .editorconfig .env.example .gitattributes .gitignore mvnw mvnw.cmd pom.xml; do
+            cp "/tmp/source/$file" "$file"
+          done
+          cp -a /tmp/source/.mvn .
+          cp -a /tmp/source/docker .
+          cp -a /tmp/source/technical-platform .
+          mkdir -p scripts
+          cp -a /tmp/source/scripts/database scripts/
+
+          rm -f technical-platform/web/playwright.phase*.config.ts
+          rm -rf technical-platform/web/e2e
+          rm -rf technical-platform/web/reports technical-platform/web/coverage
+          rm -rf technical-platform/web/dist technical-platform/web/node_modules
+          find technical-platform -type d -name target -prune -exec rm -rf {} +
+
+      - name: Generate clean two-port repository files
+        shell: bash
+        run: |
+          set -euo pipefail
+          export SOURCE_SHA MIGRATION_RUN_ID
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          import os
+          import textwrap
+
+          def write(path: str, content: str) -> None:
+              target = Path(path)
+              target.parent.mkdir(parents=True, exist_ok=True)
+              target.write_text(textwrap.dedent(content).lstrip(), encoding='utf-8')
+
+          package_path = Path('technical-platform/web/package.json')
+          package = json.loads(package_path.read_text(encoding='utf-8'))
+          scripts = package['scripts']
+          scripts.pop('quality:source', None)
+          scripts.pop('quality:artifacts', None)
+          scripts.pop('quality:dual-runtime', None)
+          scripts['quality:ports'] = 'python ../../scripts/quality/two_port_guard.py'
+          package['pnpm'] = {'onlyBuiltDependencies': ['vue-demi']}
+          package_path.write_text(json.dumps(package, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+
+          write('README.md', '''
+          # 上金谷运营管理平台（S8020）
+
+          S8020 是上金谷运营管理平台的新版本唯一代码仓库。系统只有两个运行端口：
+
+          - **工作端 `work`**：员工本人操作与中心管理能力，根据当前身份、岗位、组织、权限和数据范围投影。
+          - **技术端 `tech`**：模块、权限、流程参数、运行监控、审计与补偿；不代表业务超级管理员。
+
+          ## 技术栈
+
+          - Vue 3.5、TypeScript 5.9、Vite 8、Pinia、Vue Router
+          - Java 21、Spring Boot 3.5、Spring MVC、Spring JDBC
+          - PostgreSQL 16、Flyway、Redis、Docker
+
+          ## 快速启动
+
+          ```bash
+          cp .env.example .env
+          docker compose --env-file .env -f docker/compose/docker-compose.dev.yml up -d
+          ```
+
+          前端开发：
+
+          ```bash
+          cd technical-platform/web
+          npm install --global pnpm@10.34.0
+          pnpm install --frozen-lockfile
+          pnpm dev:work
+          # 另一个终端：pnpm dev:tech
+          ```
+
+          ## 全量质量检查
+
+          ```bash
+          bash ./mvnw -B -ntp -pl technical-platform/backend/apps/api,technical-platform/backend/apps/worker -am test
+          cd technical-platform/web
+          pnpm typecheck
+          pnpm lint
+          pnpm quality:duplicates
+          pnpm quality:deadcode
+          pnpm quality:ports
+          pnpm test
+          pnpm build
+          pnpm test:e2e
+          ```
+
+          ## 开发方式
+
+          后续按“静态原型 → 模块规格 → 纵向小闭环 → 自动测试 → 浏览器验收”推进。当前模块需求以 `docs/modules/<module>/MODULE_SPEC.md` 为业务事实源，不再按 PHASE 总进度施工。
+          ''')
+
+          write('AGENT.md', '''
+          # S8020 AI 工程执行规则
+
+          ## 1. 项目边界
+
+          本系统只有 `work` 与 `tech` 两个运行端口。`work` 同时承载员工操作和中心管理能力；`tech` 负责配置、监控、审计与补偿，不自动拥有业务审批权或敏感数据读取权。
+
+          ## 2. 权威顺序
+
+          现行法律与安全底线 > 用户最新明确决定 > 本文件 > 已批准 MODULE_SPEC > ADR > DESIGN > 当前代码与自动测试 > 历史原型。静态 HTML 只表达页面与交互目标，不直接决定权限、数据库、审批人或状态机。
+
+          ## 3. 开发规则
+
+          1. 一次只推进一个模块内的一个可验收闭环。
+          2. 开工前读取本文件、DESIGN、ARCHITECTURE 和当前模块文档。
+          3. 必须复用现有认证、权限、审计、通知、文件和工作流能力。
+          4. 不得创建平行用户、权限、组织或状态事实源。
+          5. 前端不可提交任意目标状态；状态由服务端命令和状态机改变。
+          6. 技术端不可绕过业务授权直接把业务状态改为完成。
+          7. 已执行 Flyway 迁移不可修改；结构变化必须新增迁移。
+          8. 禁止提交真实人员、薪资、身份证、健康、令牌或密钥数据。
+          9. 禁止直接推送 main；通过分支、PR 和全部门禁合并。
+
+          ## 4. 代码质量
+
+          - TypeScript 严格模式；ESLint 零警告；不得新增 `any`、`ts-ignore` 或未处理 Promise。
+          - Java 21；Spotless 全源检查；Controller 保持薄层；SQL 使用参数绑定。
+          - 新增或修改代码不得提高重复率，不得留下无引用代码。
+          - 权限必须在服务端执行；菜单隐藏不构成安全边界。
+          - 所有错误应有稳定错误码与 requestId，日志不得包含敏感信息。
+
+          ## 5. 完成定义
+
+          页面、API、数据库、权限、审计、测试、构建、文档和人工体验全部通过，模块闭环才可标记完成。交付必须列出修改文件、测试命令、测试结果、数据库/API/权限影响和回滚方式。
+          ''')
+
+          write('DESIGN.md', '''
+          # S8020 两端设计规范
+
+          ## 视觉基线
+
+          使用暖琥珀橙品牌体系，主色 `#EA580C`，浅灰工作区 `#F4F4F7`，白色卡片、细边框、轻阴影、大字号和明确状态反馈。全局样式只从 `src/styles.css` 进入，不引入第二套主题。
+
+          ## 页面外壳
+
+          - 工作端和技术端的认证后页面统一使用 `UnifiedPortalShell`。
+          - 登录、错误、无权限页面使用无侧栏认证外壳。
+          - 登录卡片桌面最大宽度 440px；移动端宽度 `calc(100% - 32px)`。
+
+          ## 工作端一级导航顺序
+
+          1. 我的工作台
+          2. 中心事务
+          3. 企业通讯录
+          4. 待办与任务
+          5. 审批与申请
+          6. 通知与制度
+          7. 例会与会议
+          8. 学习与成行
+          9. 演出节目单
+          10. 报销与经费
+          11. 个人综合服务
+          12. 站内通信
+
+          一级和二级菜单使用同一个活动项算法；展开状态与选中状态分离；同一时刻只允许一个二级项选中。刷新、前进后退、身份切换和权限变化后必须重新计算。
+
+          ## 可访问性
+
+          键盘可操作、焦点清晰、表单有标签、错误可定位，状态不得只靠颜色表达；目标为 WCAG 2.2 AA。
+          ''')
+
+          write('ARCHITECTURE.md', '''
+          # S8020 系统架构
+
+          S8020 是前后端分离的模块化单体：
+
+          - `technical-platform/web`：Vue 两端应用，运行入口为 `work.html` 和 `tech.html`。
+          - `technical-platform/backend/apps/api`：同步 REST API。
+          - `technical-platform/backend/apps/worker`：异步任务。
+          - `technical-platform/backend/modules`：core、iam、org、authz、workflow、document、notification、audit 等领域模块。
+          - `technical-platform/database`：PostgreSQL 与 Flyway 迁移。
+
+          `employee / center / tech` 是业务能力视角；运行时只有 `work / tech`。员工与中心能力共享同一业务事实，通过身份、岗位、组织、权限、字段范围和数据范围形成不同视图。
+
+          依赖方向：端口/Controller → Application Service → Domain Port → Infrastructure Adapter。领域模块不得依赖前端，不得跨模块直接访问对方内部实现。
+          ''')
+
+          write('CONTRIBUTING.md', '''
+          # 贡献指南
+
+          分支命名使用 `module/<name>`、`fix/<name>`、`refactor/<name>`、`chore/<name>`。禁止 phase 分支和直接推送 main。每个 PR 必须说明范围、非范围、测试、数据库/API/权限影响、截图与回滚方式；默认 squash merge。
+
+          提交前执行 README 中的全量质量命令。数据库变化只新增 Flyway 文件。AI 生成代码必须经过同等静态检查、测试和人工审查。
+          ''')
+
+          write('SECURITY.md', '''
+          # 安全政策
+
+          不得在仓库、日志或测试数据中保存密码、MFA 密钥、访问令牌、身份证、银行卡、薪资或健康隐私。所有写操作在服务端重新鉴权；技术端不自动获得业务权限。发现漏洞时应建立私密安全事项，包含复现条件、影响范围和建议，不在公开 Issue 中披露敏感细节。
+          ''')
+
+          write('MIGRATION_PROVENANCE.md', f'''
+          # 迁移来源记录
+
+          - 来源仓库：`tonghe0922-glitch/PublicCompany`
+          - 来源提交：`{os.environ['SOURCE_SHA']}`
+          - 源整改全绿运行：`32348354117`
+          - 源质量硬化全绿运行：`32349840141`
+          - 目标迁移运行：`{os.environ['MIGRATION_RUN_ID']}`
+          - 迁移原则：仅白名单复制正式代码、数据库、Docker、构建包装器和必要脚本；不复制旧知识库、阶段进度、历史工作流、报告或临时文件。
+          ''')
+
+          write('docs/MODULE_DEVELOPMENT.md', '''
+          # 模块开发方法
+
+          每个模块采用纵向切片：原型分析、MODULE_SPEC、权限/API/数据库合同、小闭环开发、自动测试、浏览器验收。每个模块放在 `docs/modules/<module>/`，未批准内容不得作为编码事实源。
+          ''')
+
+          write('docs/QUALITY_GATES.md', '''
+          # 质量门禁
+
+          必需检查：仓库卫生、两端结构、Java 全模块测试与 Spotless、TypeScript、ESLint、重复率、死代码、109+ 单元测试、work/tech 双构建、Playwright 冒烟测试、Docker Compose 校验。任何一项失败不得合并。
+          ''')
+
+          write('docs/modules/_template/module.yaml', '''
+          code: MODULE_CODE
+          name: 模块名称
+          status: proposed
+          version: 0.1.0
+          owner: unassigned
+          ports: [work, tech]
+          dependencies: []
+          prototype: null
+          spec: MODULE_SPEC.md
+          acceptance: ACCEPTANCE.md
+          ''')
+
+          write('docs/modules/_template/MODULE_SPEC.md', '''
+          # 模块规格
+
+          ## 目标与范围
+          ## 非范围
+          ## 用户与业务对象
+          ## 页面与动作
+          ## 字段与校验
+          ## 权限与数据范围
+          ## 状态与异常
+          ## 通知与审计
+          ## 未决问题
+          ''')
+
+          write('docs/modules/_template/PERMISSIONS.md', '''
+          # 权限矩阵
+
+          | 权限码 | 动作 | 工作端 | 技术端 | 数据范围 | 字段范围 | 审计 |
+          |---|---|---|---|---|---|---|
+          ''')
+
+          write('docs/modules/_template/ACCEPTANCE.md', '''
+          # 验收标准
+
+          每条标准必须可观察、可自动测试，并覆盖正常、无权限、异常、边界、审计和回滚场景。
+          ''')
+
+          write('scripts/quality/two_port_guard.py', '''
+          from pathlib import Path
+          import json
+          import re
+
+          root = Path(__file__).resolve().parents[2]
+          web = root / 'technical-platform' / 'web'
+          required = [web / 'work.html', web / 'tech.html', web / 'src/portals/work/main.ts', web / 'src/portals/tech/main.ts']
+          forbidden = [web / 'employee.html', web / 'center.html', web / 'admin.html', web / 'src/portals/employee', web / 'src/portals/center', web / 'src/portals/admin']
+          missing = [str(path.relative_to(root)) for path in required if not path.exists()]
+          present = [str(path.relative_to(root)) for path in forbidden if path.exists()]
+          if missing or present:
+              raise SystemExit(f'missing={missing}; forbidden={present}')
+
+          package = json.loads((web / 'package.json').read_text(encoding='utf-8'))
+          scripts = package['scripts']
+          for key in ('dev:work', 'dev:tech', 'build:work', 'build:tech', 'quality:ports'):
+              if key not in scripts:
+                  raise SystemExit(f'Missing script: {key}')
+          if any('admin' in key or 'employee' in key or 'center' in key for key in scripts):
+              raise SystemExit('Retired runtime script remains')
+
+          portal_config = (web / 'src/platform/portal-config.ts').read_text(encoding='utf-8')
+          if "'work' | 'tech'" not in portal_config:
+              raise SystemExit('Runtime ports are not exactly work and tech')
+
+          navigation = (web / 'src/router/navigation-catalog.ts').read_text(encoding='utf-8')
+          expected = ['我的工作台','中心事务','企业通讯录','待办与任务','审批与申请','通知与制度','例会与会议','学习与成行','演出节目单','报销与经费','个人综合服务','站内通信']
+          positions = [navigation.find(f"label: '{label}'") for label in expected]
+          if any(position < 0 for position in positions) or positions != sorted(positions):
+              raise SystemExit('Work navigation order is invalid')
+
+          forbidden_roots = ['Knowledge Base', 'Construction Master Schedule.csv', 'docs/implementation', '.tmp', '.ci']
+          remaining = [path for path in forbidden_roots if (root / path).exists()]
+          if remaining:
+              raise SystemExit(f'Legacy roots remain: {remaining}')
+          print('Two-port repository guard passed.')
+          ''')
+
+          write('technical-platform/web/playwright.config.ts', '''
+          import { defineConfig, devices } from '@playwright/test'
+
+          export default defineConfig({
+            testDir: './e2e',
+            fullyParallel: false,
+            retries: process.env.CI ? 1 : 0,
+            workers: process.env.CI ? 1 : undefined,
+            reporter: process.env.CI ? [['line'], ['html', { open: 'never' }]] : 'list',
+            use: {
+              baseURL: 'http://127.0.0.1:4173',
+              trace: 'retain-on-failure',
+              screenshot: 'only-on-failure',
+            },
+            projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+            webServer: {
+              command: 'pnpm exec vite --host 127.0.0.1 --port 4173 --mode work',
+              url: 'http://127.0.0.1:4173/work.html',
+              reuseExistingServer: !process.env.CI,
+              timeout: 120_000,
+            },
+          })
+          ''')
+
+          write('technical-platform/web/e2e/two-port-smoke.spec.ts', '''
+          import { expect, test } from '@playwright/test'
+
+          for (const port of ['work', 'tech'] as const) {
+            test(`${port} port renders the compact login shell`, async ({ page }) => {
+              await page.goto(`/${port}.html`)
+              await expect(page.getByRole('heading', { name: '登录' })).toBeVisible()
+              const card = page.locator('.platform-login-layout .sgj-card')
+              await expect(card).toBeVisible()
+              const width = await card.evaluate((element) => element.getBoundingClientRect().width)
+              expect(width).toBeLessThanOrEqual(441)
+            })
+          }
+          ''')
+
+          write('.github/CODEOWNERS', '''
+          /AGENT.md @tonghe0922-glitch
+          /DESIGN.md @tonghe0922-glitch
+          /.github/workflows/ @tonghe0922-glitch
+          /technical-platform/database/ @tonghe0922-glitch
+          /technical-platform/backend/modules/iam/ @tonghe0922-glitch
+          /technical-platform/backend/modules/authz/ @tonghe0922-glitch
+          ''')
+
+          write('.github/pull_request_template.md', '''
+          ## 目的与范围
+          ## 非范围
+          ## 页面截图
+          ## 测试证据
+          ## 数据库 / API / 权限影响
+          ## 性能与安全影响
+          ## 回滚方式
+          ''')
+
+          write('.github/workflows/ci.yml', '''
+          name: CI
+
+          on:
+            pull_request:
+            push:
+              branches: [main]
+
+          permissions:
+            contents: read
+
+          jobs:
+            quality:
+              runs-on: ubuntu-24.04
+              timeout-minutes: 75
+              steps:
+                - uses: actions/checkout@v5
+                - uses: actions/setup-java@v5
+                  with:
+                    distribution: temurin
+                    java-version: '21'
+                    cache: maven
+                - name: Backend tests and Java quality
+                  run: bash ./mvnw -B -ntp -pl technical-platform/backend/apps/api,technical-platform/backend/apps/worker -am test
+                - uses: actions/setup-node@v5
+                  with:
+                    node-version: '22.12.0'
+                - name: Install pnpm
+                  run: npm install --global pnpm@10.34.0
+                - name: Install frontend dependencies
+                  working-directory: technical-platform/web
+                  run: pnpm install --frozen-lockfile
+                - name: Frontend static gates
+                  working-directory: technical-platform/web
+                  run: |
+                    pnpm typecheck
+                    pnpm lint
+                    pnpm quality:duplicates
+                    NODE_OPTIONS=--max-old-space-size=4096 pnpm quality:deadcode
+                    pnpm quality:ports
+                - name: Frontend unit tests
+                  working-directory: technical-platform/web
+                  run: pnpm test
+                - name: Build work and tech ports
+                  working-directory: technical-platform/web
+                  run: pnpm build
+                - name: Browser smoke tests
+                  working-directory: technical-platform/web
+                  run: |
+                    pnpm exec playwright install --with-deps chromium
+                    pnpm test:e2e
+                - name: Docker Compose validation
+                  run: docker compose --env-file .env.example -f docker/compose/docker-compose.dev.yml config >/tmp/compose.yml
+          ''')
+          PY
+
+      - name: Verify repository hygiene before testing
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/quality/two_port_guard.py
+          test ! -e "Knowledge Base"
+          test ! -e "Construction Master Schedule.csv"
+          test ! -e docs/implementation
+          test ! -e .tmp
+          ! find .github/workflows -type f -iname '*phase*' -print -quit | grep -q .
+          ! find technical-platform/web -maxdepth 1 -type f -name 'playwright.phase*.config.ts' -print -quit | grep -q .
+          git add -A
+          git diff --cached --check
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Run backend tests and Java quality
+        shell: bash
+        run: bash ./mvnw -B -ntp -pl technical-platform/backend/apps/api,technical-platform/backend/apps/worker -am test
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22.12.0'
+
+      - name: Install pnpm
+        shell: bash
+        run: npm install --global pnpm@10.34.0
+
+      - name: Install frontend dependencies
+        shell: bash
+        working-directory: technical-platform/web
+        run: pnpm install --frozen-lockfile
+
+      - name: Run frontend static gates
+        shell: bash
+        working-directory: technical-platform/web
+        run: |
+          pnpm typecheck
+          pnpm lint
+          pnpm quality:duplicates
+          NODE_OPTIONS=--max-old-space-size=4096 pnpm quality:deadcode
+          pnpm quality:ports
+
+      - name: Run frontend unit tests
+        shell: bash
+        working-directory: technical-platform/web
+        run: pnpm test
+
+      - name: Build both ports
+        shell: bash
+        working-directory: technical-platform/web
+        run: pnpm build
+
+      - name: Run browser smoke tests
+        shell: bash
+        working-directory: technical-platform/web
+        run: |
+          pnpm exec playwright install --with-deps chromium
+          pnpm test:e2e
+
+      - name: Validate Docker Compose
+        shell: bash
+        run: docker compose --env-file .env.example -f docker/compose/docker-compose.dev.yml config >/tmp/compose.yml
+
+      - name: Commit verified clean baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f .github/workflows/migrate-clean-baseline.yml
+          rm -rf .ci
+          git add -A
+          git diff --cached --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore: establish verified S8020 two-port baseline"
+          git push origin HEAD:main
