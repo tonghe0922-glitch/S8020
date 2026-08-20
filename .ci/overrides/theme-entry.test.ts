@@ -1,16 +1,10 @@
-import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-
-function readSource(relativePath: string): string {
-  return readFileSync(new URL(relativePath, import.meta.url), 'utf8')
-}
-
-const createPortalAppSource = readSource('../platform/create-portal-app.ts')
-const styleEntry = readSource('../styles.css')
-const tokenSource = readSource('./tokens.css')
-const shellSource = readSource('../shared/layout/rebuild/rebuild-shell.css')
-const navigationSource = readSource('../router/PortalNavigation.vue')
-const sessionHeaderSource = readSource('../platform/PortalSessionHeader.vue')
+import createPortalAppSource from '../platform/create-portal-app.ts?raw'
+import styleEntry from '../styles.css?raw'
+import tokenSource from './tokens.css?raw'
+import shellSource from '../shared/layout/rebuild/rebuild-shell.css?raw'
+import navigationSource from '../router/PortalNavigation.vue?raw'
+import sessionHeaderSource from '../platform/PortalSessionHeader.vue?raw'
 
 describe('current two-port design-system entry', () => {
   it('loads the global style entry for every portal application', () => {
