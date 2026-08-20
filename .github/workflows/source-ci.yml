@@ -62,7 +62,6 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-          cache: maven
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
@@ -83,7 +82,10 @@ jobs:
           forbidden = {'.DS_Store', 'Thumbs.db'}
           bad = []
           for path in Path('.').rglob('*'):
-              if path.is_file() and (path.name in forbidden or any(part in {'node_modules','dist','target','coverage'} for part in path.parts)):
+              if path.is_file() and (
+                  path.name in forbidden
+                  or any(part in {'node_modules', 'dist', 'target', 'coverage'} for part in path.parts)
+              ):
                   bad.append(str(path))
           if bad:
               raise SystemExit('Forbidden generated files:\n' + '\n'.join(bad[:200]))
