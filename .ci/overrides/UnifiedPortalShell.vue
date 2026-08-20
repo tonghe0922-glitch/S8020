@@ -127,7 +127,7 @@ watch(() => route.fullPath, closeTransientNavigation)
         class="rebuild-shell__nav-toggle rebuild-shell__nav-toggle--desktop"
         type="button"
         aria-label="展开或收起主导航"
-        :aria-expanded="(!sidebarCollapsed).toString()"
+        :aria-expanded="!sidebarCollapsed"
         @click="toggleSidebar"
       >
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
@@ -136,7 +136,7 @@ watch(() => route.fullPath, closeTransientNavigation)
         class="rebuild-shell__nav-toggle rebuild-shell__nav-toggle--mobile"
         type="button"
         aria-label="打开主导航"
-        :aria-expanded="drawerOpen.toString()"
+        :aria-expanded="drawerOpen"
         @click="toggleDrawer"
       >
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
