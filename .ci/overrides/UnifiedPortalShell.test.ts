@@ -1,3 +1,5 @@
+// @vitest-environment happy-dom
+
 import { flushPromises, mount } from '@vue/test-utils'
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 import { describe, expect, it } from 'vitest'
