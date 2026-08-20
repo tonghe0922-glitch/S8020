@@ -7,6 +7,7 @@ on:
     paths:
       - .github/workflows/source-ci.yml
       - .ci/source-ci-request.txt
+      - .ci/overrides/**
 
 permissions:
   contents: write
@@ -62,11 +63,8 @@ jobs:
         working-directory: /tmp/source-candidate
         run: |
           cat .tmp/s8020-patch/part-* > /tmp/s8020-fix.patch
-          cat .tmp/s8020-overlay/part-* | tr -d '\r\n' | base64 --decode > /tmp/s8020-overlay.tar.gz
-          sha256sum /tmp/s8020-fix.patch /tmp/s8020-overlay.tar.gz
+          sha256sum /tmp/s8020-fix.patch
           test -s /tmp/s8020-fix.patch
-          test -s /tmp/s8020-overlay.tar.gz
-          tar -tzf /tmp/s8020-overlay.tar.gz | sed -n '1,120p'
 
           git init -q
           git config user.name ci
@@ -79,7 +77,13 @@ jobs:
             --exclude=technical-platform/web/src/router/navigation-catalog.ts \
             /tmp/s8020-fix.patch
 
-          tar -xzf /tmp/s8020-overlay.tar.gz -C .
+          install -D -m 0644 \
+            "$GITHUB_WORKSPACE/.ci/overrides/SessionService.java" \
+            technical-platform/backend/modules/iam/src/main/java/cn/shangjingu/platform/iam/session/SessionService.java
+          install -D -m 0644 \
+            "$GITHUB_WORKSPACE/.ci/overrides/navigation-catalog.ts" \
+            technical-platform/web/src/router/navigation-catalog.ts
+
           git add -A
           git rm -f technical-platform/web/src/router/generated/portal-ia-navigation.json
           git rm -rf .tmp/s8020-patch .tmp/s8020-overlay
