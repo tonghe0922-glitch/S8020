@@ -62,7 +62,7 @@ jobs:
         working-directory: /tmp/source-candidate
         run: |
           cat .tmp/s8020-patch/part-* > /tmp/s8020-fix.patch
-          cat .tmp/s8020-overlay/part-* | base64 --decode > /tmp/s8020-overlay.tar.gz
+          cat .tmp/s8020-overlay/part-* | tr -d '\r\n' | base64 --decode > /tmp/s8020-overlay.tar.gz
           sha256sum /tmp/s8020-fix.patch /tmp/s8020-overlay.tar.gz
           test -s /tmp/s8020-fix.patch
           test -s /tmp/s8020-overlay.tar.gz
