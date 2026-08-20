@@ -38,7 +38,7 @@ jobs:
         run: |
           ref="refactor/s8020-clean-baseline"
           if [[ -f .ci/source-ci-request.txt ]]; then
-            ref="$(tr -d '\r\n' < .ci/source-ci-request.txt)"
+            ref="$(head -n 1 .ci/source-ci-request.txt | tr -d '\r\n')"
           fi
           test -n "$ref"
           printf 'ref=%s\n' "$ref" >> "$GITHUB_OUTPUT"
@@ -56,6 +56,25 @@ jobs:
           tar -xzf /tmp/source-candidate.tar.gz -C /tmp/source-candidate --strip-components=1
           test -f /tmp/source-candidate/pom.xml
           test -f /tmp/source-candidate/technical-platform/web/package.json
+
+      - name: Apply clean-baseline patch
+        shell: bash
+        working-directory: /tmp/source-candidate
+        run: |
+          cat .tmp/s8020-patch/part-* > /tmp/s8020-fix.patch
+          printf '%s  %s\n' \
+            '452336c2a097b85c6b9f710c818f800fb1a191c2c4b0a5aabdba14ec256c7969' \
+            '/tmp/s8020-fix.patch' | sha256sum --check --strict
+          git init -q
+          git config user.name ci
+          git config user.email ci@example.invalid
+          git add -A
+          git commit -qm baseline
+          git apply --index --whitespace=nowarn /tmp/s8020-fix.patch
+          git rm -f technical-platform/web/src/router/generated/portal-ia-navigation.json
+          git rm -rf .tmp/s8020-patch
+          git rm -f .github/workflows/s8020-source-export.yml
+          git diff --cached --check
 
       - name: Set up Java 21
         uses: actions/setup-java@v4
