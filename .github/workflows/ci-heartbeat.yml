@@ -1,24 +1,14 @@
 name: CI Heartbeat
 
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   heartbeat:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Record heartbeat
-        shell: bash
-        run: |
-          printf 'ok\n' > .ci-heartbeat
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -- .ci-heartbeat
-          git commit -m "chore: record CI heartbeat [skip ci]"
-          git push
+      - name: Confirm Actions availability
+        run: echo "GitHub Actions is available."
