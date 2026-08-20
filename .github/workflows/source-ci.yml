@@ -83,6 +83,9 @@ jobs:
           install -D -m 0644 \
             "$GITHUB_WORKSPACE/.ci/overrides/navigation-catalog.ts" \
             technical-platform/web/src/router/navigation-catalog.ts
+          install -D -m 0644 \
+            "$GITHUB_WORKSPACE/.ci/overrides/Phase09CenterInboxPage.vue" \
+            technical-platform/web/src/platform/pages/Phase09CenterInboxPage.vue
 
           rm -f technical-platform/web/src/router/generated/portal-ia-navigation.json
           rm -rf .tmp/s8020-patch .tmp/s8020-overlay
