@@ -25,7 +25,7 @@ fi
 : "${SJG_BOOTSTRAP_DB_PASSWORD:=${POSTGRES_PASSWORD:-}}"
 export SJG_BOOTSTRAP_DB_URL SJG_BOOTSTRAP_DB_USERNAME SJG_BOOTSTRAP_DB_PASSWORD
 
-./mvnw -q -ntp \
+bash ./mvnw -q -ntp \
   -pl technical-platform/backend/modules/database-baseline \
   -DskipTests compile \
   org.codehaus.mojo:exec-maven-plugin:3.5.0:java \
