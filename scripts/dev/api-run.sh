@@ -16,4 +16,4 @@ echo "[api-run] configured variables: SJG_API_DB_*, SJG_AUDIT_DB_*, REDIS_*, SJG
 echo "[api-run] security audit mode: ${SJG_SECURITY_AUDIT_MODE}"
 
 cd "${ROOT_DIR}"
-exec ./mvnw -pl technical-platform/backend/apps/api -am spring-boot:run "$@"
+exec bash ./mvnw -pl technical-platform/backend/apps/api -am spring-boot:run "$@"
