@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - .ci/migration-request.txt
+      - .ci/monitor-request.txt
 
 permissions:
   actions: read
@@ -16,6 +17,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 95
     steps:
+      - uses: actions/checkout@v5
+
       - name: Locate and observe matching migration run
         id: observe
         shell: bash
@@ -24,14 +27,19 @@ jobs:
         run: |
           set -euo pipefail
           repository="$GITHUB_REPOSITORY"
-          head_sha="$GITHUB_SHA"
+          if [[ -f .ci/monitor-request.txt ]]; then
+            observed_sha="$(head -n 1 .ci/monitor-request.txt | tr -d '\r\n')"
+          else
+            observed_sha="$GITHUB_SHA"
+          fi
+          [[ "$observed_sha" =~ ^[0-9a-f]{40}$ ]]
           run_json=''
 
-          for attempt in $(seq 1 60); do
+          for attempt in $(seq 1 120); do
             runs="$(gh api \
               -H 'Accept: application/vnd.github+json' \
-              "/repos/$repository/actions/workflows/migrate-clean-baseline.yml/runs?event=push&branch=main&per_page=30")"
-            run_json="$(jq -c --arg sha "$head_sha" \
+              "/repos/$repository/actions/workflows/migrate-clean-baseline.yml/runs?event=push&branch=main&per_page=50")"
+            run_json="$(jq -c --arg sha "$observed_sha" \
               '[.workflow_runs[] | select(.head_sha == $sha)] | sort_by(.created_at) | last // empty' \
               <<<"$runs")"
             if [[ -n "$run_json" ]]; then
@@ -41,7 +49,7 @@ jobs:
           done
 
           if [[ -z "$run_json" ]]; then
-            echo 'Could not locate the migration run for this commit.' >&2
+            echo 'Could not locate the migration run for the requested commit.' >&2
             exit 1
           fi
 
@@ -50,6 +58,15 @@ jobs:
           echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
           echo "run_url=$run_url" >> "$GITHUB_OUTPUT"
 
+          gh api --method POST \
+            -H 'Accept: application/vnd.github+json' \
+            "/repos/$repository/statuses/$observed_sha" \
+            -f state='pending' \
+            -f target_url="$run_url" \
+            -f description="migration running; run $run_id" \
+            -f context='s8020/migration-monitor'
+
+          conclusion='timed_out'
           for attempt in $(seq 1 1140); do
             run_json="$(gh api \
               -H 'Accept: application/vnd.github+json' \
@@ -63,18 +80,16 @@ jobs:
             sleep 5
           done
 
-          conclusion="${conclusion:-timed_out}"
           if [[ "$conclusion" == 'success' ]]; then
             state='success'
           else
             state='failure'
           fi
-
           description="migration $conclusion; run $run_id"
           description="${description:0:140}"
           gh api --method POST \
             -H 'Accept: application/vnd.github+json' \
-            "/repos/$repository/statuses/$head_sha" \
+            "/repos/$repository/statuses/$observed_sha" \
             -f state="$state" \
             -f target_url="$run_url" \
             -f description="$description" \
