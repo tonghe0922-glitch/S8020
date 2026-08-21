@@ -27,6 +27,7 @@ export SJG_BOOTSTRAP_DB_URL SJG_BOOTSTRAP_DB_USERNAME SJG_BOOTSTRAP_DB_PASSWORD
 
 bash ./mvnw -q -ntp \
   -pl technical-platform/backend/modules/database-baseline \
+  -am \
   -DskipTests compile \
   org.codehaus.mojo:exec-maven-plugin:3.5.0:java \
   -Dexec.mainClass=cn.shangjingu.platform.database.Phase03DatabaseMigrator \
