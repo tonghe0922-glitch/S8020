@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { describeLoginFailure } from '../../api'
+import { ApiClientError } from '../../api'
 import { SgjButton, SgjCard, SgjError, SgjInput, SgjPortalShell, SgjStatusChip } from '../../design-system'
 import { usePortalSessionStore } from '../../session'
 import { safeInternalRedirect } from '../../router/redirect'
@@ -16,7 +16,7 @@ const loginName = ref('')
 const password = ref('')
 const mfaCode = ref('')
 const errorMessage = ref('')
-const requestId = ref('')
+const requestId = ref<string | undefined>()
 const notice = computed(() => {
   if (route.query.notice === 'expired') return '会话已过期，请重新登录。'
   if (route.query.notice === 'signed_out') return '当前会话已退出。'
@@ -25,14 +25,15 @@ const notice = computed(() => {
 })
 
 function showFailure(cause: unknown): void {
-  const presentation = describeLoginFailure(cause)
-  errorMessage.value = presentation.message
-  requestId.value = presentation.requestId
+  errorMessage.value = cause instanceof ApiClientError && cause.status === 401
+    ? '登录信息或 MFA 验证码无效，请检查后重试。'
+    : '暂时无法登录，请稍后重试。'
+  requestId.value = cause instanceof ApiClientError ? cause.requestId : undefined
 }
 
 async function submit(): Promise<void> {
   errorMessage.value = ''
-  requestId.value = ''
+  requestId.value = undefined
   try {
     const normalizedMfaCode = mfaCode.value.trim()
     await session.login({
