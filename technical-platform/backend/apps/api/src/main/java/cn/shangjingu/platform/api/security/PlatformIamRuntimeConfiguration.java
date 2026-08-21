@@ -57,8 +57,13 @@ public class PlatformIamRuntimeConfiguration {
     JdbcSecurityAuditService securityAuditService(
             @Value("${sjg.audit.datasource.url:jdbc:postgresql://localhost:5432/sjg_audit}") String url,
             @Value("${sjg.audit.datasource.username:sjg_audit_writer}") String username,
-            @Value("${sjg.audit.datasource.password:}") String password) {
-        return new JdbcSecurityAuditService(url, username, password);
+            @Value("${sjg.audit.datasource.password:}") String password,
+            @Value("${sjg.security.audit.mode:fail-open}") String auditMode) {
+        return new JdbcSecurityAuditService(
+                url,
+                username,
+                password,
+                SecurityAuditMode.parse(auditMode));
     }
 
     @Bean
