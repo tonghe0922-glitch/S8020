@@ -1,0 +1,83 @@
+name: Migration Monitor
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .ci/migration-request.txt
+
+permissions:
+  actions: read
+  contents: read
+  statuses: write
+
+jobs:
+  observe-migration:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 95
+    steps:
+      - name: Locate and observe matching migration run
+        id: observe
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          repository="$GITHUB_REPOSITORY"
+          head_sha="$GITHUB_SHA"
+          run_json=''
+
+          for attempt in $(seq 1 60); do
+            runs="$(gh api \
+              -H 'Accept: application/vnd.github+json' \
+              "/repos/$repository/actions/workflows/migrate-clean-baseline.yml/runs?event=push&branch=main&per_page=30")"
+            run_json="$(jq -c --arg sha "$head_sha" \
+              '[.workflow_runs[] | select(.head_sha == $sha)] | sort_by(.created_at) | last // empty' \
+              <<<"$runs")"
+            if [[ -n "$run_json" ]]; then
+              break
+            fi
+            sleep 5
+          done
+
+          if [[ -z "$run_json" ]]; then
+            echo 'Could not locate the migration run for this commit.' >&2
+            exit 1
+          fi
+
+          run_id="$(jq -r '.id' <<<"$run_json")"
+          run_url="$(jq -r '.html_url' <<<"$run_json")"
+          echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+          echo "run_url=$run_url" >> "$GITHUB_OUTPUT"
+
+          for attempt in $(seq 1 1140); do
+            run_json="$(gh api \
+              -H 'Accept: application/vnd.github+json' \
+              "/repos/$repository/actions/runs/$run_id")"
+            status="$(jq -r '.status' <<<"$run_json")"
+            if [[ "$status" == 'completed' ]]; then
+              conclusion="$(jq -r '.conclusion // "failure"' <<<"$run_json")"
+              echo "conclusion=$conclusion" >> "$GITHUB_OUTPUT"
+              break
+            fi
+            sleep 5
+          done
+
+          conclusion="${conclusion:-timed_out}"
+          if [[ "$conclusion" == 'success' ]]; then
+            state='success'
+          else
+            state='failure'
+          fi
+
+          description="migration $conclusion; run $run_id"
+          description="${description:0:140}"
+          gh api --method POST \
+            -H 'Accept: application/vnd.github+json' \
+            "/repos/$repository/statuses/$head_sha" \
+            -f state="$state" \
+            -f target_url="$run_url" \
+            -f description="$description" \
+            -f context='s8020/migration-monitor'
+
+          [[ "$state" == 'success' ]]
