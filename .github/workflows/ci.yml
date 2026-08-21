@@ -56,6 +56,8 @@ jobs:
           test ! -f technical-platform/web/admin.html
           test ! -f technical-platform/web/employee.html
           test ! -f technical-platform/web/center.html
+          test -x scripts/dev/check-env.sh
+          test -x scripts/dev/api-run.sh
           python scripts/quality/two_port_guard.py
 
       - name: Set up Java 21
@@ -67,7 +69,10 @@ jobs:
 
       - name: Run backend tests and Java quality gates
         shell: bash
-        run: bash ./mvnw -B -ntp -pl technical-platform/backend/apps/api,technical-platform/backend/apps/worker -am test
+        run: >-
+          bash ./mvnw -B -ntp
+          -pl technical-platform/backend/modules/database-baseline,technical-platform/backend/apps/api,technical-platform/backend/apps/worker
+          -am test
 
       - name: Set up Node.js 22
         uses: actions/setup-node@v5
@@ -133,3 +138,218 @@ jobs:
             -f target_url="https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
             -f description="S8020 full CI $JOB_STATUS; run $GITHUB_RUN_ID" \
             -f context='s8020/full-ci'
+
+  cold-start-smoke:
+    name: cold-start-migrate-login
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+
+      - name: Package source snapshot for remediation diagnostics
+        shell: bash
+        run: git archive --format=zip --output=/tmp/s8020-source.zip HEAD
+
+      - name: Upload source snapshot for remediation diagnostics
+        uses: actions/upload-artifact@v4
+        with:
+          name: s8020-source-${{ github.sha }}
+          path: /tmp/s8020-source.zip
+          retention-days: 1
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22.12.0'
+
+      - name: Install pnpm and BCrypt helper
+        shell: bash
+        run: |
+          npm install --global pnpm@10.34.0
+          python3 -m pip install --disable-pip-version-check --quiet bcrypt==4.2.1
+
+      - name: Generate ephemeral cold-start environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          bootstrap_password="$(openssl rand -hex 24)"
+          migration_password="$(openssl rand -hex 24)"
+          api_password="$(openssl rand -hex 24)"
+          worker_password="$(openssl rand -hex 24)"
+          audit_writer_password="$(openssl rand -hex 24)"
+          auditor_password="$(openssl rand -hex 24)"
+          dw_writer_password="$(openssl rand -hex 24)"
+          dw_reader_password="$(openssl rand -hex 24)"
+          admin_password="$(openssl rand -hex 18)Aa!"
+          admin_hash="$(ADMIN_PASSWORD="$admin_password" python3 - <<'PY'
+          import bcrypt
+          import os
+          print(bcrypt.hashpw(os.environ["ADMIN_PASSWORD"].encode(), bcrypt.gensalt(rounds=12)).decode())
+          PY
+          )"
+          tenant_id="$(python3 - <<'PY'
+          import uuid
+          print(uuid.uuid4())
+          PY
+          )"
+
+          cat >.env <<EOF
+          POSTGRES_USER=sjg_bootstrap
+          POSTGRES_PASSWORD=${bootstrap_password}
+          POSTGRES_DB=postgres
+          POSTGRES_PORT=5432
+          SJG_BOOTSTRAP_DB_URL=jdbc:postgresql://127.0.0.1:5432/postgres
+          SJG_BOOTSTRAP_DB_USERNAME=sjg_bootstrap
+          SJG_BOOTSTRAP_DB_PASSWORD=${bootstrap_password}
+          SJG_MIGRATION_DB_USERNAME=sjg_migration
+          SJG_MIGRATION_DB_PASSWORD=${migration_password}
+          SJG_OMS_MIGRATION_DB_URL=jdbc:postgresql://127.0.0.1:5432/sjg_oms
+          SJG_AUDIT_MIGRATION_DB_URL=jdbc:postgresql://127.0.0.1:5432/sjg_audit
+          SJG_DW_MIGRATION_DB_URL=jdbc:postgresql://127.0.0.1:5432/sjg_dw
+          SJG_API_DB_URL=jdbc:postgresql://127.0.0.1:5432/sjg_oms
+          SJG_API_DB_USERNAME=sjg_api_runtime
+          SJG_API_DB_PASSWORD=${api_password}
+          SJG_WORKER_DB_URL=jdbc:postgresql://127.0.0.1:5432/sjg_oms
+          SJG_WORKER_DB_USERNAME=sjg_worker_runtime
+          SJG_WORKER_DB_PASSWORD=${worker_password}
+          SJG_AUDIT_WRITER_DB_PASSWORD=${audit_writer_password}
+          SJG_AUDITOR_DB_PASSWORD=${auditor_password}
+          SJG_DW_WRITER_DB_PASSWORD=${dw_writer_password}
+          SJG_DW_READER_DB_PASSWORD=${dw_reader_password}
+          SJG_AUDIT_DB_URL=jdbc:postgresql://127.0.0.1:5432/sjg_audit
+          SJG_AUDIT_DB_USERNAME=sjg_audit_writer
+          SJG_AUDIT_DB_PASSWORD=${audit_writer_password}
+          SJG_SECURITY_AUDIT_MODE=fail-closed
+          REDIS_HOST=127.0.0.1
+          REDIS_PORT=6379
+          REDIS_PASSWORD=
+          SJG_TENANT_ID=${tenant_id}
+          SJG_TENANT_CODE=ci-tenant
+          SJG_TENANT_NAME='S8020 CI Tenant'
+          SJG_ADMIN_LOGIN_NAME=admin
+          SJG_ADMIN_EMPLOYEE_NO=S8020-CI-E001
+          SJG_ADMIN_PASSWORD_HASH='${admin_hash}'
+          MINIO_ROOT_USER=s8020minio
+          MINIO_ROOT_PASSWORD=$(openssl rand -hex 24)
+          MINIO_API_PORT=9000
+          MINIO_CONSOLE_PORT=9001
+          RABBITMQ_DEFAULT_USER=s8020
+          RABBITMQ_DEFAULT_PASS=$(openssl rand -hex 24)
+          RABBITMQ_AMQP_PORT=5672
+          RABBITMQ_MANAGEMENT_PORT=15672
+          API_PORT=8080
+          WORK_WEB_PORT=5173
+          TECH_WEB_PORT=5175
+          EOF
+
+          printf '%s' "$admin_password" >/tmp/s8020-admin-password
+          chmod 600 /tmp/s8020-admin-password .env
+          bash scripts/dev/check-env.sh
+
+      - name: Run real migration and login path
+        shell: bash
+        run: |
+          set -euo pipefail
+          compose=(docker compose --env-file .env -f docker/compose/docker-compose.dev.yml)
+          "${compose[@]}" up --wait --wait-timeout 180 -d postgres redis
+
+          set -a
+          source .env
+          set +a
+
+          bash scripts/database/migrate.sh
+
+          account_state="$("${compose[@]}" exec -T postgres \
+            psql -U "$POSTGRES_USER" -d sjg_oms -Atv ON_ERROR_STOP=1 \
+            -c "SELECT login_name || ':' || status || ':' || mfa_level FROM iam.user_account WHERE login_name='${SJG_ADMIN_LOGIN_NAME}' AND NOT is_deleted;")"
+          test "$account_state" = "admin:ACTIVE:0"
+
+          bash scripts/dev/api-run.sh >/tmp/s8020-api.log 2>&1 &
+          echo $! >/tmp/s8020-api.pid
+
+          for _ in $(seq 1 120); do
+            if curl -fsS http://127.0.0.1:8080/actuator/health >/tmp/s8020-health.json; then
+              break
+            fi
+            if ! kill -0 "$(cat /tmp/s8020-api.pid)" 2>/dev/null; then
+              cat /tmp/s8020-api.log >&2
+              exit 1
+            fi
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:8080/actuator/health | jq -e '.status == "UP"'
+
+          admin_password="$(cat /tmp/s8020-admin-password)"
+          login_payload="$(jq -nc \
+            --arg tenant "$SJG_TENANT_CODE" \
+            --arg login "$SJG_ADMIN_LOGIN_NAME" \
+            --arg password "$admin_password" \
+            '{tenantCode:$tenant,loginName:$login,password:$password,identityId:null,mfaCode:null}')"
+
+          login_status="$(curl -sS -o /tmp/s8020-login.json -w '%{http_code}' \
+            -X POST http://127.0.0.1:8080/api/v1/auth/login \
+            -H 'Content-Type: application/json' \
+            --data "$login_payload")"
+          if [[ "$login_status" != "200" ]]; then
+            cat /tmp/s8020-login.json >&2
+            cat /tmp/s8020-api.log >&2
+            exit 1
+          fi
+          access_token="$(jq -er '.accessToken' /tmp/s8020-login.json)"
+          jq -e '.refreshToken | strings | length > 0' /tmp/s8020-login.json
+
+          curl -fsS http://127.0.0.1:8080/api/v1/session \
+            -H "Authorization: Bearer ${access_token}" \
+            | jq -e '.tenantId and .userId and .identityId'
+
+          rejected_payload="$(jq -nc \
+            --arg tenant "$SJG_TENANT_CODE" \
+            --arg login "$SJG_ADMIN_LOGIN_NAME" \
+            '{tenantCode:$tenant,loginName:$login,password:"definitely-wrong",identityId:null,mfaCode:null}')"
+          rejected_status="$(curl -sS -o /tmp/s8020-rejected.json -w '%{http_code}' \
+            -X POST http://127.0.0.1:8080/api/v1/auth/login \
+            -H 'Content-Type: application/json' \
+            --data "$rejected_payload")"
+          test "$rejected_status" = "401"
+          jq -e '.code == "authentication_rejected" and (.requestId | strings | length > 0)' /tmp/s8020-rejected.json
+
+          rejected_count="$("${compose[@]}" exec -T postgres \
+            psql -U "$POSTGRES_USER" -d sjg_audit -Atv ON_ERROR_STOP=1 \
+            -c "SELECT count(*) FROM audit.security_event WHERE event_type='LOGIN_REJECTED';")"
+          test "$rejected_count" -ge 1
+
+      - name: Build both frontend ports
+        shell: bash
+        working-directory: technical-platform/web
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+
+      - name: Dump diagnostics on failure
+        if: failure()
+        shell: bash
+        run: |
+          cat /tmp/s8020-api.log 2>/dev/null || true
+          docker compose --env-file .env -f docker/compose/docker-compose.dev.yml ps || true
+          docker compose --env-file .env -f docker/compose/docker-compose.dev.yml logs --tail=200 postgres redis || true
+
+      - name: Clean up cold-start services
+        if: always()
+        shell: bash
+        run: |
+          if [[ -f /tmp/s8020-api.pid ]]; then
+            kill "$(cat /tmp/s8020-api.pid)" 2>/dev/null || true
+          fi
+          docker compose --env-file .env -f docker/compose/docker-compose.dev.yml down -v --remove-orphans || true
+          rm -f .env /tmp/s8020-admin-password /tmp/s8020-login.json /tmp/s8020-rejected.json
