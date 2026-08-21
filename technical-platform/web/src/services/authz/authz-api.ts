@@ -1,0 +1,13 @@
+import type {AuthzModuleCommand,AuthzModuleView,AuthzOrgModuleSelection,AuthzOrgModuleView,AuthzPermissionSelection,AuthzPermissionView,AuthzPositionRoleSelection,AuthzPositionRoleView,AuthzPreviewCommand,AuthzPreviewResult,AuthzReferenceData,StepUpTicketResponse} from '../../contracts'
+import type {usePortalSessionStore} from '../../session'
+type SessionStore=ReturnType<typeof usePortalSessionStore>
+export interface AuthzApi{modules:()=>Promise<AuthzModuleView[]>;module:(id:string)=>Promise<AuthzModuleView>;referenceData:()=>Promise<AuthzReferenceData>;createModule:(c:AuthzModuleCommand,t:string)=>Promise<AuthzModuleView>;updateModule:(id:string,c:AuthzModuleCommand,t:string)=>Promise<AuthzModuleView>;modulePermissions:(id:string)=>Promise<AuthzPermissionView[]>;replaceModulePermissions:(id:string,s:AuthzPermissionSelection[],t:string)=>Promise<AuthzPermissionView[]>;orgModules:(id:string)=>Promise<AuthzOrgModuleView[]>;replaceOrgModules:(id:string,s:AuthzOrgModuleSelection[],t:string)=>Promise<AuthzOrgModuleView[]>;positionRoles:(id:string)=>Promise<AuthzPositionRoleView[]>;replacePositionRoles:(id:string,s:AuthzPositionRoleSelection[],t:string)=>Promise<AuthzPositionRoleView[]>;preview:(c:AuthzPreviewCommand)=>Promise<AuthzPreviewResult>;issueStepUp:(a:string)=>Promise<StepUpTicketResponse>}
+const stepUp=(ticket:string)=>({headerName:'X-Step-Up-Ticket',ticket});const p=(s:string)=>`/api/v1/authz/${s}`
+export function createAuthzApi(session:SessionStore):AuthzApi{return{
+ modules:()=>session.request(p('modules')),module:id=>session.request(p(`modules/${encodeURIComponent(id)}`)),referenceData:()=>session.request(p('modules/reference-data')),
+ createModule:(body,t)=>session.request(p('modules'),{method:'POST',body,stepUp:stepUp(t)}),updateModule:(id,body,t)=>session.request(p(`modules/${encodeURIComponent(id)}`),{method:'PUT',body,stepUp:stepUp(t)}),
+ modulePermissions:id=>session.request(p(`modules/${encodeURIComponent(id)}/permissions`)),replaceModulePermissions:(id,body,t)=>session.request(p(`modules/${encodeURIComponent(id)}/permissions`),{method:'PUT',body,stepUp:stepUp(t)}),
+ orgModules:id=>session.request(p(`orgs/${encodeURIComponent(id)}/modules`)),replaceOrgModules:(id,body,t)=>session.request(p(`orgs/${encodeURIComponent(id)}/modules`),{method:'PUT',body,stepUp:stepUp(t)}),
+ positionRoles:id=>session.request(p(`positions/${encodeURIComponent(id)}/roles`)),replacePositionRoles:(id,body,t)=>session.request(p(`positions/${encodeURIComponent(id)}/roles`),{method:'PUT',body,stepUp:stepUp(t)}),
+ preview:body=>session.request(p('preview'),{method:'POST',body}),issueStepUp:assertion=>session.request('/api/v1/step-up/tickets',{method:'POST',body:{purpose:'AUTHZ_CONFIG_MANAGE',requiredMfaLevel:2,assertion}})
+}}

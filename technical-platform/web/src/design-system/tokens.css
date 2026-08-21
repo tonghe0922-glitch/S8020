@@ -1,0 +1,159 @@
+:root {
+  color-scheme: light;
+
+  /* Brand: latest warm amber-orange reference */
+  --sgj-brand-50: #fff7ed;
+  --sgj-brand-100: #ffedd5;
+  --sgj-brand-200: #fed7aa;
+  --sgj-brand-300: #fdba74;
+  --sgj-brand-400: #fb923c;
+  --sgj-brand-500: #f97316;
+  --sgj-brand-600: #ea580c;
+  --sgj-brand-700: #c2410c;
+  --sgj-brand-800: #9a3412;
+  --sgj-brand-900: #7c2d12;
+
+  /* Canvas and surfaces */
+  --sgj-canvas: #f4f4f7;
+  --sgj-surface: #ffffff;
+  --sgj-surface-glass: rgba(255, 255, 255, 0.92);
+  --sgj-surface-muted: #f8fafc;
+  --sgj-surface-soft: #fffaf5;
+  --sgj-surface-strong: #0f172a;
+  --sgj-border: rgba(15, 23, 42, 0.08);
+  --sgj-border-subtle: rgba(15, 23, 42, 0.055);
+  --sgj-border-strong: rgba(15, 23, 42, 0.12);
+  --sgj-border-hover: rgba(234, 88, 12, 0.30);
+
+  /* Text */
+  --sgj-text-primary: #0f172a;
+  --sgj-text-secondary: #334155;
+  --sgj-text-tertiary: #64748b;
+  --sgj-text-disabled: #94a3b8;
+  --sgj-text-on-strong: #ffffff;
+
+  /* Semantic colors */
+  --sgj-success: #059669;
+  --sgj-success-bg: #ecfdf5;
+  --sgj-success-border: #a7f3d0;
+  --sgj-warning: #d97706;
+  --sgj-warning-bg: #fffbeb;
+  --sgj-warning-border: #fde68a;
+  --sgj-danger: #e11d48;
+  --sgj-danger-hover: #be123c;
+  --sgj-danger-bg: #fff1f2;
+  --sgj-danger-border: #fecdd3;
+  --sgj-info: #0284c7;
+  --sgj-info-bg: #f0f9ff;
+  --sgj-info-border: #bae6fd;
+  --sgj-violet: #7c3aed;
+  --sgj-violet-bg: #f5f3ff;
+  --sgj-violet-border: #ddd6fe;
+  --sgj-neutral-bg: #f1f5f9;
+  --sgj-neutral-border: #cbd5e1;
+  --sgj-overlay-backdrop: rgba(15, 23, 42, 0.45);
+
+  /* Spacing */
+  --sgj-space-1: 4px;
+  --sgj-space-2: 8px;
+  --sgj-space-3: 12px;
+  --sgj-space-4: 16px;
+  --sgj-space-5: 20px;
+  --sgj-space-6: 24px;
+  --sgj-space-8: 32px;
+  --sgj-space-10: 40px;
+  --sgj-space-12: 48px;
+
+  /* Typography */
+  --sgj-font-xs: 12px;
+  --sgj-font-sm: 14px;
+  --sgj-font-md: 16px;
+  --sgj-font-lg: 18px;
+  --sgj-font-xl: 21px;
+  --sgj-font-2xl: 28px;
+  --sgj-font-3xl: 36px;
+  --sgj-font-4xl: 44px;
+  --sgj-line-body: 1.68;
+  --sgj-line-heading: 1.22;
+
+  /* Shape */
+  --sgj-radius-xs: 8px;
+  --sgj-radius-sm: 10px;
+  --sgj-radius-md: 12px;
+  --sgj-radius-lg: 16px;
+  --sgj-radius-xl: 20px;
+  --sgj-radius-2xl: 24px;
+  --sgj-radius-pill: 999px;
+
+  /* Elevation */
+  --sgj-shadow-xs: 0 1px 2px rgba(16, 24, 40, 0.05);
+  --sgj-shadow-sm: 0 2px 10px rgba(16, 24, 40, 0.04);
+  --sgj-shadow-card: 0 6px 20px rgba(16, 24, 40, 0.055);
+  --sgj-shadow-md: 0 10px 28px rgba(16, 24, 40, 0.08);
+  --sgj-shadow-lg: 0 20px 54px rgba(15, 23, 42, 0.16);
+  --sgj-shadow-overlay: 0 30px 80px rgba(15, 23, 42, 0.24);
+  --sgj-shadow-accent: 0 5px 16px rgba(234, 88, 12, 0.25);
+  --sgj-focus-ring: 0 0 0 3px rgba(234, 88, 12, 0.16);
+
+  /* Motion */
+  --sgj-motion-fast: 140ms;
+  --sgj-motion-normal: 190ms;
+  --sgj-motion-slow: 260ms;
+  --sgj-ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  /* App shell */
+  --sgj-header-height: 64px;
+  --sgj-sidebar-width: 258px;
+  --sgj-sidebar-collapsed-width: 80px;
+  --sgj-content-max: 1600px;
+  --sgj-control-min-height: 44px;
+  --sgj-touch-min: 44px;
+
+  /* Layers */
+  --sgj-z-header: 30;
+  --sgj-z-floating: 50;
+  --sgj-z-overlay: 100;
+  --sgj-z-toast: 120;
+
+  /* Compatibility aliases for migrated legacy pages */
+  --bg: var(--sgj-canvas);
+  --card: var(--sgj-surface);
+  --text: var(--sgj-text-primary);
+  --text-2: var(--sgj-text-secondary);
+  --sub: var(--sgj-text-tertiary);
+  --muted: var(--sgj-text-disabled);
+  --accent: var(--sgj-brand-600);
+  --accent-hover: #d44e09;
+  --accent-light: var(--sgj-brand-50);
+  --accent-soft: rgba(234, 88, 12, 0.07);
+  --accent-ring: rgba(234, 88, 12, 0.15);
+  --border: var(--sgj-border);
+  --border-strong: var(--sgj-border-strong);
+  --border-hover: var(--sgj-border-hover);
+  --rose: var(--sgj-danger);
+  --amber: var(--sgj-warning);
+  --emerald: var(--sgj-success);
+  --sky: var(--sgj-info);
+  --violet: var(--sgj-violet);
+  --radius-xs: var(--sgj-radius-xs);
+  --radius-sm: var(--sgj-radius-sm);
+  --radius-md: var(--sgj-radius-md);
+  --radius-lg: var(--sgj-radius-lg);
+  --radius-xl: var(--sgj-radius-xl);
+  --radius-pill: var(--sgj-radius-pill);
+  --radius: var(--sgj-radius-xl);
+  --shadow-xs: var(--sgj-shadow-xs);
+  --shadow-sm: var(--sgj-shadow-sm);
+  --shadow-md: var(--sgj-shadow-md);
+  --shadow-lg: var(--sgj-shadow-lg);
+  --shadow-accent: var(--sgj-shadow-accent);
+  --fs-xs: var(--sgj-font-xs);
+  --fs-sm: var(--sgj-font-xs);
+  --fs-base: var(--sgj-font-sm);
+  --fs-md: var(--sgj-font-sm);
+  --fs-lg: 15px;
+  --fs-xl: var(--sgj-font-md);
+  --fs-2xl: var(--sgj-font-lg);
+  --fs-3xl: 20px;
+  --fs-4xl: 24px;
+}

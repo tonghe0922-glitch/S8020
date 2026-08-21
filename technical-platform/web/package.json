@@ -1,0 +1,54 @@
+{
+  "name": "@shangjingu/platform-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.34.0",
+  "engines": {
+    "node": ">=22.12.0",
+    "pnpm": ">=10"
+  },
+  "scripts": {
+    "lint": "eslint . --max-warnings=0",
+    "typecheck": "vue-tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.node.json",
+    "test": "vitest run src",
+    "test:unit": "vitest run src",
+    "quality:duplicates": "jscpd src",
+    "quality:deadcode": "knip --config knip.json",
+    "build": "pnpm run build:work && pnpm run build:tech",
+    "test:e2e": "playwright test",
+    "dev:work": "vite --mode work",
+    "build:work": "vite build --mode work",
+    "dev:tech": "vite --mode tech",
+    "build:tech": "vite build --mode tech",
+    "quality:ports": "python ../../scripts/quality/two_port_guard.py"
+  },
+  "dependencies": {
+    "pinia": "2.3.1",
+    "vue": "3.5.40",
+    "vue-router": "4.6.4"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@playwright/test": "1.62.1",
+    "@types/node": "^22.15.30",
+    "@vitejs/plugin-vue": "6.0.8",
+    "@vue/test-utils": "2.4.11",
+    "eslint": "10.8.1",
+    "eslint-plugin-vue": "10.10.0",
+    "happy-dom": "20.11.2",
+    "jscpd": "5.0.14",
+    "knip": "6.32.0",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.66.0",
+    "vite": "8.2.1",
+    "vitest": "4.1.7",
+    "vue-eslint-parser": "10.4.1",
+    "vue-tsc": "3.2.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "vue-demi"
+    ]
+  }
+}

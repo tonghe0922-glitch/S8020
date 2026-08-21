@@ -1,0 +1,168 @@
+/*
+ * Latest reference-theme compatibility layer.
+ * It is imported last so legacy phase pages inherit the canonical tokens
+ * without creating a second visual system.
+ */
+
+.phase08-session-alert {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sgj-space-3);
+  padding: 8px var(--sgj-space-4);
+  color: var(--sgj-warning);
+  background: var(--sgj-warning-bg);
+  border-bottom: 1px solid var(--sgj-warning-border);
+  font-size: var(--sgj-font-sm);
+}
+
+.phase08-session-alert span {
+  color: var(--sgj-text-secondary);
+  font-size: var(--sgj-font-xs);
+}
+
+/* Common legacy structures now share the formal component language. */
+:where(.phase-status, .principle-card, .process-card, .card, .panel, .card2) {
+  border: 1px solid var(--sgj-border);
+  border-radius: var(--sgj-radius-lg);
+  background: var(--sgj-surface);
+  box-shadow: var(--sgj-shadow-xs);
+}
+
+:where(.phase-status, .principle-card, .process-card, .card, .panel, .card2):hover {
+  border-color: var(--sgj-border-hover);
+  box-shadow: var(--sgj-shadow-card);
+}
+
+:where(.btn, .button-primary, .button-secondary) {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sgj-space-2);
+  padding: 0 var(--sgj-space-4);
+  border: 1px solid transparent;
+  border-radius: var(--sgj-radius-md);
+  font-size: var(--sgj-font-sm);
+  font-weight: 650;
+}
+
+:where(.btn-primary, .button-primary) {
+  color: #fff;
+  background: var(--sgj-brand-600);
+  border-color: var(--sgj-brand-600);
+  box-shadow: var(--sgj-shadow-accent);
+}
+
+:where(.btn-primary, .button-primary):hover {
+  background: var(--sgj-brand-700);
+}
+
+:where(.btn-ghost, .btn-outline, .button-secondary) {
+  color: var(--sgj-text-secondary);
+  background: #fff;
+  border-color: var(--sgj-border-strong);
+}
+
+:where(.btn-ghost, .btn-outline, .button-secondary):hover {
+  color: var(--sgj-brand-700);
+  border-color: var(--sgj-brand-300);
+  background: var(--sgj-brand-50);
+}
+
+:where(.tag, .badge-st, .chip, .ptag, .stag, .due) {
+  border-radius: var(--sgj-radius-pill);
+  font-size: var(--sgj-font-xs);
+  line-height: 1.4;
+}
+
+/* Unified filter/search language. */
+:where(.srch, .searchbox-inner, .mem-tools .srch, .todo-toolbar .srch, .apr-filters .srch) {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  gap: var(--sgj-space-2);
+  padding: 0 var(--sgj-space-3);
+  border: 1px solid var(--sgj-border-strong);
+  border-radius: var(--sgj-radius-pill);
+  background: #fff;
+}
+
+:where(.srch, .searchbox-inner, .mem-tools .srch, .todo-toolbar .srch, .apr-filters .srch):focus-within {
+  border-color: var(--sgj-brand-600);
+  box-shadow: var(--sgj-focus-ring);
+}
+
+:where(.srch, .searchbox-inner) input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  outline: 0;
+  color: var(--sgj-text-primary);
+  background: transparent;
+}
+
+/* Legacy table/list rows. */
+:where(.t2 .lh, .mem-list .lh, .todo-table-head, .perm-table-head) {
+  color: var(--sgj-text-secondary);
+  background: var(--sgj-surface-muted);
+  font-size: var(--sgj-font-sm);
+  font-weight: 750;
+}
+
+:where(.t2 .lr, .mem-list .lr, .todo-table-row, .perm-table-row) {
+  border-color: var(--sgj-border);
+  background: #fff;
+}
+
+:where(.t2 .lr, .mem-list .lr, .todo-table-row, .perm-table-row):hover {
+  background: var(--sgj-brand-50);
+  border-color: var(--sgj-border-hover);
+}
+
+/* Shared pagination for legacy pages. */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: var(--sgj-space-4) 0 var(--sgj-space-1);
+  flex-wrap: wrap;
+}
+
+.pagination .pg-btn {
+  min-width: 36px;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--sgj-border-strong);
+  border-radius: var(--sgj-radius-sm);
+  color: var(--sgj-text-primary);
+  background: #fff;
+  font-size: var(--sgj-font-sm);
+  cursor: pointer;
+}
+
+.pagination .pg-btn:hover {
+  color: var(--sgj-brand-700);
+  border-color: var(--sgj-brand-300);
+  background: var(--sgj-brand-50);
+}
+
+.pagination .pg-btn.active {
+  color: #fff;
+  border-color: var(--sgj-brand-600);
+  background: var(--sgj-brand-600);
+  box-shadow: var(--sgj-shadow-accent);
+}
+
+.pagination .pg-btn:disabled {
+  opacity: .42;
+  cursor: not-allowed;
+}
+
+.pagination .pg-info {
+  margin: 0 var(--sgj-space-2);
+  color: var(--sgj-text-tertiary);
+  font-size: var(--sgj-font-xs);
+}

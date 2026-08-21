@@ -1,0 +1,410 @@
+{
+  "compatibility_policy": {
+    "allowed_transformations": [
+      "psql_set_variable_to_flyway_placeholder:tenant_id@95_seed_process_catalog.sql"
+    ],
+    "database_owner": "sjg_owner",
+    "database_owner_guard": {
+      "already_owned_by_sjg_owner": "CONTINUE",
+      "bootstrap_superuser_mismatch": "ALTER_DATABASE_OWNER_TO_sjg_owner",
+      "non_superuser_mismatch": "FAIL_MIGRATION"
+    },
+    "migration_execution_role": "sjg_migration",
+    "migration_owner_switch": "V0.1 and approved/overlay DDL execute through SET ROLE sjg_owner",
+    "required_deployment_placeholders": [
+      "sjg_tenant_id",
+      "sjg_tenant_code",
+      "sjg_tenant_name"
+    ],
+    "transformed_source_count": 1,
+    "unresolved_psql_variables": "FAIL_GENERATION",
+    "unsupported_psql_metacommands": "FAIL_GENERATION"
+  },
+  "databases": {
+    "sjg_audit": {
+      "approved_source_migrations": [
+        {
+          "generated_sha256": "0cebc7680ce73535a7909d0e3313db555154efe48e166b760cbbac8e8c7c329d",
+          "migration": "audit/V1__extensions_and_schemas.sql",
+          "source_path": "Knowledge Base/03 数据库需求规则/03_SQL_DDL/02_sjg_audit/01_extensions_and_schemas.sql",
+          "source_sha256": "5da8a3b8686bbc728231b5e2062d9ad48915d7ed86c281844c75db18b0db5fbc"
+        },
+        {
+          "generated_sha256": "283eebfe03acb7890aa2392c1729598e906f196beffcfef402d5af59d1286832",
+          "migration": "audit/V2__audit_tables.sql",
+          "source_path": "Knowledge Base/03 数据库需求规则/03_SQL_DDL/02_sjg_audit/02_audit_tables.sql",
+          "source_sha256": "cdb16eb8ffe601a74a6d9b4764c0c81e3c5c3f95038996c8d9be35c7504a9304"
+        },
+        {
+          "generated_sha256": "1160fa0fa026298484a7af008d5de12369568a50b07038b007d985d2593a71f5",
+          "migration": "audit/V90__immutability_and_grants.sql",
+          "source_path": "Knowledge Base/03 数据库需求规则/03_SQL_DDL/02_sjg_audit/90_immutability_and_grants.sql",
+          "source_sha256": "8e4deb9ae6580fee51e5f40b0ba16de628ebea00c6e1f26758494f76a0aab8f5"
+        }
+      ],
+      "runtime_roles": [
+        "sjg_audit_writer",
+        "sjg_auditor"
+      ],
+      "source_count": 3,
+      "target": "audit"
+    },
+    "sjg_dw": {
+      "approved_source_migrations": [
+        {
+          "generated_sha256": "ac0502fcc23da6d8d25693abacdde7e3e8aa2b95db5a5f6de679bfa2ecdea984",
+          "migration": "dw/V1__extensions_and_schemas.sql",
+          "source_path": "Knowledge Base/03 数据库需求规则/03_SQL_DDL/03_sjg_dw/01_extensions_and_schemas.sql",
+          "source_sha256": "0a06abde07d4a86759b875abe93ffe5b99b0f122c13c38ba7e54ad2f9c68f92c"
+        },
+        {
+          "generated_sha256": "47c2a83fd0624bec827db2813d2d25488e6d1af148f6161927856cb11a580ce5",
+          "migration": "dw/V2__analytics_tables.sql",
+          "source_path": "Knowledge Base/03 数据库需求规则/03_SQL_DDL/03_sjg_dw/02_analytics_tables.sql",
+          "source_sha256": "5642f69312c44c982ef09129fe08b4ceccb4a98fad65f96e985dc1eefb3c1ebd"
+        }
+      ],
+      "runtime_roles": [
+        "sjg_dw_writer",
+        "sjg_dw_reader"
+      ],
+      "source_count": 2,
+      "target": "dw"
+    },
+    "sjg_oms": {
+      "approved_source_migrations": [
+        {
+          "generated_sha256": "321d62960e43b9a5dac8203d9cbc505bce0724251709abe451156f93f6e542e3",
+          "migration": "oms/V1__extensions_and_schemas.sql",
+          "source_path": "Knowledge Base/03 数据库需求规则/03_SQL_DDL/01_sjg_oms/01_extensions_and_schemas.sql",
+          "source_sha256": "a2e6777fba911ba15a1f012a4467c7aa90b297c4a2adda7d6a99e4988fbb106a"
+        },
+        {
+          "generated_sha256": "41376db7359ea05518371045c962f2cc4fc4c508aafdfe7442c561c0adf9e829",
+          "migration": "oms/V2__administration_tables.sql",
+          "source_path": "Knowledge Base/03 数据库需求规则/03_SQL_DDL/01_sjg_oms/02_administration_tables.sql",
+          "source_sha256": "73cf48ebb0f03cfe51a32f9ddaafbff5ff6a423f381210de88833b515b2e3a44"
+        },
+        {
+          "generated_sha256": "1e258e8eeccc3a165dd57dc5ccb4a5322a7f20f5e4fbdaa8417d4bbc6ee3cc17",
+          "migration": "oms/V3__archive_tables.sql",
+          "source_path": "Knowledge Base/03 数据库需求规则/03_SQL_DDL/01_sjg_oms/03_archive_tables.sql",
+          "source_sha256": "49305ce32c1e13728f09ca9daff5e8e286ba74d93c2dbe1731db51e911dbe7fa"
+        },
+        {
+          "generated_sha256": "26e2bc3e8238de53432d37bc04bfaf8ecabfc7c62d8e6ce2440076acd6d61b12",
+          "migration": "oms/V4__asset_tables.sql",
+          "source_path": "Knowledge Base/03 数据库需求规则/03_SQL_DDL/01_sjg_oms/04_asset_tables.sql",
+          "source_sha256": "af8fd90dd6366eed64659d451115cffbf25fd352b5f5a016a98aa9564cef0672"
+        },
+        {
+          "generated_sha256": "b2dc58f0f66ff9b42d87dc7579d5c7aa6f2e2f2f98001c03cab7674ad41d6015",
+          "migration": "oms/V5__attendance_tables.sql",
+          "source_path": "Knowledge Base/03 数据库需求规则/03_SQL_DDL/01_sjg_oms/05_attendance_tables.sql",
+          "source_sha256": "92e8604b789d14e5b1a6f30d9f44de9b1d4f93bb51c642d5bf51565a9ac6cc10"
+        },
+        {
+          "generated_sha256": "fa0e965b3dd0d2d46baf7ea24b6a9d50875096420da46ee18f749515fbe24526",
+          "migration": "oms/V6__audit_tables.sql",
+          "source_path": "Knowledge Base/03 数据库需求规则/03_SQL_DDL/01_sjg_oms/06_audit_tables.sql",
+          "source_sha256": "3d99bba344b3377558412a64204ddd78e3c44ca0f559edfe44c8ec7dd39053ea"
+        },
+        {
+          "generated_sha256": "537eb547346944ddb7e248a62dc48cdf9e55ed301eb90aef8edbbd3e6691a6e8",
+          "migration": "oms/V7__brand_tables.sql",
+          "source_path": "Knowledge Base/03 数据库需求规则/03_SQL_DDL/01_sjg_oms/07_brand_tables.sql",
+          "source_sha256": "cd1b65f9d5b7a39f5f1dcf1185ca579386f121ad5022aa69eb7c21fc7908fe36"
+        },
+        {
+          "generated_sha256": "f25e9426450d8fe36a97ca4e3b8863dc2e950522c46ea563d5646b7be9756f6f",
+          "migration": "oms/V8__catering_tables.sql",
+          "source_path": "Knowledge Base/03 数据库需求规则/03_SQL_DDL/01_sjg_oms/08_catering_tables.sql",
+          "source_sha256": "9747a22fbc4371ed98562c501fe0dac41b909520429cb334493662a6c4fff9c6"
+        },
+        {
+          "generated_sha256": "57d95835f169ac437b1795e97fabac800a974d72e24c6df3f30dc238f24849df",
+          "migration": "oms/V9__cleaning_tables.sql",
+          "source_path": "Knowledge Base/03 数据库需求规则/03_SQL_DDL/01_sjg_oms/09_cleaning_tables.sql",
+          "source_sha256": "cb933773a5597fbc9751f76d5deb215be5f256c7ff30bc3de63816c75852b5e1"
+        },
+        {
+          "generated_sha256": "1f3f25b0696b23353c320818dd546f7a6c4a8b0a81de2c3a2cdcab8adb5b2832",
+          "migration": "oms/V10__collaboration_tables.sql",
+          "source_path": "Knowledge Base/03 数据库需求规则/03_SQL_DDL/01_sjg_oms/10_collaboration_tables.sql",
+          "source_sha256": "a13751c023d76b72dd221521ec387ac153f47cd73854318dd681e0d92fe17749"
+        },
+        {
+          "generated_sha256": "3afbbbec15b7543eac3404e207a204743d8c15752fc2e412a48b16ec00bac781",
+          "migration": "oms/V11__content_tables.sql",
+          "source_path": "Knowledge Base/03 数据库需求规则/03_SQL_DDL/01_sjg_oms/11_content_tables.sql",
+          "source_sha256": "e884ccd0079d4445f986b97a52b9bbc95645a3ea0c49a227aafb6848134136d8"
+        },
+        {
+          "generated_sha256": "38a37bfec486827134e826b26436c335b57aed87fa3116d193b1f46fe2878736",
+          "migration": "oms/V12__core_tables.sql",
+          "source_path": "Knowledge Base/03 数据库需求规则/03_SQL_DDL/01_sjg_oms/12_core_tables.sql",
+          "source_sha256": "19d03319153cf317f53b38e9908dcd9ffb984ba8b058373155a16d71aeb08d89"
+        },
+        {
+          "generated_sha256": "c82811563378ba96ed7df66fe972edd0b0c872db884c77ca16313ce3a486269d",
+          "migration": "oms/V13__costume_tables.sql",
+          "source_path": "Knowledge Base/03 数据库需求规则/03_SQL_DDL/01_sjg_oms/13_costume_tables.sql",
+          "source_sha256": "76cb085469bc27d40655d05606a88c106e3f9f18687dc6a1aae2f4017ac329ca"
+        },
+        {
+          "generated_sha256": "bdbdc61935b635a3fa94db410a21730399c77328f9c12634ff4cae6e0c6badf4",
+          "migration": "oms/V14__crm_tables.sql",
+          "source_path": "Knowledge Base/03 数据库需求规则/03_SQL_DDL/01_sjg_oms/14_crm_tables.sql",
+          "source_sha256": "6ca616ed6b5feb78408dc918f73fb4acf3e992aca12d1c2a1b2e91039f160eea"
+        },
+        {
+          "generated_sha256": "8ed641f80073c034f584bf126a9e9dc2d9f78ea4b2c03a366238a06b1b4b84d9",
+          "migration": "oms/V15__devops_tables.sql",
+          "source_path": "Knowledge Base/03 数据库需求规则/03_SQL_DDL/01_sjg_oms/15_devops_tables.sql",
+          "source_sha256": "3ce08e8ebcb737fd16641827ff761bac3563bcc2cf51705770797b1637d414fe"
+        },
+        {
+          "generated_sha256": "494e8f6acd97f828fbdd92a0e9b8cf037e17883cb8a5e853d35c740c629dd81c",
+          "migration": "oms/V16__document_tables.sql",
+          "source_path": "Knowledge Base/03 数据库需求规则/03_SQL_DDL/01_sjg_oms/16_document_tables.sql",
+          "source_sha256": "703cb3ee01a2e96975891a3c85c9f2dbdae13ed805ba526262597ece1394aca4"
+        },
+        {
+          "generated_sha256": "77c237fa8f18f581b30c4a6f81dae0627a234fb419d4adc8fcde36c313264bf5",
+          "migration": "oms/V17__dormitory_tables.sql",
+          "source_path": "Knowledge Base/03 数据库需求规则/03_SQL_DDL/01_sjg_oms/17_dormitory_tables.sql",
+          "source_sha256": "6ece57bc289b450767672e7f3893cfafb452d3b5980091c966ab016c422b05fc"
+        },
+        {
+          "generated_sha256": "7164194a03e5af503603a1d866cf20b6a48987976adb2873306779e43e553656",
+          "migration": "oms/V18__drone_tables.sql",
+          "source_path": "Knowledge Base/03 数据库需求规则/03_SQL_DDL/01_sjg_oms/18_drone_tables.sql",
+          "source_sha256": "49a05a0a726ee89b2aab29bdf6f9f4cce6b2feea5f1f67dc7163c4848c56a89b"
+        },
+        {
+          "generated_sha256": "8d25ac282672301be8c73af667b44a527e111c4a0b6acd9b7814e200aa866ee1",
+          "migration": "oms/V19__ecommerce_tables.sql",
+          "source_path": "Knowledge Base/03 数据库需求规则/03_SQL_DDL/01_sjg_oms/19_ecommerce_tables.sql",
+          "source_sha256": "1f3ef005e1fcddda4e297da15a8d07bfb400a17a5ca77e829b2f08bf0801b69d"
+        },
+        {
+          "generated_sha256": "87a7b8418a3babecd7e931316b252b8332385a6baaa72b855b136f41620e6d86",
+          "migration": "oms/V20__education_tables.sql",
+          "source_path": "Knowledge Base/03 数据库需求规则/03_SQL_DDL/01_sjg_oms/20_education_tables.sql",
+          "source_sha256": "8e34b5708578065bbea8f8a47bb3a3693e80c6d785aa23c77cd7f97990db1615"
+        },
+        {
+          "generated_sha256": "4a7167511e85f7251552ed8c02a66be5816d8c3eb38b95eafe2d8fc6bc73e64a",
+          "migration": "oms/V21__entertainment_tables.sql",
+          "source_path": "Knowledge Base/03 数据库需求规则/03_SQL_DDL/01_sjg_oms/21_entertainment_tables.sql",
+          "source_sha256": "24acb4e92ec86bb7cfa8effd80fc0e3199ece76a6e71582d10f6bd1a5bd7a9af"
+        },
+        {
+          "generated_sha256": "a2a251d820997f9c16441b23ffdaee7d3dfaf19d46449195e76a3c8aed362201",
+          "migration": "oms/V22__finance_tables.sql",
+          "source_path": "Knowledge Base/03 数据库需求规则/03_SQL_DDL/01_sjg_oms/22_finance_tables.sql",
+          "source_sha256": "34082cd1797eec17c828b909142ce84337483c0f39beab6ebb263aebda348cdc"
+        },
+        {
+          "generated_sha256": "aa7573d9f55bb6a1c09aab304545a6cefe7c0e3e69297811b0df394e2d2e643b",
+          "migration": "oms/V23__fleet_tables.sql",
+          "source_path": "Knowledge Base/03 数据库需求规则/03_SQL_DDL/01_sjg_oms/23_fleet_tables.sql",
+          "source_sha256": "37f5022663874b307d60e37bdc03f3e0ddf83110112440a0b83655b3a3966fac"
+        },
+        {
+          "generated_sha256": "47b3ad45e1f110356325326733506d4ed708d741fe028c0b7d25a2bd7a33c3dd",
+          "migration": "oms/V24__hr_tables.sql",
+          "source_path": "Knowledge Base/03 数据库需求规则/03_SQL_DDL/01_sjg_oms/24_hr_tables.sql",
+          "source_sha256": "090b58d388b8f57c0f3cef37e21b21a02b80a81fba173ab08ae034f15f7903da"
+        },
+        {
+          "generated_sha256": "dfa73355b10d6fb58f9f25572488f912a465e702fe5565d94d85b0abb896b9da",
+          "migration": "oms/V25__iam_tables.sql",
+          "source_path": "Knowledge Base/03 数据库需求规则/03_SQL_DDL/01_sjg_oms/25_iam_tables.sql",
+          "source_sha256": "09fb210380d55efcda16f6e283e6969b24b75be0b4067ff8f925e5adcdb18192"
+        },
+        {
+          "generated_sha256": "7063ba4dcbe55731ff4b200a7e2be4359f764029bfccfff4ea898cd78a4b6523",
+          "migration": "oms/V26__integration_tables.sql",
+          "source_path": "Knowledge Base/03 数据库需求规则/03_SQL_DDL/01_sjg_oms/26_integration_tables.sql",
+          "source_sha256": "d120b00e5e0b787ea4bd44736af46f272e2e7d6b2f20f4c5391a0ba33079fd4a"
+        },
+        {
+          "generated_sha256": "7625bf4e60eb82512e14adf7cb144364e3506def475a5b0e8f7dda9c1aa0a0c2",
+          "migration": "oms/V27__itops_tables.sql",
+          "source_path": "Knowledge Base/03 数据库需求规则/03_SQL_DDL/01_sjg_oms/27_itops_tables.sql",
+          "source_sha256": "c2467c008f507d6cc98c7e3c7cec55c6721e105328cbbc2f9a597db6e032ca74"
+        },
+        {
+          "generated_sha256": "d4b8a3b40c47381f797cfc7e46890f2cc34d28680c87e082659abfa205cfb5e1",
+          "migration": "oms/V28__learning_tables.sql",
+          "source_path": "Knowledge Base/03 数据库需求规则/03_SQL_DDL/01_sjg_oms/28_learning_tables.sql",
+          "source_sha256": "0fc31bd75d211f995ce04a77798621a63765bd0078e07d8ab5369f2df94562e1"
+        },
+        {
+          "generated_sha256": "8837478e8e44e6f27d2d72cd0381824a2f72a303efbb142cb75d5d2f2ad9a3b1",
+          "migration": "oms/V29__maintenance_tables.sql",
+          "source_path": "Knowledge Base/03 数据库需求规则/03_SQL_DDL/01_sjg_oms/29_maintenance_tables.sql",
+          "source_sha256": "56420ffd8f80d61073effb0db30e76a914797a9735ea8edf6fb3c4abd5f85417"
+        },
+        {
+          "generated_sha256": "383466ad2edc12e8ad62abb2d8fa8555ac3dab08fbd74e0f66d0cf7c4268efc7",
+          "migration": "oms/V30__marketing_tables.sql",
+          "source_path": "Knowledge Base/03 数据库需求规则/03_SQL_DDL/01_sjg_oms/30_marketing_tables.sql",
+          "source_sha256": "dd991c2d4d8fd11398e39e94668224f19b1f8c80d6190d4d93c737a890851346"
+        },
+        {
+          "generated_sha256": "fde10bd899e2303fee1f93a8e42ce00d0a85b82462668cf5b6b0b6b94576b6b5",
+          "migration": "oms/V31__mdm_tables.sql",
+          "source_path": "Knowledge Base/03 数据库需求规则/03_SQL_DDL/01_sjg_oms/31_mdm_tables.sql",
+          "source_sha256": "7db54c4f8ceab73c0071e6f027c458c95e5641aa262e828df7544d6243c98ddf"
+        },
+        {
+          "generated_sha256": "977b378e541654afa5fb41bcef5eacee7f9b581509b498b04a1b397be4069cd1",
+          "migration": "oms/V32__media_tables.sql",
+          "source_path": "Knowledge Base/03 数据库需求规则/03_SQL_DDL/01_sjg_oms/32_media_tables.sql",
+          "source_sha256": "0fedee8df496109dcff7d9b299cde01aa12cbc7032d7812fd1e760350e9620af"
+        },
+        {
+          "generated_sha256": "8498549fd17cb2aeffff7fd9884b193e0f15fd9dd83385973efdece2547c5d31",
+          "migration": "oms/V33__merchant_tables.sql",
+          "source_path": "Knowledge Base/03 数据库需求规则/03_SQL_DDL/01_sjg_oms/33_merchant_tables.sql",
+          "source_sha256": "07ea472319d5826cc7e049e38a654ea1d52617b77c15fc2c67be265a9e97c71f"
+        },
+        {
+          "generated_sha256": "fd2adaa3a7b0dd398d83af45adc11026b55bfb75d5571780ea82741c487db015",
+          "migration": "oms/V34__notification_tables.sql",
+          "source_path": "Knowledge Base/03 数据库需求规则/03_SQL_DDL/01_sjg_oms/34_notification_tables.sql",
+          "source_sha256": "b7633f764a2db4d1da3a8379994330c3fa4607e476669c9b43767ca43ee39b8f"
+        },
+        {
+          "generated_sha256": "70b6f71cd9f385d0862861e0331c47b9276a2722bf809adeaa4221234b4724b7",
+          "migration": "oms/V35__org_tables.sql",
+          "source_path": "Knowledge Base/03 数据库需求规则/03_SQL_DDL/01_sjg_oms/35_org_tables.sql",
+          "source_sha256": "fb669aff4e2628fdfe118c7b5feb13f8cd1160bb033c895b8845165ff2a9ff7e"
+        },
+        {
+          "generated_sha256": "c681727f620824541067f132cb90c9732b76f196d25deb07377f692ed4fa0ff5",
+          "migration": "oms/V36__performance_tables.sql",
+          "source_path": "Knowledge Base/03 数据库需求规则/03_SQL_DDL/01_sjg_oms/36_performance_tables.sql",
+          "source_sha256": "5f3a40623e8f77f9e2ad32c8883789c460c8fdebee3013adb2eaf5b68d947997"
+        },
+        {
+          "generated_sha256": "e20a50a1d029969bb82e616aa54a3414d80e1bc4ed11eb8394e14639f6495940",
+          "migration": "oms/V37__planning_tables.sql",
+          "source_path": "Knowledge Base/03 数据库需求规则/03_SQL_DDL/01_sjg_oms/37_planning_tables.sql",
+          "source_sha256": "a8aace24d2d2d93c499ffd9811dd33d8e1f2d139cad37423379cd7d02ff5febe"
+        },
+        {
+          "generated_sha256": "3fb5ee94d9512e2658c2d1b98bc8fb602ef2ba8ee683b49cbcbf3f53f1c5fa9b",
+          "migration": "oms/V38__procurement_tables.sql",
+          "source_path": "Knowledge Base/03 数据库需求规则/03_SQL_DDL/01_sjg_oms/38_procurement_tables.sql",
+          "source_sha256": "39a1ced4666aa6b5c4a02ed0c33f6b493def1f8488b7e3700baeb0ffe251c3dc"
+        },
+        {
+          "generated_sha256": "5fe0b325419cb6b028572b2f6088852c238a088020bbc91d0d6bfb0b140b3483",
+          "migration": "oms/V39__reception_tables.sql",
+          "source_path": "Knowledge Base/03 数据库需求规则/03_SQL_DDL/01_sjg_oms/39_reception_tables.sql",
+          "source_sha256": "19f5ae15de33289e5a3f8098c936d3810e3a8e9207d03d496ef6466abfdf465b"
+        },
+        {
+          "generated_sha256": "891c60a87c47f9f05f25c4e4807c9fb6c0dfbe5ae0145f6670f202c255c29d4e",
+          "migration": "oms/V40__reward_tables.sql",
+          "source_path": "Knowledge Base/03 数据库需求规则/03_SQL_DDL/01_sjg_oms/40_reward_tables.sql",
+          "source_sha256": "1d8d4bbe694ae49222e5d15ddbaa20dbd1e44fd01a5760fe3fcf4f86cd0db7b7"
+        },
+        {
+          "generated_sha256": "b481724cdc6096332b1a05b7b524e75b25b192851ff10bc2fa426ad3b849ee82",
+          "migration": "oms/V41__sales_tables.sql",
+          "source_path": "Knowledge Base/03 数据库需求规则/03_SQL_DDL/01_sjg_oms/41_sales_tables.sql",
+          "source_sha256": "958ba526ad407f171fcb9e93c34a00b165bce7166503dfe7aaee21d5356565d8"
+        },
+        {
+          "generated_sha256": "bd8d8adfff4c26aafd52ed32db4466c5b2fddc63245e4041b6c22814d5a979d1",
+          "migration": "oms/V42__security_tables.sql",
+          "source_path": "Knowledge Base/03 数据库需求规则/03_SQL_DDL/01_sjg_oms/42_security_tables.sql",
+          "source_sha256": "f335c853541aa5efcf49c3844acba7eee1150beeb706c5c34750c386ca665659"
+        },
+        {
+          "generated_sha256": "2faf04132b1025d9c1677de59ea9901029620cc8cc052d67b067e18bb62d7fe1",
+          "migration": "oms/V43__ticketing_tables.sql",
+          "source_path": "Knowledge Base/03 数据库需求规则/03_SQL_DDL/01_sjg_oms/43_ticketing_tables.sql",
+          "source_sha256": "da29be61ebea4240069f43400c363eb9f6192a951a693139707a531e67978e1d"
+        },
+        {
+          "generated_sha256": "d3bdb06475c4021800434d4f9b3c950cd1969c2c3a3fe781c7cb0e1995f81086",
+          "migration": "oms/V44__welfare_tables.sql",
+          "source_path": "Knowledge Base/03 数据库需求规则/03_SQL_DDL/01_sjg_oms/44_welfare_tables.sql",
+          "source_sha256": "cb8339c93a0fb006b687f082845f78b481d2526bc85a691b43e10d36faa28c04"
+        },
+        {
+          "generated_sha256": "7a2b15be580caa47b384c8957cfde129411f117bf7ee145da89b1e92604edd9a",
+          "migration": "oms/V45__workflow_tables.sql",
+          "source_path": "Knowledge Base/03 数据库需求规则/03_SQL_DDL/01_sjg_oms/45_workflow_tables.sql",
+          "source_sha256": "4b79f3b9498ffead9265a4358ffc056c172305e020d1ac3dbd361fe0df124397"
+        },
+        {
+          "generated_sha256": "bfa1634ac743b70ca6c2f3ccd301b7c34fb54a89ecb224b18b5a86fb3a8fe300",
+          "migration": "oms/V90__foreign_keys.sql",
+          "source_path": "Knowledge Base/03 数据库需求规则/03_SQL_DDL/01_sjg_oms/90_foreign_keys.sql",
+          "source_sha256": "d6612ba7fd09aaa8d7d0496d45d43cc4bd814627324c849cfe4911a6e44742ef"
+        },
+        {
+          "generated_sha256": "61e0cfbe69b4b908aef883a82d59c83cfff47f660da0b50e6ee33b3143c33e8d",
+          "migration": "oms/V91__indexes.sql",
+          "source_path": "Knowledge Base/03 数据库需求规则/03_SQL_DDL/01_sjg_oms/91_indexes.sql",
+          "source_sha256": "7ba76dc2627c0fbd55690ec035f548d4107669dcf0f8850c8e690ac6a3479319"
+        },
+        {
+          "generated_sha256": "76d2d538aac7effc8bc1114b006c63f9bddde61477a8c4676b9da7fa48251451",
+          "migration": "oms/V92__triggers.sql",
+          "source_path": "Knowledge Base/03 数据库需求规则/03_SQL_DDL/01_sjg_oms/92_triggers.sql",
+          "source_sha256": "24cea116093c5cdf2016c5154b0a5899a00d3bfba5d1b96101f216f699aac8d9"
+        },
+        {
+          "generated_sha256": "8adb6757ff73db2ca0a6d80acc07689f81c199483abf997d48117ec059ffb1d4",
+          "migration": "oms/V93__rls_policies.sql",
+          "source_path": "Knowledge Base/03 数据库需求规则/03_SQL_DDL/01_sjg_oms/93_rls_policies.sql",
+          "source_sha256": "133c6e94618d1cc1bfdfee5a5ed224397469136537a8a152ba45fe6626b5e6fd"
+        },
+        {
+          "generated_sha256": "e86c80d1838cf9d2551e426f22d92ae6787c98a69f08d0f23d44eeb7aafa9453",
+          "migration": "oms/V94__views.sql",
+          "source_path": "Knowledge Base/03 数据库需求规则/03_SQL_DDL/01_sjg_oms/94_views.sql",
+          "source_sha256": "48d5f8b442f2c584fc02dfaf26a76953d8cd495470a1cf7ea070e5fec79f470d"
+        },
+        {
+          "generated_sha256": "3255b7e806d09233f9a3e5446aa1b5265dc3c854e49bd6a5f33ec637248795b9",
+          "migration": "oms/V95__seed_process_catalog.sql",
+          "source_path": "Knowledge Base/03 数据库需求规则/03_SQL_DDL/01_sjg_oms/95_seed_process_catalog.sql",
+          "source_sha256": "1c884a999c8f19ef5014f032137668dcd989cb4fb400772b051c96262dc1b41d",
+          "transformations": [
+            {
+              "flyway_placeholder": "sjg_tenant_id",
+              "reason": "Flyway/JDBC does not execute psql client metacommands and tenant identity must not be invented in Git",
+              "source_template_tenant_id_sha256": "7ac1b8d7010bb6cd3a3e84e7f90136b880bbc899e428ece49333372911ab9052",
+              "type": "psql_set_variable_to_flyway_placeholder",
+              "value_source": "deployment environment; approved source explicitly requires production tenant_id replacement",
+              "variable": "tenant_id"
+            }
+          ]
+        },
+        {
+          "generated_sha256": "1ea7c23200fdcdeae7d43c244b03fa1c46a4deaf11d2c6473c77e4d9179a4af5",
+          "migration": "oms/V96__partition_templates.sql",
+          "source_path": "Knowledge Base/03 数据库需求规则/03_SQL_DDL/01_sjg_oms/96_partition_templates.sql",
+          "source_sha256": "9f31e48f2e05337bdef9c1c1baba8ac5c7410bd12fe59870e0fc833d7fb14369"
+        }
+      ],
+      "runtime_roles": [
+        "sjg_api_runtime",
+        "sjg_worker_runtime"
+      ],
+      "source_count": 52,
+      "target": "oms"
+    }
+  },
+  "phase": "PHASE-03",
+  "policy": "approved Knowledge Base DDL is copied deterministically; source bodies keep SQL semantics and execute as sjg_owner",
+  "source_root": "Knowledge Base/03 数据库需求规则/03_SQL_DDL"
+}

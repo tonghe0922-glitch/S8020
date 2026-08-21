@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <modelVersion>4.0.0</modelVersion>
+  <parent><groupId>cn.shangjingu.platform</groupId><artifactId>shangjingu-platform</artifactId><version>0.1.0-SNAPSHOT</version><relativePath>../../../../pom.xml</relativePath></parent>
+  <artifactId>platform-document</artifactId>
+  <dependencies>
+    <dependency><groupId>cn.shangjingu.platform</groupId><artifactId>platform-core</artifactId><version>${project.version}</version></dependency>
+    <dependency><groupId>org.springframework</groupId><artifactId>spring-context</artifactId></dependency>
+    <dependency><groupId>org.springframework</groupId><artifactId>spring-jdbc</artifactId></dependency>
+    <dependency><groupId>io.minio</groupId><artifactId>minio</artifactId></dependency>
+    <dependency><groupId>com.squareup.okhttp3</groupId><artifactId>okhttp-jvm</artifactId><version>5.1.0</version></dependency>
+    <dependency><groupId>org.testcontainers</groupId><artifactId>junit-jupiter</artifactId><scope>test</scope></dependency>
+    <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-test</artifactId><scope>test</scope></dependency>
+  </dependencies>
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId><artifactId>maven-surefire-plugin</artifactId>
+        <configuration><excludes><exclude>**/*IT.java</exclude></excludes></configuration>
+      </plugin>
+    </plugins>
+  </build>
+  <profiles>
+    <profile>
+      <id>phase06-minio-integration</id>
+      <build><plugins><plugin>
+        <groupId>org.apache.maven.plugins</groupId><artifactId>maven-failsafe-plugin</artifactId><version>${maven-surefire-plugin.version}</version>
+        <configuration><includes><include>**/*IT.java</include></includes></configuration>
+        <executions><execution><goals><goal>integration-test</goal><goal>verify</goal></goals></execution></executions>
+      </plugin></plugins></build>
+    </profile>
+  </profiles>
+</project>

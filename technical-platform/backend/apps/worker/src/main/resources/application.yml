@@ -1,0 +1,41 @@
+spring:
+  application:
+    name: shangjingu-worker
+  main:
+    web-application-type: none
+  datasource:
+    url: ${SJG_WORKER_DB_URL:jdbc:postgresql://localhost:5432/sjg_oms}
+    username: ${SJG_WORKER_DB_USERNAME:sjg_worker_runtime}
+    password: ${SJG_WORKER_DB_PASSWORD:}
+  flyway:
+    enabled: false
+
+sjg:
+  audit:
+    datasource:
+      url: ${SJG_AUDIT_DB_URL:jdbc:postgresql://localhost:5432/sjg_audit}
+      username: ${SJG_AUDIT_DB_USERNAME:sjg_audit_writer}
+      password: ${SJG_AUDIT_DB_PASSWORD:}
+
+platform:
+  outbox:
+    enabled: ${SJG_OUTBOX_ENABLED:true}
+    poll-delay-ms: ${SJG_OUTBOX_POLL_DELAY_MS:1000}
+    batch-size: ${SJG_OUTBOX_BATCH_SIZE:32}
+    max-attempts: ${SJG_OUTBOX_MAX_ATTEMPTS:8}
+    base-backoff-ms: ${SJG_OUTBOX_BASE_BACKOFF_MS:1000}
+    max-backoff-ms: ${SJG_OUTBOX_MAX_BACKOFF_MS:300000}
+  notification:
+    worker:
+      enabled: ${SJG_NOTIFICATION_WORKER_ENABLED:true}
+      batch-size: ${SJG_NOTIFICATION_BATCH_SIZE:32}
+  phase09:
+    p002:
+      enabled: ${SJG_PHASE09_P002_WORKER_ENABLED:true}
+      expiry:
+        enabled: ${SJG_PHASE09_P002_EXPIRY_ENABLED:true}
+        poll-delay-ms: ${SJG_PHASE09_P002_EXPIRY_POLL_DELAY_MS:1000}
+        batch-size: ${SJG_PHASE09_P002_EXPIRY_BATCH_SIZE:32}
+        max-attempts: ${SJG_PHASE09_P002_EXPIRY_MAX_ATTEMPTS:5}
+        base-backoff-ms: ${SJG_PHASE09_P002_EXPIRY_BASE_BACKOFF_MS:1000}
+        max-backoff-ms: ${SJG_PHASE09_P002_EXPIRY_MAX_BACKOFF_MS:60000}

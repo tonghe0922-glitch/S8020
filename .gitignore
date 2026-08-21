@@ -1,0 +1,60 @@
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+secrets/
+.secret/
+.credentials/
+
+# Node / frontend
+node_modules/
+.pnpm-store/
+dist/
+coverage/
+playwright-report/
+test-results/
+
+# Java / Maven / Gradle
+target/
+build/
+.gradle/
+.mvn/timing.properties
+
+# Logs / temp
+*.log
+logs/
+.tmp/
+tmp/
+.cache/
+
+# Runtime data
+uploads/
+backups/
+*.pid
+
+# Local overrides
+*.local
+
+# Reproducible machine-generated implementation artifacts
+# Regenerate these from the canonical Knowledge Base with scripts/knowledge_base
+# and scripts/implementation instead of storing hundreds of MB in Git.
+docs/implementation/contracts/phase-01/
+docs/implementation/MASTER_PERMISSION_MATRIX.json
+docs/implementation/MASTER_GAPS.json
+docs/implementation/evidence/*.json
+docs/implementation/phases/PHASE-08/PAGE_IA_EXTRACT.json
+docs/implementation/phases/PHASE-09/P001_P005_SOURCE_SNAPSHOT.json

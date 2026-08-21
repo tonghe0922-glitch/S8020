@@ -1,0 +1,10 @@
+code: MODULE_CODE
+name: 模块名称
+status: proposed
+version: 0.1.0
+owner: unassigned
+ports: [work, tech]
+dependencies: []
+prototype: null
+spec: MODULE_SPEC.md
+acceptance: ACCEPTANCE.md

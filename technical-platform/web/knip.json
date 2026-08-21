@@ -1,0 +1,25 @@
+{
+  "entry": [
+    "src/portals/*/main.ts",
+    "src/design-system/index.ts",
+    "src/api/index.ts",
+    "src/contracts/index.ts",
+    "src/session/index.ts",
+    "src/router/index.ts",
+    "src/**/*.test.ts",
+    "playwright.phase08-live.config.ts",
+    "playwright.phase09-p001-live.config.ts",
+    "playwright.phase09-p002-live.config.ts",
+    "playwright.phase09-p003-live.config.ts",
+    "playwright.phase09-p004-live.config.ts",
+    "playwright.phase09-p005-live.config.ts",
+    "playwright.phase10-live.config.ts",
+    "playwright.phase11-live.config.ts"
+  ],
+  "project": [
+    "src/**/*.{ts,vue}",
+    "*.{ts,js}",
+    "e2e/**/*.ts"
+  ],
+  "ignoreExportsUsedInFile": true
+}

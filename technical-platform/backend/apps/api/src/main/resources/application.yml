@@ -1,0 +1,33 @@
+spring:
+  application:
+    name: shangjingu-api
+  datasource:
+    url: ${SJG_API_DB_URL:jdbc:postgresql://localhost:5432/sjg_oms}
+    username: ${SJG_API_DB_USERNAME:sjg_api_runtime}
+    password: ${SJG_API_DB_PASSWORD:}
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+  flyway:
+    enabled: false
+sjg:
+  audit:
+    datasource:
+      url: ${SJG_AUDIT_DB_URL:jdbc:postgresql://localhost:5432/sjg_audit}
+      username: ${SJG_AUDIT_DB_USERNAME:sjg_audit_writer}
+      password: ${SJG_AUDIT_DB_PASSWORD:}
+  security:
+    session:
+      access-ttl: ${SJG_SESSION_ACCESS_TTL:PT15M}
+      refresh-ttl: ${SJG_SESSION_REFRESH_TTL:P7D}
+    step-up:
+      ticket-ttl: ${SJG_STEP_UP_TICKET_TTL:PT5M}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+server:
+  port: ${API_PORT:8080}
