@@ -16,6 +16,7 @@ const paths: Readonly<Record<NavigationIconKey, readonly string[]>> = {
   services: ['M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18', 'M8 14s1.5 2 4 2 4-2 4-2', 'M9 9h.01M15 9h.01'],
   messages: ['M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z', 'M8 8h8M8 12h5'],
   center: ['M3 21h18M5 21V7l7-4 7 4v14', 'M9 10h.01M12 10h.01M15 10h.01M9 14h.01M12 14h.01M15 14h.01', 'M10 21v-3h4v3'],
+  organization: ['M12 3 3 8l9 5 9-5z', 'M3 12l9 5 9-5', 'M3 16l9 5 9-5'],
   authz: ['M12 2 4 5v6c0 5 3.5 8.5 8 9 4.5-.5 8-4 8-9V5z', 'm9 12 2 2 4-4'],
   security: ['M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10', 'M9 12h6M12 9v6'],
   operations: ['M4 6h16M4 12h16M4 18h16', 'M7 3v6M17 9v6M10 15v6'],

@@ -16,6 +16,7 @@ import NotFoundPage from '../platform/pages/NotFoundPage.vue'
 import AuthzConfigurationPage from '../platform/pages/authz/AuthzConfigurationPage.vue'
 import { clearRuntimeError, recordRuntimeError } from '../platform/runtime-error-state'
 import { rotateNavigationAbortSignal } from './navigation-abort'
+import { ORG_ARCHITECTURE_ROUTE_SPECS } from './org-architecture-route-specs'
 import { P014_ROUTE_SPECS } from './p014-route-specs'
 import { P015_ROUTE_SPECS } from './p015-route-specs'
 import { P016_ROUTE_SPECS } from './p016-route-specs'
@@ -29,6 +30,7 @@ export interface PortalRouterSession {
 }
 
 const ALL_ROUTE_SPECS: readonly PortalRouteSpec[] = [
+  ...ORG_ARCHITECTURE_ROUTE_SPECS,
   ...PORTAL_ROUTE_SPECS,
   ...P014_ROUTE_SPECS,
   ...P015_ROUTE_SPECS,

@@ -49,6 +49,7 @@ describe('canonical two-port navigation projection', () => {
     const groups = projectNavigationGroups(projectionOptions({ runtimeCode: 'tech' }))
     expect(groups.map((group) => group.label)).toEqual([
       '技术工作台',
+      '组织架构',
       '权限与模块配置',
       '身份与安全',
       '流程与运行',
@@ -127,20 +128,23 @@ describe('PortalNavigation interaction', () => {
     wrapper.unmount()
   })
 
-  it('selecting the directory does not turn unrelated subcategories orange', async () => {
+  it('selecting the directory architecture keeps activity inside the directory group', async () => {
     setActivePinia(createPinia())
     const router = createTestRouter()
+    router.addRoute({ path: '/contacts/architecture', component: { template: '<div />' } })
     await router.push('/')
     const wrapper = mount(PortalNavigation, {
       props: { runtimeCode: 'work' },
       global: { plugins: [router] },
     })
-    const directory = wrapper.findAll('.portal-navigation__top-link')
-      .find((link) => link.text().includes('企业通讯录'))
+    const directory = wrapper.findAll('.portal-navigation__group-button')
+      .find((button) => button.text().includes('企业通讯录'))
     await directory?.trigger('click')
+    const architecture = wrapper.findAll('.portal-navigation__child-link')
+      .find((link) => link.text().includes('企业架构'))
+    await architecture?.trigger('click')
     await flushPromises()
-    expect(router.currentRoute.value.query.module).toBe('contacts')
-    expect(wrapper.findAll('.portal-navigation__top-link.is-active')).toHaveLength(1)
-    expect(wrapper.findAll('.portal-navigation__child-link.is-active')).toHaveLength(0)
+    expect(router.currentRoute.value.path).toBe('/contacts/architecture')
+    expect(wrapper.findAll('.portal-navigation__child-link.is-active')).toHaveLength(1)
   })
 })

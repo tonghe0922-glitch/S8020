@@ -3,6 +3,7 @@ import type { RuntimePortCode } from '../platform/portal-config'
 export type NavigationIconKey =
   | 'home'
   | 'center'
+  | 'organization'
   | 'contacts'
   | 'tasks'
   | 'approvals'
@@ -54,6 +55,7 @@ export const WORK_NAVIGATION_CATALOG: readonly NavigationCatalogSection[] = [
       { key: 'center-meetings', label: '会议管理', routePath: '/center/06/09/03' },
       { key: 'center-attendance', label: '考勤管理', routePath: '/center/04/04/01' },
       { key: 'center-learning', label: '学习管理', routePath: '/center/06/03/07' },
+      { key: 'center-org-architecture', label: '公司架构管理', routePath: '/center/03/02/09' },
     ],
   },
   {
@@ -62,6 +64,10 @@ export const WORK_NAVIGATION_CATALOG: readonly NavigationCatalogSection[] = [
     iconKey: 'contacts',
     mobileAccess: 'more',
     ports: ['work'],
+    children: [
+      { key: 'contacts-architecture', label: '企业架构', routePath: '/contacts/architecture' },
+      { key: 'contacts-directory', label: '成员通讯录', routePath: '/contacts/directory' },
+    ],
   },
   {
     key: 'tasks',
@@ -177,6 +183,14 @@ export const TECH_NAVIGATION_CATALOG: readonly NavigationCatalogSection[] = [
     label: '技术工作台',
     routePath: '/',
     iconKey: 'home',
+    mobileAccess: 'primary',
+    ports: ['tech'],
+  },
+  {
+    key: 'organization',
+    label: '组织架构',
+    routePath: '/tech/org',
+    iconKey: 'organization',
     mobileAccess: 'primary',
     ports: ['tech'],
   },

@@ -1,0 +1,10 @@
+code: ORG_ARCHITECTURE
+name: 组织架构管理
+status: implemented
+version: 1.0.0
+owner: platform-org
+ports: [work, tech]
+dependencies: [core, org, iam, authz, audit]
+prototype: "中心事务-公司架构管理（超级管理端）"
+spec: MODULE_SPEC.md
+acceptance: ACCEPTANCE.md
