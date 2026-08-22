@@ -298,7 +298,7 @@ public class Phase11ApiSupport {
 
     private static void require(AuthorizationDecision decision, String processCode) {
         if (!decision.allowed()) {
-            throw denied(processCode, decision.reason());
+            throw denied(processCode, decision.reason().name());
         }
     }
 
