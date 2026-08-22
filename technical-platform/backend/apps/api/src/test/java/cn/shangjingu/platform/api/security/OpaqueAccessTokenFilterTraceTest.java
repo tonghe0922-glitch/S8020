@@ -3,6 +3,7 @@ package cn.shangjingu.platform.api.security;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -16,6 +17,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -63,7 +65,9 @@ class OpaqueAccessTokenFilterTraceTest {
         });
 
         assertEquals(503, response.getStatus());
-        assertEquals("application/problem+json", response.getContentType());
+        assertTrue(
+                MediaType.APPLICATION_PROBLEM_JSON.isCompatibleWith(
+                        MediaType.parseMediaType(response.getContentType())));
         assertEquals(
                 "session_store_unavailable",
                 new ObjectMapper()

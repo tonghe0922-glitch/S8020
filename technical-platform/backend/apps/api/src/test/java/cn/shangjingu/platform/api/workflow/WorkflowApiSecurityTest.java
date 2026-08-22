@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import cn.shangjingu.platform.api.security.ApiProblemSupport;
 import cn.shangjingu.platform.api.security.JdbcSecurityAuditService;
 import cn.shangjingu.platform.api.security.OpaqueAccessTokenFilter;
 import cn.shangjingu.platform.api.security.SecurityConfiguration;
@@ -39,6 +40,7 @@ import org.springframework.test.web.servlet.MockMvc;
 @Import({
     SecurityConfiguration.class,
     OpaqueAccessTokenFilter.class,
+    ApiProblemSupport.class,
     SecurityProblemHandler.class,
     WorkflowApiExceptionHandler.class
 })
