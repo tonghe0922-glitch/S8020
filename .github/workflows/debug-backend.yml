@@ -1,0 +1,58 @@
+name: S8020 backend failure summary
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+permissions:
+  contents: read
+
+jobs:
+  backend-failure-summary:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'fix/s8020-bootstrap-hardening'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v5
+        with:
+          ref: fix/s8020-bootstrap-hardening
+          fetch-depth: 1
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Run backend gate and print compact diagnostics
+        shell: bash
+        run: |
+          set +e
+          bash ./mvnw -B -ntp \
+            -pl technical-platform/backend/modules/database-baseline,technical-platform/backend/apps/api,technical-platform/backend/apps/worker \
+            -am test > /tmp/s8020-maven.log 2>&1
+          rc=$?
+          set -e
+
+          echo '=== MAVEN FAILURE SUMMARY ==='
+          grep -nE '\[ERROR\]|COMPILATION ERROR|BUILD FAILURE|Failed to execute|Tests run:.*(Failures: [1-9]|Errors: [1-9])|There are test failures|Caused by:' \
+            /tmp/s8020-maven.log | tail -n 500 || true
+
+          echo '=== FAILING SUREFIRE REPORTS ==='
+          while IFS= read -r report; do
+            if grep -Eq 'Failures: [1-9]|Errors: [1-9]|<<< FAILURE|<<< ERROR' "$report"; then
+              echo "--- $report ---"
+              tail -n 220 "$report"
+            fi
+          done < <(find . -path '*/target/surefire-reports/*.txt' -type f | sort)
+
+          echo '=== MAVEN LOG TAIL ==='
+          tail -n 350 /tmp/s8020-maven.log
+          exit "$rc"
