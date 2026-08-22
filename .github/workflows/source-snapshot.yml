@@ -1,35 +1,69 @@
-name: source-snapshot
+name: org-architecture-materialize
 
 on:
   push:
     branches:
       - feat/org-architecture-closed-loop
-  pull_request:
-    branches:
-      - main
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  archive:
-    runs-on: ubuntu-latest
+  materialize:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - name: Check out feature branch
+        uses: actions/checkout@v5
         with:
-          fetch-depth: 1
-      - name: Create source archive
+          fetch-depth: 0
+
+      - name: Reconstruct and apply organization architecture source
         shell: bash
         run: |
-          git archive --format=zip --output=S8020-source.zip HEAD
-          sha256sum S8020-source.zip > S8020-source.zip.sha256
-      - name: Upload source snapshot
-        uses: actions/upload-artifact@v4
+          set -euo pipefail
+          cat .github/patches/org-architecture-closed-loop.patch.gz.b64.part-* \
+            | base64 --decode \
+            | gzip --decompress > /tmp/org-architecture-closed-loop.patch
+          echo '7cba4715f5e9ab51b70cc8c800fe591abbd4ef083a59c61c190f98362f99ceed  /tmp/org-architecture-closed-loop.patch' \
+            | sha256sum --check
+          git apply --check /tmp/org-architecture-closed-loop.patch
+          git apply --index /tmp/org-architecture-closed-loop.patch
+          rm -f .github/patches/org-architecture-closed-loop.patch.gz.b64.part-*
+          rmdir .github/patches 2>/dev/null || true
+          rm -f .github/workflows/source-snapshot.yml
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v5
         with:
-          name: S8020-source-snapshot
-          path: |
-            S8020-source.zip
-            S8020-source.zip.sha256
-          if-no-files-found: error
-          retention-days: 3
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Format Java and run repository guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash ./mvnw -B -ntp spotless:apply
+          python3 scripts/quality/spring_proxyability.py
+          python3 scripts/quality/phase11_duplication_guard.py
+          python3 scripts/quality/flyway_versions.py
+          python3 scripts/quality/md_linkrot.py
+          python3 scripts/quality/two_port_guard.py
+
+      - name: Commit materialized source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(find .github/workflows -maxdepth 1 -type f | wc -l)" -eq 1
+          test -f .github/workflows/ci.yml
+          test ! -d .github/patches
+          test -f technical-platform/database/flyway-overlays/oms/V9003__org_architecture_closed_loop.sql
+          test -f technical-platform/web/src/platform/pages/org/OrgArchitectureManagePage.vue
+          test -f technical-platform/backend/modules/org/src/main/java/cn/shangjingu/platform/org/application/OrgArchitectureService.java
+          git add -A
+          git diff --cached --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'feat: add organization architecture closed loop'
+          git push origin HEAD:feat/org-architecture-closed-loop
