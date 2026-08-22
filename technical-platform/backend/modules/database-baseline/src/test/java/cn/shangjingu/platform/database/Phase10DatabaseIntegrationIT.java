@@ -60,7 +60,8 @@ class Phase10DatabaseIntegrationIT {
                 .withPassword("phase10-" + UUID.randomUUID());
         postgres.start();
         migrate("postgres", "cluster", null);
-        try (Connection connection = admin("postgres"); Statement statement = connection.createStatement()) {
+        try (Connection connection = admin("postgres");
+                Statement statement = connection.createStatement()) {
             statement.execute("create database sjg_oms");
         }
         migrate("sjg_oms", "oms", "oms");
@@ -76,8 +77,12 @@ class Phase10DatabaseIntegrationIT {
 
     @Test
     void p008QuotaLedgerRejectsUpdateAndDelete() throws Exception {
-        assertEquals("1.00000000", scalarString("select item_value_number::text from attendance.leave_request_item where id='" + LEDGER + "'"));
-        SQLException update = assertSqlRejected("update attendance.leave_request_item set item_value_number=2 where id='" + LEDGER + "'");
+        assertEquals(
+                "1.00000000",
+                scalarString(
+                        "select item_value_number::text from attendance.leave_request_item where id='" + LEDGER + "'"));
+        SQLException update = assertSqlRejected(
+                "update attendance.leave_request_item set item_value_number=2 where id='" + LEDGER + "'");
         assertTrue(message(update).contains("P008 quota ledger is append-only"));
         SQLException delete = assertSqlRejected("delete from attendance.leave_request_item where id='" + LEDGER + "'");
         assertTrue(message(delete).contains("P008 quota ledger is append-only"));
@@ -103,8 +108,9 @@ class Phase10DatabaseIntegrationIT {
         assertEquals(1, repository.markReturned(TENANT, LEAVE, Instant.parse("2026-08-12T12:00:00Z"), EMPLOYEE));
         assertEquals(
                 "2026-08-12T12:00:00Z",
-                scalarString("select to_char(actual_end_at at time zone 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') from attendance.leave_request where id='"
-                        + LEAVE + "'"));
+                scalarString(
+                        "select to_char(actual_end_at at time zone 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') from attendance.leave_request where id='"
+                                + LEAVE + "'"));
     }
 
     @Test
@@ -120,13 +126,16 @@ class Phase10DatabaseIntegrationIT {
 
     @Test
     void p010EvidenceRejectsMutationAndQualificationConstraintsFailClosed() throws Exception {
-        SQLException update = assertSqlRejected(
-                "update learning.learning_assignment_evidence set evidence_text='tampered' where id='" + EVIDENCE + "'");
+        SQLException update =
+                assertSqlRejected("update learning.learning_assignment_evidence set evidence_text='tampered' where id='"
+                        + EVIDENCE + "'");
         assertTrue(message(update).contains("learning assignment evidence is append-only"));
-        SQLException delete = assertSqlRejected(
-                "delete from learning.learning_assignment_evidence where id='" + EVIDENCE + "'");
+        SQLException delete =
+                assertSqlRejected("delete from learning.learning_assignment_evidence where id='" + EVIDENCE + "'");
         assertTrue(message(delete).contains("learning assignment evidence is append-only"));
-        assertEquals(1L, scalarLong("select count(*) from learning.learning_assignment_evidence where id='" + EVIDENCE + "'"));
+        assertEquals(
+                1L,
+                scalarLong("select count(*) from learning.learning_assignment_evidence where id='" + EVIDENCE + "'"));
         SQLException score = assertSqlRejected(
                 "update learning.learning_assignment set score_1000=1001 where id='" + ASSIGNMENT + "'");
         assertTrue(message(score).contains("ck_p010_score_1000"));
@@ -156,27 +165,44 @@ class Phase10DatabaseIntegrationIT {
 
     @Test
     void phase10MigrationsAreInstalledAndValidated() throws Exception {
-        assertEquals(5L, scalarLong(
-                "select count(*) from flyway_schema_history where success and version in ('117','118','119','120','121')"));
-        assertTrue(scalarBoolean("select exists(select 1 from pg_trigger where tgname='trg_p008_quota_ledger_immutable' and not tgisinternal)"));
-        assertTrue(scalarBoolean("select exists(select 1 from pg_trigger where tgname='trg_p009_timeoff_ledger_immutable' and not tgisinternal)"));
-        assertTrue(scalarBoolean("select exists(select 1 from pg_trigger where tgname='trg_assignment_evidence_immutable' and not tgisinternal)"));
-        assertTrue(scalarBoolean("select exists(select 1 from pg_constraint where conname='ck_p008_quota_ledger_entry')"));
-        assertTrue(scalarBoolean("select exists(select 1 from pg_constraint where conname='ck_p009_timeoff_ledger_entry')"));
-        assertTrue(scalarBoolean("select exists(select 1 from pg_constraint where conname='ck_p009_timeoff_ledger_type')"));
-        assertTrue(scalarBoolean("select exists(select 1 from pg_constraint where conname='ck_p008_return_after_leave_start')"));
+        assertEquals(
+                5L,
+                scalarLong(
+                        "select count(*) from flyway_schema_history where success and version in ('117','118','119','120','121')"));
+        assertTrue(
+                scalarBoolean(
+                        "select exists(select 1 from pg_trigger where tgname='trg_p008_quota_ledger_immutable' and not tgisinternal)"));
+        assertTrue(
+                scalarBoolean(
+                        "select exists(select 1 from pg_trigger where tgname='trg_p009_timeoff_ledger_immutable' and not tgisinternal)"));
+        assertTrue(
+                scalarBoolean(
+                        "select exists(select 1 from pg_trigger where tgname='trg_assignment_evidence_immutable' and not tgisinternal)"));
+        assertTrue(
+                scalarBoolean("select exists(select 1 from pg_constraint where conname='ck_p008_quota_ledger_entry')"));
+        assertTrue(scalarBoolean(
+                "select exists(select 1 from pg_constraint where conname='ck_p009_timeoff_ledger_entry')"));
+        assertTrue(scalarBoolean(
+                "select exists(select 1 from pg_constraint where conname='ck_p009_timeoff_ledger_type')"));
+        assertTrue(scalarBoolean(
+                "select exists(select 1 from pg_constraint where conname='ck_p008_return_after_leave_start')"));
     }
 
     private static void seedFacts() throws SQLException {
-        execute("""
+        execute(
+                """
                 insert into org.organization(id,tenant_id,org_code,org_name,org_type,status)
                 values('%s','%s','PHASE10-DB-CENTER','PHASE-10 DB Gate Center','CENTER','ACTIVE')
-                """.formatted(CENTER, TENANT));
-        execute("""
+                """
+                        .formatted(CENTER, TENANT));
+        execute(
+                """
                 insert into org.employee(id,tenant_id,employee_no,person_name,employment_status,hire_date,primary_org_id)
                 values('%s','%s','PHASE10-DB-EMPLOYEE','PHASE-10 DB Gate Employee','ACTIVE',date '2026-08-12','%s')
-                """.formatted(EMPLOYEE, TENANT, CENTER));
-        execute("""
+                """
+                        .formatted(EMPLOYEE, TENANT, CENTER));
+        execute(
+                """
                 insert into attendance.leave_request(
                   id,tenant_id,business_no,status,version_no,subject,owner_center_id,owner_employee_id,
                   attendance_type,change_action,change_reason,duration_hours,start_at,end_at,quota_account_id,quota_amount,
@@ -186,46 +212,60 @@ class Phase10DatabaseIntegrationIT {
                   timestamptz '2026-08-12 18:00:00+00','ANNUAL-2026',1,
                   timestamptz '2026-08-12 09:00:00+00',timestamptz '2026-08-12 10:00:00+00',
                   timestamptz '2026-08-12 10:00:00+00')
-                """.formatted(LEAVE, TENANT, CENTER, EMPLOYEE));
-        execute("""
+                """
+                        .formatted(LEAVE, TENANT, CENTER, EMPLOYEE));
+        execute(
+                """
                 insert into attendance.leave_request_item(
                   id,tenant_id,master_id,field_code,item_seq,item_key,item_name,item_value_number,item_value_text)
                 values('%s','%s','%s','QUOTA_LEDGER',1,'RESERVE','额度预占',1,'created by PHASE-10 DB gate')
-                """.formatted(LEDGER, TENANT, LEAVE));
-        execute("""
+                """
+                        .formatted(LEDGER, TENANT, LEAVE));
+        execute(
+                """
                 insert into attendance.leave_request_item(
                   id,tenant_id,master_id,field_code,item_seq,item_key,item_name,item_value_text)
                 values('%s','%s','%s','HANDOVER',2,'NOTE','普通明细','mutable source row')
-                """.formatted(MUTABLE_LEAVE_ITEM, TENANT, LEAVE));
-        execute("""
+                """
+                        .formatted(MUTABLE_LEAVE_ITEM, TENANT, LEAVE));
+        execute(
+                """
                 insert into attendance.overtime_request(
                   id,tenant_id,business_no,status,version_no,subject,owner_center_id,owner_employee_id,
                   attendance_type,duration_hours,start_at,end_at,emergency_fact)
                 values('%s','%s','P009-DB-TEST','主管审批',0,'cross-process conflict test','%s','%s',
                   'OVERTIME',2,timestamptz '2026-08-13 10:00:00+00',timestamptz '2026-08-13 12:00:00+00',false)
-                """.formatted(OVERTIME, TENANT, CENTER, EMPLOYEE));
-        execute("""
+                """
+                        .formatted(OVERTIME, TENANT, CENTER, EMPLOYEE));
+        execute(
+                """
                 insert into attendance.overtime_request_item(
                   id,tenant_id,master_id,field_code,item_seq,item_key,item_name,item_value_text)
                 values('%s','%s','%s','ATTENDANCE_EVIDENCE',1,'NOTE','普通明细','mutable source row')
-                """.formatted(MUTABLE_OVERTIME_ITEM, TENANT, OVERTIME));
-        execute("""
+                """
+                        .formatted(MUTABLE_OVERTIME_ITEM, TENANT, OVERTIME));
+        execute(
+                """
                 insert into learning.learning_assignment(
                   id,tenant_id,business_no,status,version_no,subject,owner_center_id,owner_employee_id,
                   completion_rate,content_version,course_team_name,course_version_id,period_or_course_no,
                   phase_node_code,score_1000,qualification_effective_date,qualification_expire_date)
                 values('%s','%s','P010-DB-TEST','员工学习',0,'qualification test','%s','%s',
                   100,'v1','安全培训组','COURSE-001','2026-A','S03',900,date '2026-08-12',date '2027-08-12')
-                """.formatted(ASSIGNMENT, TENANT, CENTER, EMPLOYEE));
-        execute("""
+                """
+                        .formatted(ASSIGNMENT, TENANT, CENTER, EMPLOYEE));
+        execute(
+                """
                 insert into learning.learning_assignment_evidence(
                   id,tenant_id,assignment_id,evidence_type,score_1000,completion_rate,evidence_text,evidence_json)
                 values('%s','%s','%s','EXAM_ATTEMPT',900,100,'immutable evidence','{}'::jsonb)
-                """.formatted(EVIDENCE, TENANT, ASSIGNMENT));
+                """
+                        .formatted(EVIDENCE, TENANT, ASSIGNMENT));
     }
 
     private static String nodes(String process) throws SQLException {
-        return scalarString("""
+        return scalarString(
+                """
                 select string_agg(n.node_code,',' order by n.sort_no)
                 from workflow.wf_node n
                 join workflow.wf_version v on v.tenant_id=n.tenant_id and v.id=n.version_id
@@ -237,11 +277,13 @@ class Phase10DatabaseIntegrationIT {
                       and v2.status='PUBLISHED' and not v2.is_deleted
                     order by v2.version_no desc,v2.created_at desc,v2.id desc limit 1)
                   and not n.is_deleted and not v.is_deleted and not d.is_deleted
-                """.formatted(TENANT, process));
+                """
+                        .formatted(TENANT, process));
     }
 
     private static long transitionCount(String process) throws SQLException {
-        return scalarLong("""
+        return scalarLong(
+                """
                 select count(*)
                 from workflow.wf_transition t
                 join workflow.wf_version v on v.tenant_id=t.tenant_id and v.id=t.version_id
@@ -253,11 +295,13 @@ class Phase10DatabaseIntegrationIT {
                       and v2.status='PUBLISHED' and not v2.is_deleted
                     order by v2.version_no desc,v2.created_at desc,v2.id desc limit 1)
                   and not t.is_deleted and not v.is_deleted and not d.is_deleted
-                """.formatted(TENANT, process));
+                """
+                        .formatted(TENANT, process));
     }
 
     private static long transitionCount(String process, String from, String action, String to) throws SQLException {
-        return scalarLong("""
+        return scalarLong(
+                """
                 select count(*)
                 from workflow.wf_transition t
                 join workflow.wf_version v on v.tenant_id=t.tenant_id and v.id=t.version_id
@@ -270,22 +314,26 @@ class Phase10DatabaseIntegrationIT {
                     order by v2.version_no desc,v2.created_at desc,v2.id desc limit 1)
                   and t.from_node_code='%s' and t.action_code='%s' and t.to_node_code='%s'
                   and not t.is_deleted and not v.is_deleted and not d.is_deleted
-                """.formatted(TENANT, process, from, action, to));
+                """
+                        .formatted(TENANT, process, from, action, to));
     }
 
     private static long publishedVersionCount(String process) throws SQLException {
-        return scalarLong("""
+        return scalarLong(
+                """
                 select count(*)
                 from workflow.wf_version v
                 join workflow.wf_definition d on d.tenant_id=v.tenant_id and d.id=v.definition_id
                 where d.tenant_id='%s' and d.process_code='%s'
                   and v.status='PUBLISHED' and not v.is_deleted and not d.is_deleted
-                """.formatted(TENANT, process));
+                """
+                        .formatted(TENANT, process));
     }
 
     private static SQLException assertSqlRejected(String sql) {
         return assertThrows(SQLException.class, () -> {
-            try (Connection connection = admin("sjg_oms"); Statement statement = connection.createStatement()) {
+            try (Connection connection = admin("sjg_oms");
+                    Statement statement = connection.createStatement()) {
                 statement.execute(sql);
             }
         });
@@ -336,7 +384,8 @@ class Phase10DatabaseIntegrationIT {
     }
 
     private static void execute(String sql) throws SQLException {
-        try (Connection connection = admin("sjg_oms"); Statement statement = connection.createStatement()) {
+        try (Connection connection = admin("sjg_oms");
+                Statement statement = connection.createStatement()) {
             assertFalse(statement.execute(sql));
         }
     }
@@ -352,9 +401,12 @@ class Phase10DatabaseIntegrationIT {
 
     private static void migrate(String database, String generatedFolder, String overlayFolder) {
         List<String> locations = new ArrayList<>();
-        locations.add("filesystem:" + repoRoot.resolve("technical-platform/database/flyway").resolve(generatedFolder));
+        locations.add("filesystem:"
+                + repoRoot.resolve("technical-platform/database/flyway").resolve(generatedFolder));
         if (overlayFolder != null) {
-            locations.add("filesystem:" + repoRoot.resolve("technical-platform/database/flyway-overlays").resolve(overlayFolder));
+            locations.add("filesystem:"
+                    + repoRoot.resolve("technical-platform/database/flyway-overlays")
+                            .resolve(overlayFolder));
         }
         Flyway flyway = Flyway.configure()
                 .dataSource(jdbcUrl(database), postgres.getUsername(), postgres.getPassword())

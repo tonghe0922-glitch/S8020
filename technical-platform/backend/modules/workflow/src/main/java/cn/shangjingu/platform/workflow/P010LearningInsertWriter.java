@@ -12,7 +12,8 @@ import org.springframework.stereotype.Repository;
 /** Persists a P010 assignment with semantic named parameters. */
 @Repository
 public class P010LearningInsertWriter {
-    static final String INSERT_SQL = """
+    static final String INSERT_SQL =
+            """
             insert into learning.learning_assignment(
               id,tenant_id,business_no,status,version_no,created_by,updated_by,
               source_channel,business_date,subject,reason,priority,risk_level,
@@ -47,25 +48,24 @@ public class P010LearningInsertWriter {
             Instant plannedStartAt,
             Instant plannedFinishAt,
             UUID actor) {
-        MapSqlParameterSource parameters =
-                new MapSqlParameterSource()
-                        .addValue("id", record.id())
-                        .addValue("tenantId", record.tenantId())
-                        .addValue("businessNo", record.businessNo())
-                        .addValue("status", record.status())
-                        .addValue("actor", actor)
-                        .addValue("subject", record.subject())
-                        .addValue("reason", reason)
-                        .addValue("riskLevel", riskLevel)
-                        .addValue("ownerCenterId", record.ownerCenterId())
-                        .addValue("ownerEmployeeId", record.ownerEmployeeId())
-                        .addValue("plannedStartAt", timestamp(plannedStartAt))
-                        .addValue("plannedFinishAt", timestamp(plannedFinishAt))
-                        .addValue("contentVersion", record.contentVersion())
-                        .addValue("courseTeamName", courseTeamName)
-                        .addValue("courseVersionId", record.courseVersionId())
-                        .addValue("learnerProfile", learnerProfile)
-                        .addValue("periodOrCourseNo", record.periodOrCourseNo());
+        MapSqlParameterSource parameters = new MapSqlParameterSource()
+                .addValue("id", record.id())
+                .addValue("tenantId", record.tenantId())
+                .addValue("businessNo", record.businessNo())
+                .addValue("status", record.status())
+                .addValue("actor", actor)
+                .addValue("subject", record.subject())
+                .addValue("reason", reason)
+                .addValue("riskLevel", riskLevel)
+                .addValue("ownerCenterId", record.ownerCenterId())
+                .addValue("ownerEmployeeId", record.ownerEmployeeId())
+                .addValue("plannedStartAt", timestamp(plannedStartAt))
+                .addValue("plannedFinishAt", timestamp(plannedFinishAt))
+                .addValue("contentVersion", record.contentVersion())
+                .addValue("courseTeamName", courseTeamName)
+                .addValue("courseVersionId", record.courseVersionId())
+                .addValue("learnerProfile", learnerProfile)
+                .addValue("periodOrCourseNo", record.periodOrCourseNo());
         jdbc.update(INSERT_SQL, parameters);
     }
 

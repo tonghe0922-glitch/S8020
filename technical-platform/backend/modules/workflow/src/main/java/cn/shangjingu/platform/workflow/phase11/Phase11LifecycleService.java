@@ -23,10 +23,9 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 
 @Service
-public final class Phase11LifecycleService {
+public class Phase11LifecycleService {
     private static final Duration IDEMPOTENCY_TTL = Duration.ofHours(24);
-    private static final Set<String> SCORE_TYPES = Set.of(
-            "EMPLOYEE", "SUPERVISOR", "AUTHORITATIVE", "CALIBRATED");
+    private static final Set<String> SCORE_TYPES = Set.of("EMPLOYEE", "SUPERVISOR", "AUTHORITATIVE", "CALIBRATED");
 
     private final TenantTransactionRunner transactions;
     private final IdempotencyRegistry idempotency;
@@ -62,8 +61,7 @@ public final class Phase11LifecycleService {
         requireActor(actor, process);
         validateCreate(process, data);
         return transactions.required(actor, () -> {
-            if (!repository.activeEmployeeInOrg(
-                    actor.tenantId(), data.ownerCenterId(), data.ownerEmployeeId())) {
+            if (!repository.activeEmployeeInOrg(actor.tenantId(), data.ownerCenterId(), data.ownerEmployeeId())) {
                 throw rejected(process, "owner employee must be active in the owner center");
             }
             UUID proposedId = UUID.randomUUID();
@@ -104,8 +102,7 @@ public final class Phase11LifecycleService {
                     null,
                     mapper.createObjectNode());
             repository.insert(process, draft, data, actor.employeeId());
-            Phase11WorkflowCoordinator.Started started = workflow.start(
-                    actor, process, draft, data, idempotencyKey);
+            Phase11WorkflowCoordinator.Started started = workflow.start(actor, process, draft, data, idempotencyKey);
             if (repository.bindWorkflow(
                             process,
                             actor.tenantId(),
@@ -151,18 +148,11 @@ public final class Phase11LifecycleService {
             if (current.versionNo() != data.expectedVersion()) {
                 throw rejected(process, "version conflict");
             }
-            Phase11Process.Step step = process.requireTransition(
-                    current.currentNodeCode(), action);
+            Phase11Process.Step step = process.requireTransition(current.currentNodeCode(), action);
             validateActor(process, current, action, actor.employeeId());
-            Phase11ActionData normalized = validateDomainAction(
-                    process, current, action, data);
-            WorkflowRuntimeService.Result moved = workflow.advance(
-                    actor,
-                    process,
-                    current,
-                    action,
-                    normalized.reason(),
-                    idempotencyKey);
+            Phase11ActionData normalized = validateDomainAction(process, current, action, data);
+            WorkflowRuntimeService.Result moved =
+                    workflow.advance(actor, process, current, action, normalized.reason(), idempotencyKey);
             if (!step.targetNode().equals(moved.instance().currentNodeCode())) {
                 throw rejected(process, "workflow target does not match frozen contract");
             }
@@ -234,24 +224,18 @@ public final class Phase11LifecycleService {
         });
     }
 
-    public Optional<Phase11Record> find(
-            DatabaseSecurityContext actor, Phase11Process process, UUID recordId) {
+    public Optional<Phase11Record> find(DatabaseSecurityContext actor, Phase11Process process, UUID recordId) {
         requireActor(actor, process);
-        return transactions.required(
-                actor, () -> repository.find(process, actor.tenantId(), recordId));
+        return transactions.required(actor, () -> repository.find(process, actor.tenantId(), recordId));
     }
 
-    public List<Phase11Record> list(
-            DatabaseSecurityContext actor, Phase11Process process) {
+    public List<Phase11Record> list(DatabaseSecurityContext actor, Phase11Process process) {
         requireActor(actor, process);
         return transactions.required(actor, () -> repository.list(process, actor.tenantId()));
     }
 
     private Phase11ActionData validateDomainAction(
-            Phase11Process process,
-            Phase11Record current,
-            String action,
-            Phase11ActionData data) {
+            Phase11Process process, Phase11Record current, String action, Phase11ActionData data) {
         if (process != Phase11Process.P011) {
             throw rejected(process, "domain checkpoint is not implemented yet");
         }
@@ -261,23 +245,21 @@ public final class Phase11LifecycleService {
                 yield data;
             }
             case "SUBMIT_REVIEWS" -> {
-                Phase11Repository.PerformanceScores scores = repository.performanceScores(
-                        current.tenantId(), current.id());
+                Phase11Repository.PerformanceScores scores =
+                        repository.performanceScores(current.tenantId(), current.id());
                 if (!scores.readyForCalculation()) {
-                    throw rejected(
-                            process,
-                            "employee, supervisor and authoritative score facts are required");
+                    throw rejected(process, "employee, supervisor and authoritative score facts are required");
                 }
                 yield data;
             }
             case "CALCULATE_SCORE" -> {
-                Phase11Repository.PerformanceScores scores = repository.performanceScores(
-                        current.tenantId(), current.id());
+                Phase11Repository.PerformanceScores scores =
+                        repository.performanceScores(current.tenantId(), current.id());
                 yield copyWithScore(data, scores.calculated());
             }
             case "CALIBRATE" -> {
-                Long score = repository.performanceScores(
-                                current.tenantId(), current.id())
+                Long score = repository
+                        .performanceScores(current.tenantId(), current.id())
                         .calibrated();
                 if (score == null) {
                     throw rejected(process, "calibrated score fact is required");
@@ -300,8 +282,7 @@ public final class Phase11LifecycleService {
         };
     }
 
-    private static Phase11ActionData copyWithScore(
-            Phase11ActionData source, Long score) {
+    private static Phase11ActionData copyWithScore(Phase11ActionData source, Long score) {
         return new Phase11ActionData(
                 source.expectedVersion(),
                 source.summary(),
@@ -312,8 +293,7 @@ public final class Phase11LifecycleService {
                 source.decision());
     }
 
-    private static void validateCreate(
-            Phase11Process process, Phase11CreateData data) {
+    private static void validateCreate(Phase11Process process, Phase11CreateData data) {
         Objects.requireNonNull(data, process.code() + " create data is required");
         requireText(data.subject(), process, "subject");
         requireText(data.reason(), process, "reason");
@@ -328,11 +308,7 @@ public final class Phase11LifecycleService {
         }
     }
 
-    private static void validateActor(
-            Phase11Process process,
-            Phase11Record current,
-            String action,
-            UUID actorId) {
+    private static void validateActor(Phase11Process process, Phase11Record current, String action, UUID actorId) {
         if (process.ownerAction(action) && !actorId.equals(current.ownerEmployeeId())) {
             throw rejected(process, "only the owner employee may execute " + action);
         }
@@ -341,31 +317,21 @@ public final class Phase11LifecycleService {
         }
     }
 
-    private static void validateScoreActor(
-            Phase11Record current, String scoreType, UUID actorId) {
+    private static void validateScoreActor(Phase11Record current, String scoreType, UUID actorId) {
         boolean owner = actorId.equals(current.ownerEmployeeId());
         if ("EMPLOYEE".equals(scoreType) && !owner) {
             throw rejected(Phase11Process.P011, "employee score must be submitted by the owner");
         }
         if (!"EMPLOYEE".equals(scoreType) && owner) {
-            throw rejected(
-                    Phase11Process.P011,
-                    "owner cannot submit supervisor, authoritative or calibrated score");
+            throw rejected(Phase11Process.P011, "owner cannot submit supervisor, authoritative or calibrated score");
         }
     }
 
-    private Phase11Record required(
-            Phase11Process process, UUID tenantId, UUID recordId) {
-        return repository
-                .find(process, tenantId, recordId)
-                .orElseThrow(() -> rejected(process, "record not found"));
+    private Phase11Record required(Phase11Process process, UUID tenantId, UUID recordId) {
+        return repository.find(process, tenantId, recordId).orElseThrow(() -> rejected(process, "record not found"));
     }
 
-    private void emit(
-            DatabaseSecurityContext actor,
-            Phase11Process process,
-            Phase11Record record,
-            String action) {
+    private void emit(DatabaseSecurityContext actor, Phase11Process process, Phase11Record record, String action) {
         ObjectNode payload = mapper.createObjectNode();
         payload.put("processCode", process.code());
         payload.put("recordId", record.id().toString());
@@ -381,24 +347,18 @@ public final class Phase11LifecycleService {
                 process.code() + "_PROCESS_EVENT",
                 1,
                 json(payload),
-                process.code().toLowerCase(Locale.ROOT)
-                        + ":"
-                        + record.id()
-                        + ":"
-                        + record.versionNo()));
+                process.code().toLowerCase(Locale.ROOT) + ":" + record.id() + ":" + record.versionNo()));
     }
 
     private String json(ObjectNode payload) {
         try {
             return mapper.writeValueAsString(payload);
         } catch (JsonProcessingException exception) {
-            throw new ProcessRejectedException(
-                    "PHASE-11 event serialization failed", exception);
+            throw new ProcessRejectedException("PHASE-11 event serialization failed", exception);
         }
     }
 
-    private static void requireActor(
-            DatabaseSecurityContext actor, Phase11Process process) {
+    private static void requireActor(DatabaseSecurityContext actor, Phase11Process process) {
         if (actor == null
                 || actor.tenantId() == null
                 || actor.userId() == null
@@ -410,8 +370,7 @@ public final class Phase11LifecycleService {
         }
     }
 
-    private static void requireText(
-            String value, Phase11Process process, String field) {
+    private static void requireText(String value, Phase11Process process, String field) {
         if (value == null || value.isBlank()) {
             throw rejected(process, "required field is missing: " + field);
         }
@@ -419,8 +378,7 @@ public final class Phase11LifecycleService {
 
     private static void requireScore(long score, String field) {
         if (score < 0 || score > 1000) {
-            throw rejected(
-                    Phase11Process.P011, field + " must be between 0 and 1000");
+            throw rejected(Phase11Process.P011, field + " must be between 0 and 1000");
         }
     }
 
@@ -436,8 +394,7 @@ public final class Phase11LifecycleService {
         return value == null || value.isBlank() ? fallback : value.trim();
     }
 
-    private static ProcessRejectedException rejected(
-            Phase11Process process, String message) {
+    private static ProcessRejectedException rejected(Phase11Process process, String message) {
         return new ProcessRejectedException(process.code() + " " + message);
     }
 }

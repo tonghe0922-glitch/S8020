@@ -29,7 +29,7 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 
 @Service
-public final class PermissionRequestService {
+public class PermissionRequestService {
     public static final String PROCESS_CODE = "P002";
     public static final String EVENT_TYPE = "P002_PERMISSION_REQUEST_EVENT";
     public static final String AGGREGATE_TYPE = "P002_PERMISSION_REQUEST";
@@ -70,19 +70,33 @@ public final class PermissionRequestService {
         validate(command);
         return transactions.required(actor, () -> {
             UUID proposedId = UUID.randomUUID();
-            IdempotencyClaim claim = idempotency.claim(actor.tenantId(), actor.employeeId(), idempotencyKey, requestHash,
-                    "iam.permission_request", proposedId, IDEMPOTENCY_TTL);
+            IdempotencyClaim claim = idempotency.claim(
+                    actor.tenantId(),
+                    actor.employeeId(),
+                    idempotencyKey,
+                    requestHash,
+                    "iam.permission_request",
+                    proposedId,
+                    IDEMPOTENCY_TTL);
             if (claim.existing()) return required(actor.tenantId(), claim.resourceId());
 
-            EmployeeSnapshot employee = repository.employee(actor.tenantId(), actor.employeeId())
+            EmployeeSnapshot employee = repository
+                    .employee(actor.tenantId(), actor.employeeId())
                     .orElseThrow(() -> new ProcessRejectedException("P002 employee snapshot not found"));
             String authoritativeRisk = repository.roleRisk(actor.tenantId(), command.requestedRoleId());
-            if (repository.hasOverlappingGrant(actor.tenantId(), actor.userId(), actor.identityId(),
-                    command.requestedRoleId(), command.effectiveStartAt(), command.effectiveEndAt())) {
+            if (repository.hasOverlappingGrant(
+                    actor.tenantId(),
+                    actor.userId(),
+                    actor.identityId(),
+                    command.requestedRoleId(),
+                    command.effectiveStartAt(),
+                    command.effectiveEndAt())) {
                 throw new ProcessRejectedException("P002 requested role is already effective for the requested period");
             }
-            UUID workflowVersion = repository.latestPublishedWorkflowVersion(actor.tenantId(), PROCESS_CODE)
-                    .orElseThrow(() -> new ProcessRejectedException("P002 published workflow version is not configured"));
+            UUID workflowVersion = repository
+                    .latestPublishedWorkflowVersion(actor.tenantId(), PROCESS_CODE)
+                    .orElseThrow(
+                            () -> new ProcessRejectedException("P002 published workflow version is not configured"));
             List<UUID> reviewCandidates = repository.permissionCandidates(
                     actor.tenantId(), "p002.request.review", actor.orgId(), true, actor.employeeId());
             List<UUID> executionCandidates = repository.permissionCandidates(
@@ -96,12 +110,36 @@ public final class PermissionRequestService {
 
             String businessNo = numbers.next(actor.tenantId(), actor.employeeId(), PROCESS_CODE);
             PermissionRequest created = new PermissionRequest(
-                    claim.resourceId(), actor.tenantId(), businessNo, null, label("S02"), 0,
-                    normalize(command.sourceChannel(), "PORTAL"), command.businessDate(), command.subject().trim(),
-                    trimToNull(command.reason()), normalize(command.priority(), "NORMAL"), authoritativeRisk,
-                    actor.orgId(), null, actor.employeeId(), command.effectiveStartAt(), command.effectiveEndAt(), null,
-                    null, null, null, actor.userId(), actor.identityId(), command.requestedRoleId(), null,
-                    "REQUESTED", command.effectiveStartAt(), command.effectiveEndAt(), null, null);
+                    claim.resourceId(),
+                    actor.tenantId(),
+                    businessNo,
+                    null,
+                    label("S02"),
+                    0,
+                    normalize(command.sourceChannel(), "PORTAL"),
+                    command.businessDate(),
+                    command.subject().trim(),
+                    trimToNull(command.reason()),
+                    normalize(command.priority(), "NORMAL"),
+                    authoritativeRisk,
+                    actor.orgId(),
+                    null,
+                    actor.employeeId(),
+                    command.effectiveStartAt(),
+                    command.effectiveEndAt(),
+                    null,
+                    null,
+                    null,
+                    null,
+                    actor.userId(),
+                    actor.identityId(),
+                    command.requestedRoleId(),
+                    null,
+                    "REQUESTED",
+                    command.effectiveStartAt(),
+                    command.effectiveEndAt(),
+                    null,
+                    null);
             repository.insert(created, employee, actor.positionId(), actor.employeeId());
             repository.insertItems(actor.tenantId(), created.id(), actor.employeeId(), command);
 
@@ -116,17 +154,43 @@ public final class PermissionRequestService {
             context.set("lifecycleCandidateIds", uuidArray(lifecycleCandidates));
 
             WorkflowRuntimeService.Result started = workflow.start(new WorkflowRuntimeService.StartCommand(
-                    actor.tenantId(), actor.employeeId(), actor.identityId(), workflowVersion,
-                    "iam.permission_request", created.id(), created.businessNo(), created.subject(), created.priority(), context,
+                    actor.tenantId(),
+                    actor.employeeId(),
+                    actor.identityId(),
+                    workflowVersion,
+                    "iam.permission_request",
+                    created.id(),
+                    created.businessNo(),
+                    created.subject(),
+                    created.priority(),
+                    context,
                     scopedKey(idempotencyKey, "start")));
             WorkflowRuntimeService.Result submitted = workflow.act(new WorkflowRuntimeService.ActionCommand(
-                    actor.tenantId(), actor.employeeId(), actor.identityId(), started.instance().id(), null,
-                    "S02", "SUBMIT", created.reason(), scopedKey(idempotencyKey, "submit")));
-            int changed = repository.bindWorkflowAndMove(actor.tenantId(), created.id(), 0, submitted.instance().id(),
-                    label(submitted.instance().currentNodeCode()), actor.employeeId());
+                    actor.tenantId(),
+                    actor.employeeId(),
+                    actor.identityId(),
+                    started.instance().id(),
+                    null,
+                    "S02",
+                    "SUBMIT",
+                    created.reason(),
+                    scopedKey(idempotencyKey, "submit")));
+            int changed = repository.bindWorkflowAndMove(
+                    actor.tenantId(),
+                    created.id(),
+                    0,
+                    submitted.instance().id(),
+                    label(submitted.instance().currentNodeCode()),
+                    actor.employeeId());
             if (changed != 1) throw new ProcessRejectedException("P002 concurrent create transition conflict");
-            emit(actor.tenantId(), actor.employeeId(), created.id(), "SUBMITTED", submitted.instance().currentNodeCode(),
-                    reviewCandidates, created.businessNo());
+            emit(
+                    actor.tenantId(),
+                    actor.employeeId(),
+                    created.id(),
+                    "SUBMITTED",
+                    submitted.instance().currentNodeCode(),
+                    reviewCandidates,
+                    created.businessNo());
             return required(actor.tenantId(), created.id());
         });
     }
@@ -136,8 +200,14 @@ public final class PermissionRequestService {
         requireActor(actor);
         Objects.requireNonNull(command, "review command");
         return transactions.required(actor, () -> {
-            IdempotencyClaim claim = idempotency.claim(actor.tenantId(), actor.employeeId(), idempotencyKey, requestHash,
-                    "iam.permission_request.review", id, IDEMPOTENCY_TTL);
+            IdempotencyClaim claim = idempotency.claim(
+                    actor.tenantId(),
+                    actor.employeeId(),
+                    idempotencyKey,
+                    requestHash,
+                    "iam.permission_request.review",
+                    id,
+                    IDEMPOTENCY_TTL);
             if (claim.existing()) return required(actor.tenantId(), id);
             PermissionRequest current = required(actor.tenantId(), id);
             requireVersion(current, command.expectedVersion());
@@ -166,15 +236,33 @@ public final class PermissionRequestService {
                 throw new ProcessRejectedException("P002 request is not at a reviewable source node");
             }
             WorkflowRuntimeService.Result result = workflow.act(new WorkflowRuntimeService.ActionCommand(
-                    actor.tenantId(), actor.employeeId(), actor.identityId(), current.workflowInstanceId(),
-                    runtime.task() == null ? null : runtime.task().id(), node, action, command.reason(),
+                    actor.tenantId(),
+                    actor.employeeId(),
+                    actor.identityId(),
+                    current.workflowInstanceId(),
+                    runtime.task() == null ? null : runtime.task().id(),
+                    node,
+                    action,
+                    command.reason(),
                     scopedKey(idempotencyKey, "workflow")));
             String targetStatus = label(result.instance().currentNodeCode());
-            int changed = repository.moveStatus(actor.tenantId(), id, current.versionNo(), targetStatus,
-                    command.reason(), result.instance().finishedAt(), actor.employeeId());
+            int changed = repository.moveStatus(
+                    actor.tenantId(),
+                    id,
+                    current.versionNo(),
+                    targetStatus,
+                    command.reason(),
+                    result.instance().finishedAt(),
+                    actor.employeeId());
             if (changed != 1) throw new ProcessRejectedException("P002 concurrent review conflict");
-            emit(actor.tenantId(), actor.employeeId(), id, "REVIEWED", result.instance().currentNodeCode(),
-                    recipients(result), current.businessNo());
+            emit(
+                    actor.tenantId(),
+                    actor.employeeId(),
+                    id,
+                    "REVIEWED",
+                    result.instance().currentNodeCode(),
+                    recipients(result),
+                    current.businessNo());
             return required(actor.tenantId(), id);
         });
     }
@@ -184,8 +272,14 @@ public final class PermissionRequestService {
         requireActor(actor);
         Objects.requireNonNull(command, "execute command");
         return transactions.required(actor, () -> {
-            IdempotencyClaim claim = idempotency.claim(actor.tenantId(), actor.employeeId(), idempotencyKey, requestHash,
-                    "iam.permission_request.execute", id, IDEMPOTENCY_TTL);
+            IdempotencyClaim claim = idempotency.claim(
+                    actor.tenantId(),
+                    actor.employeeId(),
+                    idempotencyKey,
+                    requestHash,
+                    "iam.permission_request.execute",
+                    id,
+                    IDEMPOTENCY_TTL);
             if (claim.existing()) return required(actor.tenantId(), id);
             PermissionRequest current = required(actor.tenantId(), id);
             requireVersion(current, command.expectedVersion());
@@ -194,16 +288,41 @@ public final class PermissionRequestService {
                 throw new ProcessRejectedException("P002 request is not ready for permission execution");
             taskAssignment.claim(new WorkflowTaskAssignmentService.ClaimCommand(
                     actor.tenantId(), runtime.task().id(), actor.employeeId()));
-            UUID userRoleId = repository.activateGrant(actor.tenantId(), id, current.targetUserId(), current.targetIdentityId(),
-                    current.requestedRoleId(), current.effectiveStartAt(), current.effectiveEndAt(), actor.employeeId());
+            UUID userRoleId = repository.activateGrant(
+                    actor.tenantId(),
+                    id,
+                    current.targetUserId(),
+                    current.targetIdentityId(),
+                    current.requestedRoleId(),
+                    current.effectiveStartAt(),
+                    current.effectiveEndAt(),
+                    actor.employeeId());
             WorkflowRuntimeService.Result result = workflow.act(new WorkflowRuntimeService.ActionCommand(
-                    actor.tenantId(), actor.employeeId(), actor.identityId(), current.workflowInstanceId(), runtime.task().id(),
-                    "S06", "EXECUTE", command.reason(), scopedKey(idempotencyKey, "workflow")));
-            int changed = repository.markExecutedAndMove(actor.tenantId(), id, current.versionNo(), userRoleId,
-                    label(result.instance().currentNodeCode()), actor.employeeId());
+                    actor.tenantId(),
+                    actor.employeeId(),
+                    actor.identityId(),
+                    current.workflowInstanceId(),
+                    runtime.task().id(),
+                    "S06",
+                    "EXECUTE",
+                    command.reason(),
+                    scopedKey(idempotencyKey, "workflow")));
+            int changed = repository.markExecutedAndMove(
+                    actor.tenantId(),
+                    id,
+                    current.versionNo(),
+                    userRoleId,
+                    label(result.instance().currentNodeCode()),
+                    actor.employeeId());
             if (changed != 1) throw new ProcessRejectedException("P002 concurrent execute conflict");
-            emit(actor.tenantId(), actor.employeeId(), id, "EXECUTED", result.instance().currentNodeCode(),
-                    recipients(result), current.businessNo());
+            emit(
+                    actor.tenantId(),
+                    actor.employeeId(),
+                    id,
+                    "EXECUTED",
+                    result.instance().currentNodeCode(),
+                    recipients(result),
+                    current.businessNo());
             return required(actor.tenantId(), id);
         });
     }
@@ -213,8 +332,14 @@ public final class PermissionRequestService {
         requireActor(actor);
         Objects.requireNonNull(command, "revoke command");
         return transactions.required(actor, () -> {
-            IdempotencyClaim claim = idempotency.claim(actor.tenantId(), actor.employeeId(), idempotencyKey, requestHash,
-                    "iam.permission_request.revoke", id, IDEMPOTENCY_TTL);
+            IdempotencyClaim claim = idempotency.claim(
+                    actor.tenantId(),
+                    actor.employeeId(),
+                    idempotencyKey,
+                    requestHash,
+                    "iam.permission_request.revoke",
+                    id,
+                    IDEMPOTENCY_TTL);
             if (claim.existing()) return required(actor.tenantId(), id);
             PermissionRequest current = required(actor.tenantId(), id);
             requireVersion(current, command.expectedVersion());
@@ -225,8 +350,15 @@ public final class PermissionRequestService {
                 taskAssignment.claim(new WorkflowTaskAssignmentService.ClaimCommand(
                         actor.tenantId(), runtime.task().id(), actor.employeeId()));
                 workflow.act(new WorkflowRuntimeService.ActionCommand(
-                        actor.tenantId(), actor.employeeId(), actor.identityId(), current.workflowInstanceId(), runtime.task().id(),
-                        "S07", "REVOKE_REQUEST", command.reason(), scopedKey(idempotencyKey, "to-revoke")));
+                        actor.tenantId(),
+                        actor.employeeId(),
+                        actor.identityId(),
+                        current.workflowInstanceId(),
+                        runtime.task().id(),
+                        "S07",
+                        "REVOKE_REQUEST",
+                        command.reason(),
+                        scopedKey(idempotencyKey, "to-revoke")));
             } else if (!"S08".equals(node)) {
                 throw new ProcessRejectedException("P002 request is not in an authoritative revoke state");
             }
@@ -237,12 +369,32 @@ public final class PermissionRequestService {
                     actor.tenantId(), revokeRuntime.task().id(), actor.employeeId()));
             repository.revokeGrant(actor.tenantId(), id, actor.employeeId(), command.reason(), Instant.now());
             WorkflowRuntimeService.Result closed = workflow.act(new WorkflowRuntimeService.ActionCommand(
-                    actor.tenantId(), actor.employeeId(), actor.identityId(), current.workflowInstanceId(), revokeRuntime.task().id(),
-                    "S08", "REVOKE", command.reason(), scopedKey(idempotencyKey, "close")));
-            int changed = repository.markRevokedAndClose(actor.tenantId(), id, current.versionNo(), label("END"),
-                    command.reason(), closed.instance().finishedAt(), actor.employeeId());
+                    actor.tenantId(),
+                    actor.employeeId(),
+                    actor.identityId(),
+                    current.workflowInstanceId(),
+                    revokeRuntime.task().id(),
+                    "S08",
+                    "REVOKE",
+                    command.reason(),
+                    scopedKey(idempotencyKey, "close")));
+            int changed = repository.markRevokedAndClose(
+                    actor.tenantId(),
+                    id,
+                    current.versionNo(),
+                    label("END"),
+                    command.reason(),
+                    closed.instance().finishedAt(),
+                    actor.employeeId());
             if (changed != 1) throw new ProcessRejectedException("P002 concurrent revoke conflict");
-            emit(actor.tenantId(), actor.employeeId(), id, "REVOKED", "END", List.of(current.ownerEmployeeId()), current.businessNo());
+            emit(
+                    actor.tenantId(),
+                    actor.employeeId(),
+                    id,
+                    "REVOKED",
+                    "END",
+                    List.of(current.ownerEmployeeId()),
+                    current.businessNo());
             return required(actor.tenantId(), id);
         });
     }
@@ -258,22 +410,38 @@ public final class PermissionRequestService {
     }
 
     private PermissionRequest required(UUID tenantId, UUID id) {
-        return repository.find(tenantId, id).orElseThrow(() -> new ProcessRejectedException("P002 permission request not found"));
+        return repository
+                .find(tenantId, id)
+                .orElseThrow(() -> new ProcessRejectedException("P002 permission request not found"));
     }
 
     private List<UUID> recipients(WorkflowRuntimeService.Result result) {
         if (result.task() == null || result.task().candidateRule() == null) return List.of();
         JsonNode field = result.task().candidateRule().get("field");
         if (field == null || !field.isTextual()) return List.of();
-        JsonNode values = result.instance().contextSnapshot() == null ? null : result.instance().contextSnapshot().get(field.textValue());
+        JsonNode values = result.instance().contextSnapshot() == null
+                ? null
+                : result.instance().contextSnapshot().get(field.textValue());
         if (values == null || !values.isArray()) return List.of();
         List<UUID> ids = new ArrayList<>();
-        values.forEach(value -> { if (value.isTextual()) try { ids.add(UUID.fromString(value.textValue())); } catch (IllegalArgumentException ignored) {} });
+        values.forEach(value -> {
+            if (value.isTextual())
+                try {
+                    ids.add(UUID.fromString(value.textValue()));
+                } catch (IllegalArgumentException ignored) {
+                }
+        });
         return List.copyOf(ids);
     }
 
-    private void emit(UUID tenantId, UUID actorId, UUID requestId, String event, String node,
-                      List<UUID> recipients, String businessNo) {
+    private void emit(
+            UUID tenantId,
+            UUID actorId,
+            UUID requestId,
+            String event,
+            String node,
+            List<UUID> recipients,
+            String businessNo) {
         ObjectNode payload = mapper.createObjectNode();
         payload.put("requestId", requestId.toString());
         payload.put("businessNo", businessNo);
@@ -281,13 +449,22 @@ public final class PermissionRequestService {
         payload.put("nodeCode", node);
         payload.set("recipientEmployeeIds", uuidArray(recipients));
         outbox.enqueue(new TransactionalOutboxService.Command(
-                tenantId, actorId, AGGREGATE_TYPE, requestId, EVENT_TYPE, 1, json(payload),
+                tenantId,
+                actorId,
+                AGGREGATE_TYPE,
+                requestId,
+                EVENT_TYPE,
+                1,
+                json(payload),
                 "p002:" + requestId + ":" + event.toLowerCase(Locale.ROOT) + ":" + node));
     }
 
     private String json(JsonNode value) {
-        try { return mapper.writeValueAsString(value); }
-        catch (JsonProcessingException ex) { throw new ProcessRejectedException("P002 event payload cannot be serialized", ex); }
+        try {
+            return mapper.writeValueAsString(value);
+        } catch (JsonProcessingException ex) {
+            throw new ProcessRejectedException("P002 event payload cannot be serialized", ex);
+        }
     }
 
     private ArrayNode uuidArray(List<UUID> ids) {
@@ -304,21 +481,32 @@ public final class PermissionRequestService {
     }
 
     private static void requireActor(DatabaseSecurityContext actor) {
-        if (actor == null || actor.tenantId() == null || actor.userId() == null || actor.identityId() == null
-                || actor.employeeId() == null || actor.orgId() == null || actor.positionId() == null) {
+        if (actor == null
+                || actor.tenantId() == null
+                || actor.userId() == null
+                || actor.identityId() == null
+                || actor.employeeId() == null
+                || actor.orgId() == null
+                || actor.positionId() == null) {
             throw new ProcessRejectedException("P002 authenticated employee context is required");
         }
     }
 
     private static void requireVersion(PermissionRequest request, int expectedVersion) {
-        if (request.versionNo() != expectedVersion) throw new ProcessRejectedException("P002 permission request version conflict");
+        if (request.versionNo() != expectedVersion)
+            throw new ProcessRejectedException("P002 permission request version conflict");
     }
 
     private static void validate(CreateCommand command) {
         Objects.requireNonNull(command, "create command");
-        if (command.requestedRoleId() == null || command.effectiveStartAt() == null || command.effectiveEndAt() == null
-                || !command.effectiveEndAt().isAfter(command.effectiveStartAt()) || command.businessDate() == null
-                || blank(command.subject()) || blank(command.businessObjectType()) || blank(command.businessObjectNo())) {
+        if (command.requestedRoleId() == null
+                || command.effectiveStartAt() == null
+                || command.effectiveEndAt() == null
+                || !command.effectiveEndAt().isAfter(command.effectiveStartAt())
+                || command.businessDate() == null
+                || blank(command.subject())
+                || blank(command.businessObjectType())
+                || blank(command.businessObjectNo())) {
             throw new ProcessRejectedException("P002 required request fields are missing or invalid");
         }
     }
@@ -351,25 +539,72 @@ public final class PermissionRequestService {
     private static String normalize(String value, String fallback) {
         return value == null || value.isBlank() ? fallback : value.trim();
     }
-    private static String trimToNull(String value) { return blank(value) ? null : value.trim(); }
-    private static boolean blank(String value) { return value == null || value.isBlank(); }
+
+    private static String trimToNull(String value) {
+        return blank(value) ? null : value.trim();
+    }
+
+    private static boolean blank(String value) {
+        return value == null || value.isBlank();
+    }
 
     public interface Repository {
         Optional<EmployeeSnapshot> employee(UUID tenantId, UUID employeeId);
+
         void requireRole(UUID tenantId, UUID roleId);
+
         String roleRisk(UUID tenantId, UUID roleId);
-        boolean hasOverlappingGrant(UUID tenantId, UUID userId, UUID identityId, UUID roleId, Instant start, Instant end);
+
+        boolean hasOverlappingGrant(
+                UUID tenantId, UUID userId, UUID identityId, UUID roleId, Instant start, Instant end);
+
         Optional<UUID> latestPublishedWorkflowVersion(UUID tenantId, String processCode);
-        List<UUID> permissionCandidates(UUID tenantId, String permissionCode, UUID orgId, boolean sameOrg, UUID excludedEmployeeId);
+
+        List<UUID> permissionCandidates(
+                UUID tenantId, String permissionCode, UUID orgId, boolean sameOrg, UUID excludedEmployeeId);
+
         void insert(PermissionRequest request, EmployeeSnapshot employee, UUID positionId, UUID actorId);
+
         void insertItems(UUID tenantId, UUID requestId, UUID actorId, CreateCommand command);
-        int bindWorkflowAndMove(UUID tenantId, UUID id, int expectedVersion, UUID workflowInstanceId, String status, UUID actorId);
-        int moveStatus(UUID tenantId, UUID id, int expectedVersion, String status, String resultSummary, Instant closedAt, UUID actorId);
-        UUID activateGrant(UUID tenantId, UUID requestId, UUID userId, UUID identityId, UUID roleId, Instant start, Instant end, UUID actorId);
-        int markExecutedAndMove(UUID tenantId, UUID id, int expectedVersion, UUID userRoleId, String status, UUID actorId);
+
+        int bindWorkflowAndMove(
+                UUID tenantId, UUID id, int expectedVersion, UUID workflowInstanceId, String status, UUID actorId);
+
+        int moveStatus(
+                UUID tenantId,
+                UUID id,
+                int expectedVersion,
+                String status,
+                String resultSummary,
+                Instant closedAt,
+                UUID actorId);
+
+        UUID activateGrant(
+                UUID tenantId,
+                UUID requestId,
+                UUID userId,
+                UUID identityId,
+                UUID roleId,
+                Instant start,
+                Instant end,
+                UUID actorId);
+
+        int markExecutedAndMove(
+                UUID tenantId, UUID id, int expectedVersion, UUID userRoleId, String status, UUID actorId);
+
         void revokeGrant(UUID tenantId, UUID requestId, UUID actorId, String reason, Instant revokedAt);
-        int markRevokedAndClose(UUID tenantId, UUID id, int expectedVersion, String status, String resultSummary, Instant closedAt, UUID actorId);
+
+        int markRevokedAndClose(
+                UUID tenantId,
+                UUID id,
+                int expectedVersion,
+                String status,
+                String resultSummary,
+                Instant closedAt,
+                UUID actorId);
+
         Optional<PermissionRequest> find(UUID tenantId, UUID id);
+
         List<PermissionRequest> list(UUID tenantId);
     }
 
@@ -394,15 +629,42 @@ public final class PermissionRequestService {
             JsonNode attachments) {}
 
     public record ReviewCommand(int expectedVersion, String decision, String reason) {}
+
     public record ActionCommand(int expectedVersion, String reason) {}
 
     public record PermissionRequest(
-            UUID id, UUID tenantId, String businessNo, UUID workflowInstanceId, String status, int versionNo,
-            String sourceChannel, LocalDate businessDate, String subject, String reason, String priority, String riskLevel,
-            UUID ownerCenterId, UUID ownerDepartmentId, UUID ownerEmployeeId,
-            Instant plannedStartAt, Instant plannedFinishAt, String resultSummary, Instant actualStartAt, Instant actualEndAt,
-            Instant closedAt, UUID targetUserId, UUID targetIdentityId, UUID requestedRoleId, UUID userRoleId,
-            String grantStatus, Instant effectiveStartAt, Instant effectiveEndAt, Instant executedAt, Instant revokedAt) {
-        public LocalDate plannedEffectiveDate() { return effectiveStartAt.atZone(BUSINESS_ZONE).toLocalDate(); }
+            UUID id,
+            UUID tenantId,
+            String businessNo,
+            UUID workflowInstanceId,
+            String status,
+            int versionNo,
+            String sourceChannel,
+            LocalDate businessDate,
+            String subject,
+            String reason,
+            String priority,
+            String riskLevel,
+            UUID ownerCenterId,
+            UUID ownerDepartmentId,
+            UUID ownerEmployeeId,
+            Instant plannedStartAt,
+            Instant plannedFinishAt,
+            String resultSummary,
+            Instant actualStartAt,
+            Instant actualEndAt,
+            Instant closedAt,
+            UUID targetUserId,
+            UUID targetIdentityId,
+            UUID requestedRoleId,
+            UUID userRoleId,
+            String grantStatus,
+            Instant effectiveStartAt,
+            Instant effectiveEndAt,
+            Instant executedAt,
+            Instant revokedAt) {
+        public LocalDate plannedEffectiveDate() {
+            return effectiveStartAt.atZone(BUSINESS_ZONE).toLocalDate();
+        }
     }
 }

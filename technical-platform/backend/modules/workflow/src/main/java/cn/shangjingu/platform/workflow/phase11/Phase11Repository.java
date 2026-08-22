@@ -7,18 +7,13 @@ import java.util.UUID;
 public interface Phase11Repository {
     Optional<UUID> latestPublishedWorkflowVersion(UUID tenantId, String processCode);
 
-    Optional<FormRef> latestPublishedForm(
-            UUID tenantId, String formCode, String processCode, String nodeCode);
+    Optional<FormRef> latestPublishedForm(UUID tenantId, String formCode, String processCode, String nodeCode);
 
     List<UUID> permissionCandidates(UUID tenantId, String permissionCode, UUID orgId);
 
     boolean activeEmployeeInOrg(UUID tenantId, UUID orgId, UUID employeeId);
 
-    void insert(
-            Phase11Process process,
-            Phase11Record record,
-            Phase11CreateData data,
-            UUID actorId);
+    void insert(Phase11Process process, Phase11Record record, Phase11CreateData data, UUID actorId);
 
     int bindWorkflow(
             Phase11Process process,
@@ -56,11 +51,7 @@ public interface Phase11Repository {
 
     record FormRef(UUID id, int versionNo) {}
 
-    record PerformanceScores(
-            Long employee,
-            Long supervisor,
-            Long authoritative,
-            Long calibrated) {
+    record PerformanceScores(Long employee, Long supervisor, Long authoritative, Long calibrated) {
         public boolean readyForCalculation() {
             return employee != null && supervisor != null && authoritative != null;
         }

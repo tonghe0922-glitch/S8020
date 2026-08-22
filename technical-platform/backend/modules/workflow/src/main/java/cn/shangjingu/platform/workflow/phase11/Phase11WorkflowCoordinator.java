@@ -14,7 +14,7 @@ import java.util.UUID;
 import org.springframework.stereotype.Component;
 
 @Component
-public final class Phase11WorkflowCoordinator {
+public class Phase11WorkflowCoordinator {
     private final Phase11Repository repository;
     private final WorkflowRuntimeService workflow;
     private final WorkflowTaskAssignmentService taskAssignment;
@@ -42,36 +42,19 @@ public final class Phase11WorkflowCoordinator {
             String idempotencyKey) {
         UUID workflowVersion = repository
                 .latestPublishedWorkflowVersion(actor.tenantId(), process.code())
-                .orElseThrow(() -> rejected(
-                        process, "published workflow version is not configured"));
+                .orElseThrow(() -> rejected(process, "published workflow version is not configured"));
         Phase11Repository.FormRef form = repository
-                .latestPublishedForm(
-                        actor.tenantId(),
-                        process.initialFormCode(),
-                        process.code(),
-                        "S01")
-                .orElseThrow(() -> rejected(
-                        process, "initial published form is not configured"));
+                .latestPublishedForm(actor.tenantId(), process.initialFormCode(), process.code(), "S01")
+                .orElseThrow(() -> rejected(process, "initial published form is not configured"));
 
-        List<UUID> managers = candidates(
-                actor, process, process.managerPermission(), data.ownerCenterId(), "manager");
-        List<UUID> specialists = candidates(
-                actor, process, process.specialistPermission(), data.ownerCenterId(), "specialist");
+        List<UUID> managers = candidates(actor, process, process.managerPermission(), data.ownerCenterId(), "manager");
+        List<UUID> specialists =
+                candidates(actor, process, process.specialistPermission(), data.ownerCenterId(), "specialist");
         List<UUID> appealReviewers = process == Phase11Process.P014
-                ? candidates(
-                        actor,
-                        process,
-                        "p014.discipline.appeal",
-                        data.ownerCenterId(),
-                        "appeal reviewer")
+                ? candidates(actor, process, "p014.discipline.appeal", data.ownerCenterId(), "appeal reviewer")
                 : specialists;
         List<UUID> remediators = process == Phase11Process.P014
-                ? candidates(
-                        actor,
-                        process,
-                        "p014.discipline.remediate",
-                        data.ownerCenterId(),
-                        "remediator")
+                ? candidates(actor, process, "p014.discipline.remediate", data.ownerCenterId(), "remediator")
                 : specialists;
         List<UUID> appealOrRemediation = new ArrayList<>(appealReviewers);
         appealOrRemediation.addAll(remediators);
@@ -90,24 +73,21 @@ public final class Phase11WorkflowCoordinator {
         context.set("appealOrRemediationCandidateIds", uuidArray(appealOrRemediation));
         context.set(
                 "recusedEmployeeIds",
-                process == Phase11Process.P014
-                        ? uuidArray(List.of(data.ownerEmployeeId()))
-                        : mapper.createArrayNode());
+                process == Phase11Process.P014 ? uuidArray(List.of(data.ownerEmployeeId())) : mapper.createArrayNode());
         context.put("riskLevel", record.riskLevel());
 
-        WorkflowRuntimeService.Result started = workflow.start(
-                new WorkflowRuntimeService.StartCommand(
-                        actor.tenantId(),
-                        actor.employeeId(),
-                        actor.identityId(),
-                        workflowVersion,
-                        process.table(),
-                        record.id(),
-                        record.businessNo(),
-                        record.subject(),
-                        record.priority(),
-                        context,
-                        scopedKey(idempotencyKey, "start")));
+        WorkflowRuntimeService.Result started = workflow.start(new WorkflowRuntimeService.StartCommand(
+                actor.tenantId(),
+                actor.employeeId(),
+                actor.identityId(),
+                workflowVersion,
+                process.table(),
+                record.id(),
+                record.businessNo(),
+                record.subject(),
+                record.priority(),
+                context,
+                scopedKey(idempotencyKey, "start")));
         forms.submit(new WorkflowFormService.SubmitForm(
                 actor.tenantId(),
                 actor.employeeId(),
@@ -118,19 +98,17 @@ public final class Phase11WorkflowCoordinator {
                 form.versionNo(),
                 initialFormValues(process, record, data),
                 scopedKey(idempotencyKey, "form")));
-        WorkflowRuntimeService.Result submitted = workflow.act(
-                new WorkflowRuntimeService.ActionCommand(
-                        actor.tenantId(),
-                        actor.employeeId(),
-                        actor.identityId(),
-                        started.instance().id(),
-                        null,
-                        "S01",
-                        process.initialAction(),
-                        null,
-                        scopedKey(idempotencyKey, "s01")));
-        return new Started(
-                submitted.instance().id(), submitted.instance().currentNodeCode());
+        WorkflowRuntimeService.Result submitted = workflow.act(new WorkflowRuntimeService.ActionCommand(
+                actor.tenantId(),
+                actor.employeeId(),
+                actor.identityId(),
+                started.instance().id(),
+                null,
+                "S01",
+                process.initialAction(),
+                null,
+                scopedKey(idempotencyKey, "s01")));
+        return new Started(submitted.instance().id(), submitted.instance().currentNodeCode());
     }
 
     public WorkflowRuntimeService.Result advance(
@@ -140,8 +118,7 @@ public final class Phase11WorkflowCoordinator {
             String action,
             String reason,
             String idempotencyKey) {
-        WorkflowRuntimeService.Result runtime = workflow.get(
-                actor.tenantId(), current.workflowInstanceId());
+        WorkflowRuntimeService.Result runtime = workflow.get(actor.tenantId(), current.workflowInstanceId());
         if (!current.currentNodeCode().equals(runtime.instance().currentNodeCode())) {
             throw rejected(process, "business state is stale relative to workflow runtime");
         }
@@ -163,13 +140,8 @@ public final class Phase11WorkflowCoordinator {
     }
 
     private List<UUID> candidates(
-            DatabaseSecurityContext actor,
-            Phase11Process process,
-            String permission,
-            UUID orgId,
-            String role) {
-        List<UUID> candidates = repository.permissionCandidates(
-                actor.tenantId(), permission, orgId);
+            DatabaseSecurityContext actor, Phase11Process process, String permission, UUID orgId, String role) {
+        List<UUID> candidates = repository.permissionCandidates(actor.tenantId(), permission, orgId);
         if (candidates.isEmpty()) {
             throw rejected(process, "no eligible " + role + " candidate is configured");
         }
@@ -177,9 +149,7 @@ public final class Phase11WorkflowCoordinator {
     }
 
     private List<WorkflowFormService.FieldValue> initialFormValues(
-            Phase11Process process,
-            Phase11Record record,
-            Phase11CreateData data) {
+            Phase11Process process, Phase11Record record, Phase11CreateData data) {
         List<WorkflowFormService.FieldValue> values = new ArrayList<>();
         values.add(text("process_code", process.code(), "P1"));
         values.add(text("business_no", record.businessNo(), "P1"));
@@ -197,19 +167,9 @@ public final class Phase11WorkflowCoordinator {
         return List.copyOf(values);
     }
 
-    private static WorkflowFormService.FieldValue text(
-            String code, String value, String sensitiveLevel) {
+    private static WorkflowFormService.FieldValue text(String code, String value, String sensitiveLevel) {
         return new WorkflowFormService.FieldValue(
-                code,
-                "TEXT",
-                value,
-                null,
-                null,
-                null,
-                null,
-                null,
-                sensitiveLevel,
-                false);
+                code, "TEXT", value, null, null, null, null, null, sensitiveLevel, false);
     }
 
     private ArrayNode uuidArray(List<UUID> values) {
@@ -229,8 +189,7 @@ public final class Phase11WorkflowCoordinator {
         return value;
     }
 
-    private static ProcessRejectedException rejected(
-            Phase11Process process, String message) {
+    private static ProcessRejectedException rejected(Phase11Process process, String message) {
         return new ProcessRejectedException(process.code() + " " + message);
     }
 

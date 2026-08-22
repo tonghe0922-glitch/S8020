@@ -39,8 +39,7 @@ public class RewardRepository {
         return !Boolean.TRUE.equals(exists);
     }
 
-    public boolean paidFinanceReference(
-            UUID tenantId, UUID referenceId, BigDecimal expectedAmount) {
+    public boolean paidFinanceReference(UUID tenantId, UUID referenceId, BigDecimal expectedAmount) {
         if (referenceId == null) {
             return false;
         }
@@ -90,10 +89,7 @@ public class RewardRepository {
         return !Boolean.TRUE.equals(exists);
     }
 
-    public void insert(
-            Phase11Record record,
-            RewardService.CreateCommand command,
-            UUID actorId) {
+    public void insert(Phase11Record record, RewardService.CreateCommand command, UUID actorId) {
         int rows = jdbc.update(
                 """
                 insert into reward.reward_case(
@@ -162,8 +158,7 @@ public class RewardRepository {
                         "expectedVersion", expectedVersion));
     }
 
-    public UUID createPointEffect(
-            Phase11Record current, String summary, UUID actorId) {
+    public UUID createPointEffect(Phase11Record current, String summary, UUID actorId) {
         long points = current.details().path("pointsDelta").asLong(0L);
         if (points == 0L) {
             return null;
@@ -247,29 +242,23 @@ public class RewardRepository {
                 "financeReferenceId", command.financeReferenceId(),
                 "pointEffectId", pointEffectId,
                 "receiptReference", trimToNull(command.receiptReference()));
-        String domainSet = switch (action) {
-            case "VERIFY_EVIDENCE" ->
-                    "evidence_verified_at=coalesce(evidence_verified_at,now()),";
-            case "RECOMMEND_REWARD" -> "recommendation_summary=:summary,";
-            case "APPROVE_REWARD" ->
-                    "approval_decision=:decision,approved_at=coalesce(approved_at,now()),";
-            case "CHECK_DUPLICATE_IMPACT" ->
-                    "duplicate_checked_at=coalesce(duplicate_checked_at,now()),";
-            case "EXECUTE_REWARD" ->
-                    "finance_reference_id=coalesce(:financeReferenceId,finance_reference_id),"
+        String domainSet =
+                switch (action) {
+                    case "VERIFY_EVIDENCE" -> "evidence_verified_at=coalesce(evidence_verified_at,now()),";
+                    case "RECOMMEND_REWARD" -> "recommendation_summary=:summary,";
+                    case "APPROVE_REWARD" -> "approval_decision=:decision,approved_at=coalesce(approved_at,now()),";
+                    case "CHECK_DUPLICATE_IMPACT" -> "duplicate_checked_at=coalesce(duplicate_checked_at,now()),";
+                    case "EXECUTE_REWARD" -> "finance_reference_id=coalesce(:financeReferenceId,finance_reference_id),"
                             + "point_effect_id=coalesce(:pointEffectId,point_effect_id),"
                             + "reward_executed_at=coalesce(reward_executed_at,now()),";
-            case "NOTIFY_EMPLOYEE" ->
-                    "employee_notified_at=coalesce(employee_notified_at,now()),";
-            case "RECORD_RECEIPTS" ->
-                    "receipt_reference=:receiptReference,"
+                    case "NOTIFY_EMPLOYEE" -> "employee_notified_at=coalesce(employee_notified_at,now()),";
+                    case "RECORD_RECEIPTS" -> "receipt_reference=:receiptReference,"
                             + "receipts_recorded_at=coalesce(receipts_recorded_at,now()),";
-            case "ARCHIVE" ->
-                    "archived_at=coalesce(archived_at,now()),"
+                    case "ARCHIVE" -> "archived_at=coalesce(archived_at,now()),"
                             + "closed_at=coalesce(closed_at,now()),"
                             + "actual_end_at=coalesce(actual_end_at,now()),";
-            default -> "";
-        };
+                    default -> "";
+                };
         return jdbc.update(
                 "update reward.reward_case set "
                         + domainSet
@@ -283,7 +272,8 @@ public class RewardRepository {
     }
 
     public Optional<Phase11Record> find(UUID tenantId, UUID rewardId) {
-        return jdbc.query(
+        return jdbc
+                .query(
                         selectSql("and r.id=:rewardId"),
                         params("tenantId", tenantId, "rewardId", rewardId),
                         this::mapRecord)
@@ -293,9 +283,7 @@ public class RewardRepository {
 
     public List<Phase11Record> list(UUID tenantId) {
         return jdbc.query(
-                selectSql("order by r.created_at desc,r.id desc"),
-                params("tenantId", tenantId),
-                this::mapRecord);
+                selectSql("order by r.created_at desc,r.id desc"), params("tenantId", tenantId), this::mapRecord);
     }
 
     private String selectSql(String suffix) {
@@ -326,7 +314,8 @@ public class RewardRepository {
                   left join workflow.wf_instance wi
                     on wi.tenant_id=r.tenant_id and wi.id=r.workflow_instance_id and not wi.is_deleted
                  where r.tenant_id=:tenantId and not r.is_deleted
-                """ + suffix;
+                """
+                + suffix;
     }
 
     private Phase11Record mapRecord(ResultSet rs, int rowNum) throws SQLException {

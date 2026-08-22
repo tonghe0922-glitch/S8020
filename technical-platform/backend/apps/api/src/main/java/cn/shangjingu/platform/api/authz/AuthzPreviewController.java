@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/authz/preview")
-public final class AuthzPreviewController {
+public class AuthzPreviewController {
     private final AuthzConfigurationService service;
     private final AuthzApiSupport support;
 
@@ -23,8 +23,7 @@ public final class AuthzPreviewController {
 
     @PostMapping
     public PreviewResult preview(
-            @AuthenticationPrincipal SessionPrincipal principal,
-            @RequestBody PreviewCommand command) {
+            @AuthenticationPrincipal SessionPrincipal principal, @RequestBody PreviewCommand command) {
         support.requirePreview(principal);
         PreviewResult result = service.preview(support.context(principal), command);
         support.auditRead(principal, "AUTHZ_MULTI_ROLE_PREVIEW", "iam.role_permission", null);

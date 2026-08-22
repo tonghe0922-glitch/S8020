@@ -8,7 +8,7 @@ import java.util.Objects;
 import org.springframework.stereotype.Service;
 
 @Service
-public final class AuthorizationService {
+public class AuthorizationService {
     private final IdentityDirectoryService identities;
     private final DataScopeEvaluator dataScopes;
 
@@ -26,9 +26,7 @@ public final class AuthorizationService {
     }
 
     public AuthorizationDecision authorizeData(
-            SessionContext subject,
-            String permissionCode,
-            AuthorizationTarget target) {
+            SessionContext subject, String permissionCode, AuthorizationTarget target) {
         Objects.requireNonNull(target, "target");
         if (!Objects.equals(subject.tenantId(), target.tenantId())) {
             return AuthorizationDecision.deny(AuthorizationDecision.Reason.TENANT_MISMATCH, permissionCode, null);
@@ -39,8 +37,10 @@ public final class AuthorizationService {
         }
         boolean hasScopedGrant = false;
         for (AuthorizationGrant grant : grants) {
-            if (grant.dataScopeCode() == null || grant.dataScopeCode().isBlank()
-                    || grant.dataScopeRuleJson() == null || grant.dataScopeRuleJson().isBlank()) {
+            if (grant.dataScopeCode() == null
+                    || grant.dataScopeCode().isBlank()
+                    || grant.dataScopeRuleJson() == null
+                    || grant.dataScopeRuleJson().isBlank()) {
                 continue;
             }
             hasScopedGrant = true;
@@ -51,7 +51,8 @@ public final class AuthorizationService {
         AuthorizationDecision.Reason reason = hasScopedGrant
                 ? AuthorizationDecision.Reason.DATA_SCOPE_DENIED
                 : AuthorizationDecision.Reason.DATA_SCOPE_MISSING;
-        return AuthorizationDecision.deny(reason, permissionCode, grants.getFirst().dataScopeCode());
+        return AuthorizationDecision.deny(
+                reason, permissionCode, grants.getFirst().dataScopeCode());
     }
 
     private List<AuthorizationGrant> matchingGrants(SessionContext subject, String permissionCode) {

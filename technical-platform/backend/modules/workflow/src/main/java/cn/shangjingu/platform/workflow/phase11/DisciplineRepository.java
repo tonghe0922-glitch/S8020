@@ -43,10 +43,7 @@ public class DisciplineRepository {
         return !Boolean.TRUE.equals(exists);
     }
 
-    public void insert(
-            Phase11Record record,
-            DisciplineService.CreateCommand command,
-            UUID actorId) {
+    public void insert(Phase11Record record, DisciplineService.CreateCommand command, UUID actorId) {
         int rows = jdbc.update(
                 """
                 insert into reward.discipline_case(
@@ -149,43 +146,33 @@ public class DisciplineRepository {
                 "closureSummary", trimToNull(command.closureSummary()),
                 "remediationSummary", trimToNull(command.remediationSummary()),
                 "observationEvidence", json(command.observationEvidence()));
-        String domainSet = switch (action) {
-            case "APPLY_SAFETY_MEASURE" ->
-                    "safety_measure=:safetyMeasure,safety_evidence=cast(:safetyEvidence as jsonb),"
+        String domainSet =
+                switch (action) {
+                    case "APPLY_SAFETY_MEASURE" -> "safety_measure=:safetyMeasure,safety_evidence=cast(:safetyEvidence as jsonb),"
                             + "safety_measure_at=coalesce(safety_measure_at,now()),";
-            case "COMPLETE_INVESTIGATION" ->
-                    "investigator_employee_id=:actorId,investigation_finding=:investigationFinding,"
+                    case "COMPLETE_INVESTIGATION" -> "investigator_employee_id=:actorId,investigation_finding=:investigationFinding,"
                             + "investigation_evidence=cast(:investigationEvidence as jsonb),"
                             + "investigation_completed_at=coalesce(investigation_completed_at,now()),";
-            case "SUBMIT_DEFENSE" ->
-                    "defense_statement=:defenseStatement,defense_evidence=cast(:defenseEvidence as jsonb),"
+                    case "SUBMIT_DEFENSE" -> "defense_statement=:defenseStatement,defense_evidence=cast(:defenseEvidence as jsonb),"
                             + "defense_submitted_at=coalesce(defense_submitted_at,now()),";
-            case "COMPLETE_RESPONSIBILITY_REVIEW" ->
-                    "responsibility_reviewer_employee_id=:actorId,responsibility_review=:responsibilityReview,"
+                    case "COMPLETE_RESPONSIBILITY_REVIEW" -> "responsibility_reviewer_employee_id=:actorId,responsibility_review=:responsibilityReview,"
                             + "responsibility_reviewed_at=coalesce(responsibility_reviewed_at,now()),";
-            case "APPROVE_DECISION" ->
-                    "decision_employee_id=:actorId,decision_summary=:decision,"
+                    case "APPROVE_DECISION" -> "decision_employee_id=:actorId,decision_summary=:decision,"
                             + "decision_at=coalesce(decision_at,now()),";
-            case "ACKNOWLEDGE_SERVICE" ->
-                    "service_proof=cast(:serviceProof as jsonb),"
+                    case "ACKNOWLEDGE_SERVICE" -> "service_proof=cast(:serviceProof as jsonb),"
                             + "decision_served_at=coalesce(decision_served_at,now()),";
-            case "EXECUTE_IMPACTS" ->
-                    "impact_summary=:impactSummary,impact_execution_evidence=cast(:impactExecutionEvidence as jsonb),"
+                    case "EXECUTE_IMPACTS" -> "impact_summary=:impactSummary,impact_execution_evidence=cast(:impactExecutionEvidence as jsonb),"
                             + "impact_executed_at=coalesce(impact_executed_at,now()),";
-            case "RESOLVE_APPEAL" ->
-                    "appeal_reviewer_employee_id=:actorId,appeal_result=:appealResult,"
+                    case "RESOLVE_APPEAL" -> "appeal_reviewer_employee_id=:actorId,appeal_result=:appealResult,"
                             + "appeal_decision=:appealDecision,appeal_decision_evidence=cast(:appealDecisionEvidence as jsonb),"
                             + "appeal_resolved_at=coalesce(appeal_resolved_at,now()),";
-            case "CLOSE_CORE_CASE" ->
-                    "closure_summary=:closureSummary,core_closed_at=coalesce(core_closed_at,now()),"
+                    case "CLOSE_CORE_CASE" -> "closure_summary=:closureSummary,core_closed_at=coalesce(core_closed_at,now()),"
                             + "closed_at=coalesce(closed_at,now()),";
-            case "COMPLETE_OBSERVATION" ->
-                    "remediation_summary=:remediationSummary,observation_evidence=cast(:observationEvidence as jsonb),"
+                    case "COMPLETE_OBSERVATION" -> "remediation_summary=:remediationSummary,observation_evidence=cast(:observationEvidence as jsonb),"
                             + "observation_completed_at=coalesce(observation_completed_at,now()),";
-            case "ARCHIVE" ->
-                    "archived_at=coalesce(archived_at,now()),actual_end_at=coalesce(actual_end_at,now()),";
-            default -> "";
-        };
+                    case "ARCHIVE" -> "archived_at=coalesce(archived_at,now()),actual_end_at=coalesce(actual_end_at,now()),";
+                    default -> "";
+                };
         return jdbc.update(
                 "update reward.discipline_case set "
                         + domainSet
@@ -200,19 +187,15 @@ public class DisciplineRepository {
     }
 
     public Optional<Phase11Record> find(UUID tenantId, UUID caseId) {
-        return jdbc.query(
-                        selectSql("and d.id=:caseId"),
-                        params("tenantId", tenantId, "caseId", caseId),
-                        this::mapRecord)
+        return jdbc
+                .query(selectSql("and d.id=:caseId"), params("tenantId", tenantId, "caseId", caseId), this::mapRecord)
                 .stream()
                 .findFirst();
     }
 
     public List<Phase11Record> list(UUID tenantId) {
         return jdbc.query(
-                selectSql("order by d.created_at desc,d.id desc"),
-                params("tenantId", tenantId),
-                this::mapRecord);
+                selectSql("order by d.created_at desc,d.id desc"), params("tenantId", tenantId), this::mapRecord);
     }
 
     private String selectSql(String suffix) {
@@ -255,7 +238,8 @@ public class DisciplineRepository {
                     on wi.tenant_id=d.tenant_id and wi.id=d.workflow_instance_id and not wi.is_deleted
                  where d.tenant_id=:tenantId and d.employee_event_type='P014_DISCIPLINE'
                    and not d.is_deleted
-                """ + suffix;
+                """
+                + suffix;
     }
 
     private Phase11Record mapRecord(ResultSet rs, int rowNum) throws SQLException {

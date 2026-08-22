@@ -8,13 +8,11 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 class GuardedMeetingRepositoryTest {
-    private static final UUID EMPLOYEE_ID =
-            UUID.fromString("40000000-0000-0000-0000-000000000010");
+    private static final UUID EMPLOYEE_ID = UUID.fromString("40000000-0000-0000-0000-000000000010");
 
     @Test
     void compactsUuidReferenceWithoutLosingIdentity() {
-        String reference = GuardedMeetingRepository.canonicalIssuerHostId(
-                EMPLOYEE_ID.toString());
+        String reference = GuardedMeetingRepository.canonicalIssuerHostId(EMPLOYEE_ID.toString());
 
         assertEquals(32, reference.length());
         assertEquals(EMPLOYEE_ID.toString().replace("-", ""), reference);
@@ -22,15 +20,12 @@ class GuardedMeetingRepositoryTest {
 
     @Test
     void preservesShortNonUuidBusinessReference() {
-        assertEquals(
-                "HOST-001",
-                GuardedMeetingRepository.canonicalIssuerHostId(" HOST-001 "));
+        assertEquals("HOST-001", GuardedMeetingRepository.canonicalIssuerHostId(" HOST-001 "));
     }
 
     @Test
     void rejectsReferenceThatCannotFitCanonicalColumn() {
         assertThrows(
-                ProcessRejectedException.class,
-                () -> GuardedMeetingRepository.canonicalIssuerHostId("X".repeat(33)));
+                ProcessRejectedException.class, () -> GuardedMeetingRepository.canonicalIssuerHostId("X".repeat(33)));
     }
 }

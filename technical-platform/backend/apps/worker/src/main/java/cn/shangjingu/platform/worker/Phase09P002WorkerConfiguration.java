@@ -29,54 +29,87 @@ import org.springframework.transaction.PlatformTransactionManager;
 @ConditionalOnNotWebApplication
 @ConditionalOnProperty(prefix = "platform.phase09.p002", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class Phase09P002WorkerConfiguration {
-    @Bean @ConditionalOnMissingBean
-    ObjectMapper phase09P002ObjectMapper() { return new ObjectMapper(); }
+    @Bean
+    @ConditionalOnMissingBean
+    ObjectMapper phase09P002ObjectMapper() {
+        return new ObjectMapper();
+    }
 
-    @Bean @ConditionalOnMissingBean
-    TenantTransactionRunner phase09P002TenantTransactions(JdbcTemplate jdbc, PlatformTransactionManager transactionManager) {
+    @Bean
+    @ConditionalOnMissingBean
+    TenantTransactionRunner phase09P002TenantTransactions(
+            JdbcTemplate jdbc, PlatformTransactionManager transactionManager) {
         return new TenantTransactionRunner(jdbc, transactionManager);
     }
 
-    @Bean @ConditionalOnMissingBean
-    TransactionalOutboxService phase09P002Outbox(JdbcTemplate jdbc) { return new TransactionalOutboxService(jdbc); }
+    @Bean
+    @ConditionalOnMissingBean
+    TransactionalOutboxService phase09P002Outbox(JdbcTemplate jdbc) {
+        return new TransactionalOutboxService(jdbc);
+    }
 
-    @Bean @ConditionalOnMissingBean
+    @Bean
+    @ConditionalOnMissingBean
     PlatformAuditWriter phase09P002AuditWriter(
             @Value("${sjg.audit.datasource.url:jdbc:postgresql://localhost:5432/sjg_audit}") String url,
             @Value("${sjg.audit.datasource.username:sjg_audit_writer}") String username,
             @Value("${sjg.audit.datasource.password:}") String password) {
         DriverManagerDataSource auditDataSource = new DriverManagerDataSource();
-        auditDataSource.setDriverClassName("org.postgresql.Driver"); auditDataSource.setUrl(url);
-        auditDataSource.setUsername(username); auditDataSource.setPassword(password);
-        return new PlatformAuditWriter(new JdbcTemplate(auditDataSource), new DataSourceTransactionManager(auditDataSource));
+        auditDataSource.setDriverClassName("org.postgresql.Driver");
+        auditDataSource.setUrl(url);
+        auditDataSource.setUsername(username);
+        auditDataSource.setPassword(password);
+        return new PlatformAuditWriter(
+                new JdbcTemplate(auditDataSource), new DataSourceTransactionManager(auditDataSource));
     }
 
     @Bean
     WorkflowSystemActionService phase09P002WorkflowSystemActions(JdbcTemplate jdbc, ObjectMapper mapper) {
-        return new WorkflowSystemActionService(new JdbcWorkflowRuntimeRepository(jdbc, mapper),
-                new CoreWorkflowIdempotency(new IdempotencyRegistry(jdbc)), new FailClosedTransitionConditionEvaluator(), mapper);
+        return new WorkflowSystemActionService(
+                new JdbcWorkflowRuntimeRepository(jdbc, mapper),
+                new CoreWorkflowIdempotency(new IdempotencyRegistry(jdbc)),
+                new FailClosedTransitionConditionEvaluator(),
+                mapper);
     }
 
     @Bean
     Phase09P002ExpiryWorker phase09P002ExpiryWorker(
-            TenantTransactionRunner transactions, JdbcTemplate jdbc, WorkflowSystemActionService systemActions,
-            TransactionalOutboxService outbox, PlatformAuditWriter audit, ObjectMapper mapper,
+            TenantTransactionRunner transactions,
+            JdbcTemplate jdbc,
+            WorkflowSystemActionService systemActions,
+            TransactionalOutboxService outbox,
+            PlatformAuditWriter audit,
+            ObjectMapper mapper,
             @Value("${platform.phase09.p002.expiry.max-attempts:5}") int maxAttempts,
             @Value("${platform.phase09.p002.expiry.base-backoff-ms:1000}") long baseBackoffMs,
             @Value("${platform.phase09.p002.expiry.max-backoff-ms:60000}") long maxBackoffMs) {
-        return new Phase09P002ExpiryWorker(transactions, jdbc, systemActions, outbox, audit, mapper, maxAttempts,
-                Duration.ofMillis(baseBackoffMs), Duration.ofMillis(maxBackoffMs));
+        return new Phase09P002ExpiryWorker(
+                transactions,
+                jdbc,
+                systemActions,
+                outbox,
+                audit,
+                mapper,
+                maxAttempts,
+                Duration.ofMillis(baseBackoffMs),
+                Duration.ofMillis(maxBackoffMs));
     }
 
     @Bean
-    @ConditionalOnProperty(prefix = "platform.phase09.p002.expiry", name = "enabled", havingValue = "true", matchIfMissing = true)
+    @ConditionalOnProperty(
+            prefix = "platform.phase09.p002.expiry",
+            name = "enabled",
+            havingValue = "true",
+            matchIfMissing = true)
     Phase09P002ExpiryPump phase09P002ExpiryPump(
             Phase09P002ExpiryWorker worker, @Value("${platform.phase09.p002.expiry.batch-size:32}") int batchSize) {
         return new Phase09P002ExpiryPump(worker, batchSize);
     }
 
     @Bean
-    NotificationDeliveryProvider phase09InAppNotificationDeliveryProvider() { return new InAppNotificationDeliveryProvider(); }
+    NotificationDeliveryProvider phase09InAppNotificationDeliveryProvider() {
+        return new InAppNotificationDeliveryProvider();
+    }
 
     @Bean
     @ConditionalOnProperty(prefix = "platform.notification.worker", name = "enabled", havingValue = "true")

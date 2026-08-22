@@ -11,23 +11,18 @@ import org.testcontainers.containers.PostgreSQLContainer;
 final class Phase10ProfessionalCertifierData {
     static final String LOGIN = "phase10.certifier";
 
-    private static final UUID EMPLOYEE =
-            UUID.fromString("30000000-0000-0000-0000-000000001014");
-    private static final UUID APPOINTMENT =
-            UUID.fromString("40000000-0000-0000-0000-000000001014");
-    private static final UUID USER =
-            UUID.fromString("50000000-0000-0000-0000-000000001014");
-    private static final UUID IDENTITY =
-            UUID.fromString("60000000-0000-0000-0000-000000001014");
-    private static final UUID ROLE =
-            UUID.fromString("70000000-0000-0000-0000-000000001015");
+    private static final UUID EMPLOYEE = UUID.fromString("30000000-0000-0000-0000-000000001014");
+    private static final UUID APPOINTMENT = UUID.fromString("40000000-0000-0000-0000-000000001014");
+    private static final UUID USER = UUID.fromString("50000000-0000-0000-0000-000000001014");
+    private static final UUID IDENTITY = UUID.fromString("60000000-0000-0000-0000-000000001014");
+    private static final UUID ROLE = UUID.fromString("70000000-0000-0000-0000-000000001015");
 
     private Phase10ProfessionalCertifierData() {}
 
     static void seed(PostgreSQLContainer<?> postgres, String password) throws Exception {
         String hash = new BCryptPasswordEncoder(12).encode(password);
-        try (Connection connection = DriverManager.getConnection(
-                        jdbcUrl(postgres), postgres.getUsername(), postgres.getPassword());
+        try (Connection connection =
+                        DriverManager.getConnection(jdbcUrl(postgres), postgres.getUsername(), postgres.getPassword());
                 Statement statement = connection.createStatement()) {
             statement.execute("INSERT INTO org.employee("
                     + "id,tenant_id,employee_no,person_name,employment_status,hire_date,"
@@ -70,7 +65,6 @@ final class Phase10ProfessionalCertifierData {
     }
 
     private static String jdbcUrl(PostgreSQLContainer<?> postgres) {
-        return "jdbc:postgresql://" + postgres.getHost() + ":"
-                + postgres.getMappedPort(5432) + "/sjg_oms";
+        return "jdbc:postgresql://" + postgres.getHost() + ":" + postgres.getMappedPort(5432) + "/sjg_oms";
     }
 }

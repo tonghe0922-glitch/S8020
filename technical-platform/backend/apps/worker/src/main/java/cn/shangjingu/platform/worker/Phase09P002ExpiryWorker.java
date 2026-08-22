@@ -50,11 +50,20 @@ public final class Phase09P002ExpiryWorker {
             int maxAttempts,
             Duration baseBackoff,
             Duration maxBackoff) {
-        if (transactions == null || jdbc == null || systemActions == null || outbox == null || audit == null || mapper == null) {
+        if (transactions == null
+                || jdbc == null
+                || systemActions == null
+                || outbox == null
+                || audit == null
+                || mapper == null) {
             throw new IllegalArgumentException("P002 expiry dependencies are required");
         }
-        if (maxAttempts <= 0 || baseBackoff == null || maxBackoff == null
-                || baseBackoff.isZero() || baseBackoff.isNegative() || maxBackoff.compareTo(baseBackoff) < 0) {
+        if (maxAttempts <= 0
+                || baseBackoff == null
+                || maxBackoff == null
+                || baseBackoff.isZero()
+                || baseBackoff.isNegative()
+                || maxBackoff.compareTo(baseBackoff) < 0) {
             throw new IllegalArgumentException("P002 expiry retry policy is invalid");
         }
         this.transactions = transactions;
@@ -114,50 +123,82 @@ public final class Phase09P002ExpiryWorker {
             throw new IllegalStateException("P002 expired grant is not in the authoritative S07 business state");
         }
         WorkflowRuntimeService.Result moved = systemActions.act(new WorkflowSystemActionService.SystemActionCommand(
-                due.tenantId(), due.workflowInstanceId(), S07, "AUTO_EXPIRE",
-                "权限有效期届满，系统执行自动回收", "p002-expiry:" + due.requestId() + ":workflow"));
+                due.tenantId(),
+                due.workflowInstanceId(),
+                S07,
+                "AUTO_EXPIRE",
+                "权限有效期届满，系统执行自动回收",
+                "p002-expiry:" + due.requestId() + ":workflow"));
         if (!S08.equals(moved.instance().currentNodeCode())) {
             throw new IllegalStateException("P002 AUTO_EXPIRE did not reach source-backed S08");
         }
 
-        int roleChanged = jdbc.update("""
+        int roleChanged = jdbc.update(
+                """
                 update iam.user_role
                    set effective_end_at=case when effective_end_at is null or effective_end_at>? then ? else effective_end_at end,
                        updated_by=null,updated_at=now()
                  where tenant_id=? and id=? and not is_deleted
-                """, due.effectiveEndAt(), due.effectiveEndAt(), due.tenantId(), due.userRoleId());
+                """,
+                due.effectiveEndAt(),
+                due.effectiveEndAt(),
+                due.tenantId(),
+                due.userRoleId());
         if (roleChanged != 1) throw new IllegalStateException("P002 expired user-role linkage changed concurrently");
 
         // permission_request_grant was introduced by V107 without soft-delete semantics.
         // Eligibility is represented by grant_status plus retry/DLQ facts, so no is_deleted predicate is valid here.
-        int grantChanged = jdbc.update("""
+        int grantChanged = jdbc.update(
+                """
                 update iam.permission_request_grant
                    set grant_status='REVOKED',revoked_by=null,revoked_at=?,revoke_reason='AUTO_EXPIRE',
                        revoke_source='AUTO_EXPIRE',expiry_retry_count=0,expiry_next_attempt_at=null,
                        expiry_last_error=null,updated_by=null,updated_at=now()
                  where tenant_id=? and id=? and grant_status='ACTIVE'
-                """, due.effectiveEndAt(), due.tenantId(), due.grantId());
+                """,
+                due.effectiveEndAt(),
+                due.tenantId(),
+                due.grantId());
         if (grantChanged != 1) throw new IllegalStateException("P002 expired grant changed concurrently");
 
-        int requestChanged = jdbc.update("""
+        int requestChanged = jdbc.update(
+                """
                 update iam.permission_request
                    set status=?,result_summary='权限已按有效期自动失效并进入回收节点',actual_end_at=coalesce(actual_end_at,?),
                        version_no=version_no+1,updated_by=null,updated_at=now()
                  where tenant_id=? and id=? and version_no=? and status=? and workflow_instance_id=? and not is_deleted
-                """, S08_LABEL, due.effectiveEndAt(), due.tenantId(), due.requestId(), due.requestVersion(),
-                S07_LABEL, due.workflowInstanceId());
+                """,
+                S08_LABEL,
+                due.effectiveEndAt(),
+                due.tenantId(),
+                due.requestId(),
+                due.requestVersion(),
+                S07_LABEL,
+                due.workflowInstanceId());
         if (requestChanged != 1) throw new IllegalStateException("P002 expired request changed concurrently");
 
         audit.appendCriticalOperation(new PlatformAuditWriter.OperationCommand(
-                due.tenantId(), null, null, "P002_AUTO_EXPIRE", AGGREGATE_TYPE, due.requestId(),
+                due.tenantId(),
+                null,
+                null,
+                "P002_AUTO_EXPIRE",
+                AGGREGATE_TYPE,
+                due.requestId(),
                 "p002-expiry:" + due.requestId()));
         outbox.enqueue(new TransactionalOutboxService.Command(
-                due.tenantId(), null, AGGREGATE_TYPE, due.requestId(), EVENT_TYPE, 1,
-                eventPayload(due), "p002:" + due.requestId() + ":auto_expired:S08"));
+                due.tenantId(),
+                null,
+                AGGREGATE_TYPE,
+                due.requestId(),
+                EVENT_TYPE,
+                1,
+                eventPayload(due),
+                "p002:" + due.requestId() + ":auto_expired:S08"));
     }
 
     private DueGrant lockNextDue(UUID tenantId, OffsetDateTime cutoff) {
-        return jdbc.query("""
+        return jdbc.query(
+                """
                 select g.id grant_id,g.permission_request_id,g.user_role_id,g.effective_end_at,g.expiry_retry_count,
                        p.workflow_instance_id,p.business_no,p.version_no,p.status,p.owner_employee_id
                   from iam.permission_request_grant g
@@ -170,64 +211,98 @@ public final class Phase09P002ExpiryWorker {
                  order by g.effective_end_at,g.created_at,g.id
                  for update of g,p skip locked
                  limit 1
-                """, rs -> rs.next() ? new DueGrant(
+                """,
+                rs -> rs.next()
+                        ? new DueGrant(
+                                tenantId,
+                                rs.getObject("grant_id", UUID.class),
+                                rs.getObject("permission_request_id", UUID.class),
+                                rs.getObject("workflow_instance_id", UUID.class),
+                                rs.getString("business_no"),
+                                rs.getInt("version_no"),
+                                rs.getString("status"),
+                                rs.getObject("user_role_id", UUID.class),
+                                rs.getObject("effective_end_at", OffsetDateTime.class),
+                                rs.getObject("owner_employee_id", UUID.class),
+                                rs.getInt("expiry_retry_count"))
+                        : null,
                 tenantId,
-                rs.getObject("grant_id", UUID.class),
-                rs.getObject("permission_request_id", UUID.class),
-                rs.getObject("workflow_instance_id", UUID.class),
-                rs.getString("business_no"),
-                rs.getInt("version_no"),
-                rs.getString("status"),
-                rs.getObject("user_role_id", UUID.class),
-                rs.getObject("effective_end_at", OffsetDateTime.class),
-                rs.getObject("owner_employee_id", UUID.class),
-                rs.getInt("expiry_retry_count")) : null,
-                tenantId, cutoff, cutoff);
+                cutoff,
+                cutoff);
     }
 
     private void recordFailure(DueGrant due, RuntimeException failure) {
         transactions.required(due.tenantId(), () -> {
-            RetryState state = jdbc.query("""
+            RetryState state = jdbc.query(
+                    """
                     select grant_status,expiry_retry_count,expiry_dead_lettered_at
                       from iam.permission_request_grant
                      where tenant_id=? and id=?
                      for update
-                    """, rs -> rs.next() ? new RetryState(
-                    rs.getString("grant_status"), rs.getInt("expiry_retry_count"),
-                    rs.getObject("expiry_dead_lettered_at", OffsetDateTime.class)) : null,
-                    due.tenantId(), due.grantId());
+                    """,
+                    rs -> rs.next()
+                            ? new RetryState(
+                                    rs.getString("grant_status"),
+                                    rs.getInt("expiry_retry_count"),
+                                    rs.getObject("expiry_dead_lettered_at", OffsetDateTime.class))
+                            : null,
+                    due.tenantId(),
+                    due.grantId());
             if (state == null || !"ACTIVE".equals(state.grantStatus()) || state.deadLetteredAt() != null) return null;
             int next = state.retryCount() + 1;
             String message = sanitize(failure.getMessage());
             if (next >= maxAttempts) {
-                int changed = jdbc.update("""
+                int changed = jdbc.update(
+                        """
                         update iam.permission_request_grant
                            set expiry_retry_count=?,expiry_next_attempt_at=null,expiry_last_error=?,
                                expiry_dead_lettered_at=now(),updated_by=null,updated_at=now()
                          where tenant_id=? and id=? and grant_status='ACTIVE' and expiry_dead_lettered_at is null
-                        """, next, message, due.tenantId(), due.grantId());
+                        """,
+                        next,
+                        message,
+                        due.tenantId(),
+                        due.grantId());
                 if (changed != 1) throw new IllegalStateException("P002 expiry DLQ state changed concurrently");
-                jdbc.update("""
+                jdbc.update(
+                        """
                         insert into integration.dead_letter(id,tenant_id,source_type,source_id,payload,error_code,error_message,status)
                         select ?,?,'P002_AUTO_EXPIRE',?,cast(? as jsonb),?,?,'OPEN'
                         where not exists (
                             select 1 from integration.dead_letter d
                              where d.tenant_id=? and d.source_type='P002_AUTO_EXPIRE'
                                and d.source_id=? and not d.is_deleted)
-                        """, UUID.randomUUID(), due.tenantId(), due.grantId().toString(), deadLetterPayload(due),
-                        failure.getClass().getSimpleName(), message,
-                        due.tenantId(), due.grantId().toString());
+                        """,
+                        UUID.randomUUID(),
+                        due.tenantId(),
+                        due.grantId().toString(),
+                        deadLetterPayload(due),
+                        failure.getClass().getSimpleName(),
+                        message,
+                        due.tenantId(),
+                        due.grantId().toString());
                 audit.appendCriticalOperation(new PlatformAuditWriter.OperationCommand(
-                        due.tenantId(), null, null, "P002_AUTO_EXPIRE_DEAD_LETTER", AGGREGATE_TYPE,
-                        due.requestId(), "p002-expiry-dlq:" + due.grantId()));
+                        due.tenantId(),
+                        null,
+                        null,
+                        "P002_AUTO_EXPIRE_DEAD_LETTER",
+                        AGGREGATE_TYPE,
+                        due.requestId(),
+                        "p002-expiry-dlq:" + due.grantId()));
             } else {
                 long delay = retryDelayMillis(next, baseBackoffMs, maxBackoffMs);
-                int changed = jdbc.update("""
+                int changed = jdbc.update(
+                        """
                         update iam.permission_request_grant
                            set expiry_retry_count=?,expiry_next_attempt_at=now() + (? * interval '1 millisecond'),
                                expiry_last_error=?,updated_by=null,updated_at=now()
                          where tenant_id=? and id=? and grant_status='ACTIVE' and expiry_dead_lettered_at is null
-                        """, next, delay, message, due.tenantId(), due.grantId());
+                        """,
+                        next,
+                        delay,
+                        message,
+                        due.tenantId(),
+                        due.grantId());
                 if (changed != 1) throw new IllegalStateException("P002 expiry retry state changed concurrently");
             }
             return null;
@@ -249,7 +324,9 @@ public final class Phase09P002ExpiryWorker {
         ObjectNode payload = mapper.createObjectNode();
         payload.put("grantId", due.grantId().toString());
         payload.put("requestId", due.requestId().toString());
-        payload.put("workflowInstanceId", due.workflowInstanceId() == null ? "" : due.workflowInstanceId().toString());
+        payload.put(
+                "workflowInstanceId",
+                due.workflowInstanceId() == null ? "" : due.workflowInstanceId().toString());
         payload.put("effectiveEndAt", due.effectiveEndAt().toString());
         return json(payload);
     }
@@ -270,7 +347,8 @@ public final class Phase09P002ExpiryWorker {
     }
 
     private List<UUID> activeTenants() {
-        return jdbc.query("select id from core.tenant where status='ACTIVE' order by id",
+        return jdbc.query(
+                "select id from core.tenant where status='ACTIVE' order by id",
                 (rs, row) -> rs.getObject("id", UUID.class));
     }
 
@@ -287,8 +365,17 @@ public final class Phase09P002ExpiryWorker {
     }
 
     private record DueGrant(
-            UUID tenantId, UUID grantId, UUID requestId, UUID workflowInstanceId, String businessNo,
-            int requestVersion, String requestStatus, UUID userRoleId, OffsetDateTime effectiveEndAt,
-            UUID ownerEmployeeId, int retryCount) {}
+            UUID tenantId,
+            UUID grantId,
+            UUID requestId,
+            UUID workflowInstanceId,
+            String businessNo,
+            int requestVersion,
+            String requestStatus,
+            UUID userRoleId,
+            OffsetDateTime effectiveEndAt,
+            UUID ownerEmployeeId,
+            int retryCount) {}
+
     private record RetryState(String grantStatus, int retryCount, OffsetDateTime deadLetteredAt) {}
 }

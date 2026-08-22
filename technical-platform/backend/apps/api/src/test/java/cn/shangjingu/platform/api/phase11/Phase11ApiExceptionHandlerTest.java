@@ -24,8 +24,8 @@ class Phase11ApiExceptionHandlerTest {
 
     @Test
     void workflowNotFoundIs404() {
-        ResponseEntity<Map<String, Object>> response = handler.workflow(
-                new WorkflowException(WorkflowException.Code.NOT_FOUND, "task not found"));
+        ResponseEntity<Map<String, Object>> response =
+                handler.workflow(new WorkflowException(WorkflowException.Code.NOT_FOUND, "task not found"));
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
         assertEquals("WORKFLOW_NOT_FOUND", response.getBody().get("code"));
     }
@@ -34,8 +34,7 @@ class Phase11ApiExceptionHandlerTest {
     void missingAggregateIs404AndBadInputIs400() {
         assertEquals(
                 HttpStatus.NOT_FOUND,
-                handler.invalidArgument(
-                                new IllegalArgumentException("P011 performance cycle not found"))
+                handler.invalidArgument(new IllegalArgumentException("P011 performance cycle not found"))
                         .getStatusCode());
         assertEquals(
                 HttpStatus.BAD_REQUEST,

@@ -41,8 +41,10 @@ import org.testcontainers.utility.DockerImageName;
 class Phase04ApiSecurityIntegrationTest {
     private static final String POSTGRES_IMAGE = "postgres:16.14-alpine3.24";
     private static final DockerImageName REDIS_IMAGE = DockerImageName.parse("redis:7.4-alpine");
-    private static final String API_PASSWORD = "c6_api_" + UUID.randomUUID().toString().replace("-", "");
-    private static final String AUDIT_PASSWORD = "c6_audit_" + UUID.randomUUID().toString().replace("-", "");
+    private static final String API_PASSWORD =
+            "c6_api_" + UUID.randomUUID().toString().replace("-", "");
+    private static final String AUDIT_PASSWORD =
+            "c6_audit_" + UUID.randomUUID().toString().replace("-", "");
     private static final String LOGIN_SECRET = "Synthetic-C6-Login-7f3d!";
 
     private static final UUID TENANT = UUID.fromString("00000000-0000-0000-0000-000000000341");
@@ -81,8 +83,11 @@ class Phase04ApiSecurityIntegrationTest {
         }
     }
 
-    @Autowired MockMvc mockMvc;
-    @Autowired ObjectMapper objectMapper;
+    @Autowired
+    MockMvc mockMvc;
+
+    @Autowired
+    ObjectMapper objectMapper;
 
     @DynamicPropertySource
     static void properties(DynamicPropertyRegistry registry) {
@@ -107,8 +112,7 @@ class Phase04ApiSecurityIntegrationTest {
 
     @Test
     void httpSecurityIsOpaqueDenyByDefaultAuditedAndSwitchesAuthorizationContext() throws Exception {
-        mockMvc.perform(get("/api/v1/session"))
-                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/v1/session")).andExpect(status().isUnauthorized());
 
         mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -120,8 +124,7 @@ class Phase04ApiSecurityIntegrationTest {
                 .andExpect(status().isUnauthorized());
 
         TokenPair initial = login(IDENTITY_A);
-        mockMvc.perform(get("/api/v1/session")
-                        .header("Authorization", bearer(initial.accessToken())))
+        mockMvc.perform(get("/api/v1/session").header("Authorization", bearer(initial.accessToken())))
                 .andExpect(status().isOk());
 
         MvcResult refresh = mockMvc.perform(post("/api/v1/auth/refresh")
@@ -131,8 +134,7 @@ class Phase04ApiSecurityIntegrationTest {
                 .andReturn();
         TokenPair rotated = tokens(refresh);
 
-        mockMvc.perform(get("/api/v1/session")
-                        .header("Authorization", bearer(initial.accessToken())))
+        mockMvc.perform(get("/api/v1/session").header("Authorization", bearer(initial.accessToken())))
                 .andExpect(status().isUnauthorized());
 
         mockMvc.perform(post("/api/v1/step-up/tickets")
@@ -144,8 +146,7 @@ class Phase04ApiSecurityIntegrationTest {
                                 "assertion", "synthetic-provider-not-configured"))))
                 .andExpect(status().isForbidden());
 
-        mockMvc.perform(get("/api/v1/not-defined")
-                        .header("Authorization", bearer(rotated.accessToken())))
+        mockMvc.perform(get("/api/v1/not-defined").header("Authorization", bearer(rotated.accessToken())))
                 .andExpect(status().isForbidden());
 
         MvcResult switchedResult = mockMvc.perform(post("/api/v1/session/switch")
@@ -156,24 +157,19 @@ class Phase04ApiSecurityIntegrationTest {
                 .andReturn();
         TokenPair switched = tokens(switchedResult);
 
-        mockMvc.perform(get("/api/v1/session")
-                        .header("Authorization", bearer(rotated.accessToken())))
+        mockMvc.perform(get("/api/v1/session").header("Authorization", bearer(rotated.accessToken())))
                 .andExpect(status().isUnauthorized());
-        mockMvc.perform(get("/api/v1/session")
-                        .header("Authorization", bearer(switched.accessToken())))
+        mockMvc.perform(get("/api/v1/session").header("Authorization", bearer(switched.accessToken())))
                 .andExpect(status().isForbidden());
 
-        mockMvc.perform(post("/api/v1/auth/logout")
-                        .header("Authorization", bearer(switched.accessToken())))
+        mockMvc.perform(post("/api/v1/auth/logout").header("Authorization", bearer(switched.accessToken())))
                 .andExpect(status().isNoContent());
-        mockMvc.perform(get("/api/v1/session")
-                        .header("Authorization", bearer(switched.accessToken())))
+        mockMvc.perform(get("/api/v1/session").header("Authorization", bearer(switched.accessToken())))
                 .andExpect(status().isUnauthorized());
 
         TokenPair expiring = login(IDENTITY_A);
         Thread.sleep(Duration.ofMillis(2600).toMillis());
-        mockMvc.perform(get("/api/v1/session")
-                        .header("Authorization", bearer(expiring.accessToken())))
+        mockMvc.perform(get("/api/v1/session").header("Authorization", bearer(expiring.accessToken())))
                 .andExpect(status().isUnauthorized());
 
         MvcResult recoveredResult = mockMvc.perform(post("/api/v1/auth/refresh")
@@ -182,19 +178,20 @@ class Phase04ApiSecurityIntegrationTest {
                 .andExpect(status().isOk())
                 .andReturn();
         TokenPair recovered = tokens(recoveredResult);
-        mockMvc.perform(get("/api/v1/session")
-                        .header("Authorization", bearer(recovered.accessToken())))
+        mockMvc.perform(get("/api/v1/session").header("Authorization", bearer(recovered.accessToken())))
                 .andExpect(status().isOk());
-        mockMvc.perform(post("/api/v1/auth/logout")
-                        .header("Authorization", bearer(recovered.accessToken())))
+        mockMvc.perform(post("/api/v1/auth/logout").header("Authorization", bearer(recovered.accessToken())))
                 .andExpect(status().isNoContent());
 
         JdbcTemplate audit = auditJdbc(POSTGRES.getUsername(), POSTGRES.getPassword());
-        Integer operationCount = audit.queryForObject("""
+        Integer operationCount = audit.queryForObject(
+                """
                 select count(*) from audit.operation_log
                 where tenant_id=? and action in (
                     'LOGIN_SUCCESS','SESSION_REFRESH','SESSION_SWITCH','SESSION_LOGOUT','STEP_UP_REJECTED')
-                """, Integer.class, TENANT);
+                """,
+                Integer.class,
+                TENANT);
         assertTrue(operationCount != null && operationCount >= 7, "critical IAM operations must be append-audited");
 
         assertTrue(countSecurityEvent(audit, "LOGIN_REJECTED") >= 1);
@@ -207,18 +204,24 @@ class Phase04ApiSecurityIntegrationTest {
         assertRawCredentialAbsent(audit, recovered.refreshToken());
 
         JdbcTemplate auditWriter = auditJdbc("sjg_audit_writer", AUDIT_PASSWORD);
-        assertThrows(DataAccessException.class, () -> auditWriter.update(
-                "update audit.operation_log set action=? where tenant_id=?", "MUTATED", TENANT));
+        assertThrows(
+                DataAccessException.class,
+                () -> auditWriter.update(
+                        "update audit.operation_log set action=? where tenant_id=?", "MUTATED", TENANT));
     }
 
     private TokenPair login(UUID identityId) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsBytes(Map.of(
-                                "tenantCode", "PHASE04_C6",
-                                "loginName", "phase04.c6.user",
-                                "password", LOGIN_SECRET,
-                                "identityId", identityId))))
+                                "tenantCode",
+                                "PHASE04_C6",
+                                "loginName",
+                                "phase04.c6.user",
+                                "password",
+                                LOGIN_SECRET,
+                                "identityId",
+                                identityId))))
                 .andExpect(status().isOk())
                 .andReturn();
         return tokens(result);
@@ -226,7 +229,8 @@ class Phase04ApiSecurityIntegrationTest {
 
     private TokenPair tokens(MvcResult result) throws Exception {
         JsonNode body = objectMapper.readTree(result.getResponse().getContentAsByteArray());
-        return new TokenPair(body.get("accessToken").asText(), body.get("refreshToken").asText());
+        return new TokenPair(
+                body.get("accessToken").asText(), body.get("refreshToken").asText());
     }
 
     private static String bearer(String token) {
@@ -274,7 +278,7 @@ class Phase04ApiSecurityIntegrationTest {
                 .migrate();
         try (Connection connection = DriverManager.getConnection(
                         POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
-             Statement statement = connection.createStatement()) {
+                Statement statement = connection.createStatement()) {
             statement.execute("ALTER ROLE sjg_api_runtime PASSWORD '" + API_PASSWORD + "'");
             statement.execute("ALTER ROLE sjg_audit_writer PASSWORD '" + AUDIT_PASSWORD + "'");
             statement.execute("CREATE DATABASE sjg_oms");
@@ -307,18 +311,67 @@ class Phase04ApiSecurityIntegrationTest {
         String passwordHash = new BCryptPasswordEncoder(12).encode(LOGIN_SECRET);
         try (Connection connection = DriverManager.getConnection(
                         jdbcUrl(POSTGRES, "sjg_oms"), POSTGRES.getUsername(), POSTGRES.getPassword());
-             Statement statement = connection.createStatement()) {
-            statement.execute("INSERT INTO org.organization(id,tenant_id,org_code,org_name,org_type,path,status) VALUES ('" + CENTER_A + "','" + TENANT + "','PHASE04_C6_CENTER_A','Synthetic Center A','CENTER','phase04_c6_center_a'::ltree,'ACTIVE'),('" + CENTER_B + "','" + TENANT + "','PHASE04_C6_CENTER_B','Synthetic Center B','CENTER','phase04_c6_center_b'::ltree,'ACTIVE')");
-            statement.execute("INSERT INTO org.position(id,tenant_id,position_code,position_name,org_id,status) VALUES ('" + POSITION_A + "','" + TENANT + "','PHASE04_C6_POS_A','Synthetic Position A','" + CENTER_A + "','ACTIVE'),('" + POSITION_B + "','" + TENANT + "','PHASE04_C6_POS_B','Synthetic Position B','" + CENTER_B + "','ACTIVE')");
-            statement.execute("INSERT INTO org.employee(id,tenant_id,employee_no,person_name,employment_status,hire_date,primary_org_id,primary_position_id) VALUES ('" + EMPLOYEE + "','" + TENANT + "','PHASE04-C6-E001','Synthetic API User','ACTIVE',current_date-10,'" + CENTER_A + "','" + POSITION_A + "')");
-            statement.execute("INSERT INTO org.employee_position(id,tenant_id,employee_id,position_id,org_id,is_primary,effective_start_date,status) VALUES ('" + APPOINTMENT_A + "','" + TENANT + "','" + EMPLOYEE + "','" + POSITION_A + "','" + CENTER_A + "',true,current_date-10,'ACTIVE'),('" + APPOINTMENT_B + "','" + TENANT + "','" + EMPLOYEE + "','" + POSITION_B + "','" + CENTER_B + "',false,current_date-5,'ACTIVE')");
-            statement.execute("INSERT INTO iam.user_account(id,tenant_id,login_name,password_hash,status,mfa_level) VALUES ('" + USER + "','" + TENANT + "','phase04.c6.user','" + passwordHash + "','ACTIVE',0)");
-            statement.execute("INSERT INTO iam.user_identity(id,tenant_id,user_id,employee_id,identity_type,identity_name,org_id,position_id,is_primary,effective_start_at) VALUES ('" + IDENTITY_A + "','" + TENANT + "','" + USER + "','" + EMPLOYEE + "','EMPLOYEE','Synthetic C6 Identity A','" + CENTER_A + "','" + POSITION_A + "',true,now()-interval '1 day'),('" + IDENTITY_B + "','" + TENANT + "','" + USER + "','" + EMPLOYEE + "','EMPLOYEE','Synthetic C6 Identity B','" + CENTER_B + "','" + POSITION_B + "',false,now()-interval '1 day')");
-            statement.execute("INSERT INTO iam.data_scope_rule(tenant_id,scope_code,scope_name,rule_expr,enabled) VALUES ('" + TENANT + "','PHASE04_C6_CENTER','C6 Center Scope','{\"scope\":\"CENTER\"}'::jsonb,true)");
-            statement.execute("INSERT INTO iam.role(id,tenant_id,role_code,role_name,role_type,data_scope_code,enabled) VALUES ('" + ROLE_A + "','" + TENANT + "','PHASE04_C6_ROLE_A','C6 Identity A Role','PLATFORM','PHASE04_C6_CENTER',true),('" + ROLE_B + "','" + TENANT + "','PHASE04_C6_ROLE_B','C6 Identity B Role','PLATFORM','PHASE04_C6_CENTER',true)");
-            statement.execute("INSERT INTO iam.permission(id,tenant_id,permission_code,permission_name,resource_type,action_code,risk_level) VALUES ('" + PERMISSION_READ + "','" + TENANT + "','platform.session.read','Read current session','SESSION','READ','NORMAL'),('" + PERMISSION_SWITCH + "','" + TENANT + "','platform.session.switch','Switch current identity','SESSION','SWITCH','HIGH'),('" + PERMISSION_LOGOUT + "','" + TENANT + "','platform.session.logout','Logout current session','SESSION','LOGOUT','NORMAL'),('" + PERMISSION_STEP_UP + "','" + TENANT + "','platform.stepup.issue','Issue Step-Up ticket','SECURITY','STEP_UP','HIGH')");
-            statement.execute("INSERT INTO iam.role_permission(tenant_id,role_id,permission_id) VALUES ('" + TENANT + "','" + ROLE_A + "','" + PERMISSION_READ + "'),('" + TENANT + "','" + ROLE_A + "','" + PERMISSION_SWITCH + "'),('" + TENANT + "','" + ROLE_A + "','" + PERMISSION_LOGOUT + "'),('" + TENANT + "','" + ROLE_A + "','" + PERMISSION_STEP_UP + "'),('" + TENANT + "','" + ROLE_B + "','" + PERMISSION_LOGOUT + "')");
-            statement.execute("INSERT INTO iam.user_role(tenant_id,user_id,identity_id,role_id,effective_start_at,grant_source) VALUES ('" + TENANT + "','" + USER + "','" + IDENTITY_A + "','" + ROLE_A + "',now()-interval '1 day','TEST_ONLY'),('" + TENANT + "','" + USER + "','" + IDENTITY_B + "','" + ROLE_B + "',now()-interval '1 day','TEST_ONLY')");
+                Statement statement = connection.createStatement()) {
+            statement.execute(
+                    "INSERT INTO org.organization(id,tenant_id,org_code,org_name,org_type,path,status) VALUES ('"
+                            + CENTER_A + "','" + TENANT
+                            + "','PHASE04_C6_CENTER_A','Synthetic Center A','CENTER','phase04_c6_center_a'::ltree,'ACTIVE'),('"
+                            + CENTER_B + "','" + TENANT
+                            + "','PHASE04_C6_CENTER_B','Synthetic Center B','CENTER','phase04_c6_center_b'::ltree,'ACTIVE')");
+            statement.execute(
+                    "INSERT INTO org.position(id,tenant_id,position_code,position_name,org_id,status) VALUES ('"
+                            + POSITION_A + "','" + TENANT + "','PHASE04_C6_POS_A','Synthetic Position A','" + CENTER_A
+                            + "','ACTIVE'),('" + POSITION_B + "','" + TENANT
+                            + "','PHASE04_C6_POS_B','Synthetic Position B','" + CENTER_B + "','ACTIVE')");
+            statement.execute(
+                    "INSERT INTO org.employee(id,tenant_id,employee_no,person_name,employment_status,hire_date,primary_org_id,primary_position_id) VALUES ('"
+                            + EMPLOYEE + "','" + TENANT
+                            + "','PHASE04-C6-E001','Synthetic API User','ACTIVE',current_date-10,'" + CENTER_A + "','"
+                            + POSITION_A + "')");
+            statement.execute(
+                    "INSERT INTO org.employee_position(id,tenant_id,employee_id,position_id,org_id,is_primary,effective_start_date,status) VALUES ('"
+                            + APPOINTMENT_A + "','" + TENANT + "','" + EMPLOYEE + "','" + POSITION_A + "','" + CENTER_A
+                            + "',true,current_date-10,'ACTIVE'),('" + APPOINTMENT_B + "','" + TENANT + "','" + EMPLOYEE
+                            + "','" + POSITION_B + "','" + CENTER_B + "',false,current_date-5,'ACTIVE')");
+            statement.execute(
+                    "INSERT INTO iam.user_account(id,tenant_id,login_name,password_hash,status,mfa_level) VALUES ('"
+                            + USER + "','" + TENANT + "','phase04.c6.user','" + passwordHash + "','ACTIVE',0)");
+            statement.execute(
+                    "INSERT INTO iam.user_identity(id,tenant_id,user_id,employee_id,identity_type,identity_name,org_id,position_id,is_primary,effective_start_at) VALUES ('"
+                            + IDENTITY_A + "','" + TENANT + "','" + USER + "','" + EMPLOYEE
+                            + "','EMPLOYEE','Synthetic C6 Identity A','" + CENTER_A + "','" + POSITION_A
+                            + "',true,now()-interval '1 day'),('" + IDENTITY_B + "','" + TENANT + "','" + USER + "','"
+                            + EMPLOYEE + "','EMPLOYEE','Synthetic C6 Identity B','" + CENTER_B + "','" + POSITION_B
+                            + "',false,now()-interval '1 day')");
+            statement.execute(
+                    "INSERT INTO iam.data_scope_rule(tenant_id,scope_code,scope_name,rule_expr,enabled) VALUES ('"
+                            + TENANT + "','PHASE04_C6_CENTER','C6 Center Scope','{\"scope\":\"CENTER\"}'::jsonb,true)");
+            statement.execute(
+                    "INSERT INTO iam.role(id,tenant_id,role_code,role_name,role_type,data_scope_code,enabled) VALUES ('"
+                            + ROLE_A + "','" + TENANT
+                            + "','PHASE04_C6_ROLE_A','C6 Identity A Role','PLATFORM','PHASE04_C6_CENTER',true),('"
+                            + ROLE_B + "','" + TENANT
+                            + "','PHASE04_C6_ROLE_B','C6 Identity B Role','PLATFORM','PHASE04_C6_CENTER',true)");
+            statement.execute(
+                    "INSERT INTO iam.permission(id,tenant_id,permission_code,permission_name,resource_type,action_code,risk_level) VALUES ('"
+                            + PERMISSION_READ + "','" + TENANT
+                            + "','platform.session.read','Read current session','SESSION','READ','NORMAL'),('"
+                            + PERMISSION_SWITCH + "','" + TENANT
+                            + "','platform.session.switch','Switch current identity','SESSION','SWITCH','HIGH'),('"
+                            + PERMISSION_LOGOUT + "','" + TENANT
+                            + "','platform.session.logout','Logout current session','SESSION','LOGOUT','NORMAL'),('"
+                            + PERMISSION_STEP_UP + "','" + TENANT
+                            + "','platform.stepup.issue','Issue Step-Up ticket','SECURITY','STEP_UP','HIGH')");
+            statement.execute("INSERT INTO iam.role_permission(tenant_id,role_id,permission_id) VALUES ('" + TENANT
+                    + "','" + ROLE_A + "','" + PERMISSION_READ + "'),('" + TENANT + "','" + ROLE_A + "','"
+                    + PERMISSION_SWITCH + "'),('" + TENANT + "','" + ROLE_A + "','" + PERMISSION_LOGOUT + "'),('"
+                    + TENANT + "','" + ROLE_A + "','" + PERMISSION_STEP_UP + "'),('" + TENANT + "','" + ROLE_B + "','"
+                    + PERMISSION_LOGOUT + "')");
+            statement.execute(
+                    "INSERT INTO iam.user_role(tenant_id,user_id,identity_id,role_id,effective_start_at,grant_source) VALUES ('"
+                            + TENANT + "','" + USER + "','" + IDENTITY_A + "','" + ROLE_A
+                            + "',now()-interval '1 day','TEST_ONLY'),('" + TENANT + "','" + USER + "','" + IDENTITY_B
+                            + "','" + ROLE_B + "',now()-interval '1 day','TEST_ONLY')");
         }
     }
 
@@ -333,7 +386,8 @@ class Phase04ApiSecurityIntegrationTest {
     private static Path findRepoRoot() {
         Path current = Path.of(System.getProperty("user.dir")).toAbsolutePath().normalize();
         while (current != null) {
-            if (Files.isRegularFile(current.resolve("AGENT.md")) && Files.isDirectory(current.resolve("Knowledge Base"))) {
+            if (Files.isRegularFile(current.resolve("AGENT.md"))
+                    && Files.isDirectory(current.resolve("Knowledge Base"))) {
                 return current;
             }
             current = current.getParent();
@@ -341,6 +395,5 @@ class Phase04ApiSecurityIntegrationTest {
         throw new IllegalStateException("repository root not found");
     }
 
-    private record TokenPair(String accessToken, String refreshToken) {
-    }
+    private record TokenPair(String accessToken, String refreshToken) {}
 }

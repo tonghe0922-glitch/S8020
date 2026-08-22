@@ -9,7 +9,8 @@ public final class SequentialStateMachine {
 
     public SequentialStateMachine(List<String> states) {
         Objects.requireNonNull(states, "states");
-        if (states.isEmpty() || states.stream().anyMatch(state -> state == null || state.isBlank() || CLOSED.equals(state))) {
+        if (states.isEmpty()
+                || states.stream().anyMatch(state -> state == null || state.isBlank() || CLOSED.equals(state))) {
             throw new IllegalArgumentException("states must be non-empty and must not contain CLOSED");
         }
         if (states.stream().distinct().count() != states.size()) {

@@ -34,7 +34,8 @@ class Phase05CanonicalWorkflowDatabaseIT {
                 .withPassword("phase05-canonical-test-only");
         postgres.start();
         migrate("postgres", "cluster", null);
-        try (Connection connection = connection("postgres"); Statement statement = connection.createStatement()) {
+        try (Connection connection = connection("postgres");
+                Statement statement = connection.createStatement()) {
             statement.execute("CREATE DATABASE sjg_oms");
         }
         migrate("sjg_oms", "oms", "oms");
@@ -47,50 +48,63 @@ class Phase05CanonicalWorkflowDatabaseIT {
 
     @Test
     void publishedVersionAndGraphAreImmutableInPostgres() throws Exception {
-        UUID definitionId = scalarUuid("select id from workflow.wf_definition where tenant_id='" + TENANT_ID
-                + "' and process_code='P001'");
+        UUID definitionId = scalarUuid(
+                "select id from workflow.wf_definition where tenant_id='" + TENANT_ID + "' and process_code='P001'");
         UUID versionId = UUID.randomUUID();
         UUID startNodeId = UUID.randomUUID();
         UUID endNodeId = UUID.randomUUID();
         UUID transitionId = UUID.randomUUID();
 
-        execute("insert into workflow.wf_version(id,tenant_id,definition_id,version_no,status,definition_json,checksum) values ('"
-                + versionId + "','" + TENANT_ID + "','" + definitionId + "',9001,'DRAFT','{}'::jsonb,'draft-checksum')");
+        execute(
+                "insert into workflow.wf_version(id,tenant_id,definition_id,version_no,status,definition_json,checksum) values ('"
+                        + versionId + "','" + TENANT_ID + "','" + definitionId
+                        + "',9001,'DRAFT','{}'::jsonb,'draft-checksum')");
         execute("insert into workflow.wf_node(id,tenant_id,version_id,node_code,node_name,node_type,sort_no) values ('"
                 + startNodeId + "','" + TENANT_ID + "','" + versionId + "','START','Start','START',10)");
         execute("insert into workflow.wf_node(id,tenant_id,version_id,node_code,node_name,node_type,sort_no) values ('"
                 + endNodeId + "','" + TENANT_ID + "','" + versionId + "','DONE','Done','END',20)");
-        execute("insert into workflow.wf_transition(id,tenant_id,version_id,from_node_code,action_code,to_node_code,is_rollback) values ('"
-                + transitionId + "','" + TENANT_ID + "','" + versionId + "','START','SUBMIT','DONE',false)");
-        execute("update workflow.wf_version set status='PUBLISHED',effective_at=now(),checksum='published-checksum' where id='"
-                + versionId + "'");
+        execute(
+                "insert into workflow.wf_transition(id,tenant_id,version_id,from_node_code,action_code,to_node_code,is_rollback) values ('"
+                        + transitionId + "','" + TENANT_ID + "','" + versionId + "','START','SUBMIT','DONE',false)");
+        execute(
+                "update workflow.wf_version set status='PUBLISHED',effective_at=now(),checksum='published-checksum' where id='"
+                        + versionId + "'");
 
         assertSqlRejected("update workflow.wf_version set checksum='tampered' where id='" + versionId + "'");
         assertSqlRejected("delete from workflow.wf_version where id='" + versionId + "'");
-        assertSqlRejected("insert into workflow.wf_node(id,tenant_id,version_id,node_code,node_name,node_type,sort_no) values ('"
-                + UUID.randomUUID() + "','" + TENANT_ID + "','" + versionId + "','LATE','Late','TASK',30)");
+        assertSqlRejected(
+                "insert into workflow.wf_node(id,tenant_id,version_id,node_code,node_name,node_type,sort_no) values ('"
+                        + UUID.randomUUID() + "','" + TENANT_ID + "','" + versionId + "','LATE','Late','TASK',30)");
         assertSqlRejected("update workflow.wf_transition set action_code='ALTERED' where id='" + transitionId + "'");
         assertSqlRejected("delete from workflow.wf_node where id='" + startNodeId + "'");
 
         assertEquals("PUBLISHED", scalarString("select status from workflow.wf_version where id='" + versionId + "'"));
-        assertEquals("published-checksum", scalarString("select checksum from workflow.wf_version where id='" + versionId + "'"));
+        assertEquals(
+                "published-checksum",
+                scalarString("select checksum from workflow.wf_version where id='" + versionId + "'"));
         assertEquals(2L, scalarLong("select count(*) from workflow.wf_node where version_id='" + versionId + "'"));
     }
 
     @Test
     void definitionVersionAndNodeIdentityAreUniquePerTenant() throws Exception {
-        UUID definitionId = scalarUuid("select id from workflow.wf_definition where tenant_id='" + TENANT_ID
-                + "' and process_code='P002'");
+        UUID definitionId = scalarUuid(
+                "select id from workflow.wf_definition where tenant_id='" + TENANT_ID + "' and process_code='P002'");
         UUID versionId = UUID.randomUUID();
-        execute("insert into workflow.wf_version(id,tenant_id,definition_id,version_no,status,definition_json,checksum) values ('"
-                + versionId + "','" + TENANT_ID + "','" + definitionId + "',9002,'DRAFT','{}'::jsonb,'draft-checksum')");
-        assertSqlRejected("insert into workflow.wf_version(id,tenant_id,definition_id,version_no,status,definition_json,checksum) values ('"
-                + UUID.randomUUID() + "','" + TENANT_ID + "','" + definitionId + "',9002,'DRAFT','{}'::jsonb,'other-checksum')");
+        execute(
+                "insert into workflow.wf_version(id,tenant_id,definition_id,version_no,status,definition_json,checksum) values ('"
+                        + versionId + "','" + TENANT_ID + "','" + definitionId
+                        + "',9002,'DRAFT','{}'::jsonb,'draft-checksum')");
+        assertSqlRejected(
+                "insert into workflow.wf_version(id,tenant_id,definition_id,version_no,status,definition_json,checksum) values ('"
+                        + UUID.randomUUID() + "','" + TENANT_ID + "','" + definitionId
+                        + "',9002,'DRAFT','{}'::jsonb,'other-checksum')");
 
         execute("insert into workflow.wf_node(id,tenant_id,version_id,node_code,node_name,node_type,sort_no) values ('"
                 + UUID.randomUUID() + "','" + TENANT_ID + "','" + versionId + "','CHECK','Check','TASK',10)");
-        assertSqlRejected("insert into workflow.wf_node(id,tenant_id,version_id,node_code,node_name,node_type,sort_no) values ('"
-                + UUID.randomUUID() + "','" + TENANT_ID + "','" + versionId + "','CHECK','Duplicate','TASK',20)");
+        assertSqlRejected(
+                "insert into workflow.wf_node(id,tenant_id,version_id,node_code,node_name,node_type,sort_no) values ('"
+                        + UUID.randomUUID() + "','" + TENANT_ID + "','" + versionId
+                        + "','CHECK','Duplicate','TASK',20)");
     }
 
     private static void assertSqlRejected(String sql) {
@@ -99,30 +113,34 @@ class Phase05CanonicalWorkflowDatabaseIT {
     }
 
     private static void execute(String sql) throws SQLException {
-        try (Connection connection = connection("sjg_oms"); Statement statement = connection.createStatement()) {
+        try (Connection connection = connection("sjg_oms");
+                Statement statement = connection.createStatement()) {
             statement.execute(sql);
         }
     }
 
     private static String scalarString(String sql) throws SQLException {
-        try (Connection connection = connection("sjg_oms"); Statement statement = connection.createStatement();
-             ResultSet result = statement.executeQuery(sql)) {
+        try (Connection connection = connection("sjg_oms");
+                Statement statement = connection.createStatement();
+                ResultSet result = statement.executeQuery(sql)) {
             assertTrue(result.next());
             return result.getString(1);
         }
     }
 
     private static long scalarLong(String sql) throws SQLException {
-        try (Connection connection = connection("sjg_oms"); Statement statement = connection.createStatement();
-             ResultSet result = statement.executeQuery(sql)) {
+        try (Connection connection = connection("sjg_oms");
+                Statement statement = connection.createStatement();
+                ResultSet result = statement.executeQuery(sql)) {
             assertTrue(result.next());
             return result.getLong(1);
         }
     }
 
     private static UUID scalarUuid(String sql) throws SQLException {
-        try (Connection connection = connection("sjg_oms"); Statement statement = connection.createStatement();
-             ResultSet result = statement.executeQuery(sql)) {
+        try (Connection connection = connection("sjg_oms");
+                Statement statement = connection.createStatement();
+                ResultSet result = statement.executeQuery(sql)) {
             assertTrue(result.next());
             return result.getObject(1, UUID.class);
         }
@@ -130,9 +148,12 @@ class Phase05CanonicalWorkflowDatabaseIT {
 
     private static void migrate(String database, String generatedFolder, String overlayFolder) {
         var locations = new java.util.ArrayList<String>();
-        locations.add("filesystem:" + repoRoot.resolve("technical-platform/database/flyway").resolve(generatedFolder));
+        locations.add("filesystem:"
+                + repoRoot.resolve("technical-platform/database/flyway").resolve(generatedFolder));
         if (overlayFolder != null) {
-            locations.add("filesystem:" + repoRoot.resolve("technical-platform/database/flyway-overlays").resolve(overlayFolder));
+            locations.add("filesystem:"
+                    + repoRoot.resolve("technical-platform/database/flyway-overlays")
+                            .resolve(overlayFolder));
         }
         Flyway flyway = Flyway.configure()
                 .dataSource(jdbcUrl(database), postgres.getUsername(), postgres.getPassword())

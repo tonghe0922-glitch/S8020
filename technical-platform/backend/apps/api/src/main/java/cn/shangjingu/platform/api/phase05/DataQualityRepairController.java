@@ -25,7 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/phase05/data-quality/issues")
-public final class DataQualityRepairController {
+public class DataQualityRepairController {
     private static final String READ = "phase05.p020.read";
     private static final String WRITE = "phase05.p020.write";
     private static final String REPAIR = "phase05.p020.repair";
@@ -58,8 +58,7 @@ public final class DataQualityRepairController {
 
     @GetMapping("/{id}")
     public DataQualityRepairService.QualityIssue get(
-            @AuthenticationPrincipal SessionPrincipal principal,
-            @PathVariable UUID id) {
+            @AuthenticationPrincipal SessionPrincipal principal, @PathVariable UUID id) {
         require(authorization.authorizeAction(principal.context(), READ));
         return repairs.find(context(principal), id)
                 .orElseThrow(() -> new IllegalArgumentException("data-quality issue not found"));
@@ -67,8 +66,7 @@ public final class DataQualityRepairController {
 
     @GetMapping("/{id}/items")
     public List<DataQualityRepairService.QualityItem> items(
-            @AuthenticationPrincipal SessionPrincipal principal,
-            @PathVariable UUID id) {
+            @AuthenticationPrincipal SessionPrincipal principal, @PathVariable UUID id) {
         require(authorization.authorizeAction(principal.context(), READ));
         return repairs.items(context(principal), id);
     }
@@ -135,13 +133,16 @@ public final class DataQualityRepairController {
 
     private String hash(Object value) {
         try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(mapper.writeValueAsBytes(value)));
+            return HexFormat.of()
+                    .formatHex(MessageDigest.getInstance("SHA-256").digest(mapper.writeValueAsBytes(value)));
         } catch (JsonProcessingException | NoSuchAlgorithmException ex) {
             throw new IllegalArgumentException("request cannot be hashed", ex);
         }
     }
 
     public record StateRequest(int expectedVersion, String requestedStatus) {}
+
     public record VersionRequest(int expectedVersion) {}
+
     public record PlanRequest(int expectedVersion, Object plan) {}
 }

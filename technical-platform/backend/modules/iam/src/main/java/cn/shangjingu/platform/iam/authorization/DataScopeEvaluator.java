@@ -8,9 +8,9 @@ import java.util.regex.Pattern;
 import org.springframework.stereotype.Component;
 
 @Component
-public final class DataScopeEvaluator {
-    private static final Pattern SINGLE_SCOPE_RULE = Pattern.compile(
-            "\\{\\s*\\\"scope\\\"\\s*:\\s*\\\"([A-Z_]+)\\\"\\s*}");
+public class DataScopeEvaluator {
+    private static final Pattern SINGLE_SCOPE_RULE =
+            Pattern.compile("\\{\\s*\\\"scope\\\"\\s*:\\s*\\\"([A-Z_]+)\\\"\\s*}");
 
     public boolean allows(SessionContext subject, AuthorizationGrant grant, AuthorizationTarget target) {
         if (subject == null || grant == null || target == null) {

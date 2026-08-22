@@ -14,5 +14,4 @@ public record IdentityRecord(
         UUID positionId,
         boolean primary,
         OffsetDateTime effectiveStartAt,
-        OffsetDateTime effectiveEndAt) {
-}
+        OffsetDateTime effectiveEndAt) {}

@@ -10,7 +10,8 @@ public record PlatformTraceContext(String correlationId, String traceId) {
     }
 
     public static PlatformTraceContext create() {
-        return new PlatformTraceContext(UUID.randomUUID().toString(), UUID.randomUUID().toString());
+        return new PlatformTraceContext(
+                UUID.randomUUID().toString(), UUID.randomUUID().toString());
     }
 
     public static PlatformTraceContext fromNullable(String correlationId, String traceId) {

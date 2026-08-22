@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/authz/modules")
-public final class ModuleCatalogController {
+public class ModuleCatalogController {
     private final AuthzConfigurationService service;
     private final AuthzApiSupport support;
 
@@ -36,9 +36,7 @@ public final class ModuleCatalogController {
     }
 
     @GetMapping("/{moduleId}")
-    public ModuleView get(
-            @AuthenticationPrincipal SessionPrincipal principal,
-            @PathVariable UUID moduleId) {
+    public ModuleView get(@AuthenticationPrincipal SessionPrincipal principal, @PathVariable UUID moduleId) {
         support.requireRead(principal);
         ModuleView result = service.module(support.context(principal), moduleId);
         support.auditRead(principal, "AUTHZ_MODULE_READ", "iam.module", moduleId);
@@ -61,7 +59,11 @@ public final class ModuleCatalogController {
         support.requireWrite(principal, AuthzApiSupport.MODULE_MANAGE, stepUpTicket);
         Mutation<ModuleView> mutation = service.createModule(support.context(principal), command);
         support.auditMutation(
-                principal, "AUTHZ_MODULE_CREATED", "iam.module", mutation.after().id(), mutation);
+                principal,
+                "AUTHZ_MODULE_CREATED",
+                "iam.module",
+                mutation.after().id(),
+                mutation);
         return mutation.after();
     }
 
@@ -72,10 +74,8 @@ public final class ModuleCatalogController {
             @RequestHeader("X-Step-Up-Ticket") String stepUpTicket,
             @RequestBody ModuleCommand command) {
         support.requireWrite(principal, AuthzApiSupport.MODULE_MANAGE, stepUpTicket);
-        Mutation<ModuleView> mutation = service.updateModule(
-                support.context(principal), moduleId, command);
-        support.auditMutation(
-                principal, "AUTHZ_MODULE_UPDATED", "iam.module", moduleId, mutation);
+        Mutation<ModuleView> mutation = service.updateModule(support.context(principal), moduleId, command);
+        support.auditMutation(principal, "AUTHZ_MODULE_UPDATED", "iam.module", moduleId, mutation);
         return mutation.after();
     }
 }

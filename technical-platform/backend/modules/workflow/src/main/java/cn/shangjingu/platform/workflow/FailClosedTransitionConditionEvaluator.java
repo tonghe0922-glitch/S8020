@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.stereotype.Component;
 
 @Component
-public final class FailClosedTransitionConditionEvaluator implements TransitionConditionEvaluator {
+public class FailClosedTransitionConditionEvaluator implements TransitionConditionEvaluator {
     @Override
     public boolean matches(JsonNode conditionExpression, JsonNode contextSnapshot) {
         if (conditionExpression == null || conditionExpression.isNull()) return true;

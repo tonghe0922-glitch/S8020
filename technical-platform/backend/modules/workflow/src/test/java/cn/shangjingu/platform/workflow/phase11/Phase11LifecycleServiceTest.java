@@ -46,17 +46,10 @@ class Phase11LifecycleServiceTest {
         workflow = mock(Phase11WorkflowCoordinator.class);
         repository = mock(Phase11Repository.class);
         when(transactions.required(
-              any(DatabaseSecurityContext.class),
-              org.mockito.ArgumentMatchers.<Supplier<Object>>any()))
-      .thenAnswer(invocation -> invocation.<Supplier<?>>getArgument(1).get());
+                        any(DatabaseSecurityContext.class), org.mockito.ArgumentMatchers.<Supplier<Object>>any()))
+                .thenAnswer(invocation -> invocation.<Supplier<?>>getArgument(1).get());
         service = new Phase11LifecycleService(
-                transactions,
-                idempotency,
-                numbers,
-                outbox,
-                workflow,
-                repository,
-                new ObjectMapper());
+                transactions, idempotency, numbers, outbox, workflow, repository, new ObjectMapper());
     }
 
     @Test
@@ -76,14 +69,8 @@ class Phase11LifecycleServiceTest {
                         any(UUID.class),
                         any()))
                 .thenReturn(new IdempotencyClaim(recordId, false));
-        when(numbers.next(actor.tenantId(), actor.employeeId(), "P011"))
-                .thenReturn("P011-202608150001");
-        when(workflow.start(
-                        eq(actor),
-                        eq(Phase11Process.P011),
-                        any(),
-                        eq(data),
-                        eq("p011-create")))
+        when(numbers.next(actor.tenantId(), actor.employeeId(), "P011")).thenReturn("P011-202608150001");
+        when(workflow.start(eq(actor), eq(Phase11Process.P011), any(), eq(data), eq("p011-create")))
                 .thenReturn(new Phase11WorkflowCoordinator.Started(workflowId, "S02"));
         when(repository.bindWorkflow(
                         eq(Phase11Process.P011),
@@ -96,16 +83,13 @@ class Phase11LifecycleServiceTest {
                         eq(actor.employeeId())))
                 .thenReturn(1);
         Phase11Record created = record(recordId, actor, workflowId, "S02", 1);
-        when(repository.find(Phase11Process.P011, actor.tenantId(), recordId))
-                .thenReturn(Optional.of(created));
+        when(repository.find(Phase11Process.P011, actor.tenantId(), recordId)).thenReturn(Optional.of(created));
 
-        Phase11Record result = service.create(
-                actor, Phase11Process.P011, "p011-create", "hash", data);
+        Phase11Record result = service.create(actor, Phase11Process.P011, "p011-create", "hash", data);
 
         assertEquals(created, result);
         ArgumentCaptor<Phase11Record> inserted = ArgumentCaptor.forClass(Phase11Record.class);
-        verify(repository).insert(
-                eq(Phase11Process.P011), inserted.capture(), eq(data), eq(actor.employeeId()));
+        verify(repository).insert(eq(Phase11Process.P011), inserted.capture(), eq(data), eq(actor.employeeId()));
         assertEquals(recordId, inserted.getValue().id());
         assertEquals("S01", inserted.getValue().currentNodeCode());
         verify(outbox).enqueue(any(TransactionalOutboxService.Command.class));
@@ -116,8 +100,7 @@ class Phase11LifecycleServiceTest {
         DatabaseSecurityContext actor = context();
         UUID cycleId = UUID.randomUUID();
         Phase11Record current = record(cycleId, actor, UUID.randomUUID(), "S07", 5);
-        when(repository.find(Phase11Process.P011, actor.tenantId(), cycleId))
-                .thenReturn(Optional.of(current));
+        when(repository.find(Phase11Process.P011, actor.tenantId(), cycleId)).thenReturn(Optional.of(current));
         when(idempotency.claim(any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(new IdempotencyClaim(cycleId, false));
 
@@ -139,35 +122,19 @@ class Phase11LifecycleServiceTest {
         DatabaseSecurityContext owner = context();
         UUID cycleId = UUID.randomUUID();
         Phase11Record current = record(cycleId, owner, UUID.randomUUID(), "S05", 3);
-        when(repository.find(Phase11Process.P011, owner.tenantId(), cycleId))
-                .thenReturn(Optional.of(current));
+        when(repository.find(Phase11Process.P011, owner.tenantId(), cycleId)).thenReturn(Optional.of(current));
         when(idempotency.claim(any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(new IdempotencyClaim(cycleId, false));
 
         assertThrows(
                 ProcessRejectedException.class,
                 () -> service.submitPerformanceScore(
-                        owner,
-                        cycleId,
-                        "SUPERVISOR",
-                        850,
-                        "manager evidence",
-                        3,
-                        "p011-supervisor",
-                        "hash"));
+                        owner, cycleId, "SUPERVISOR", 850, "manager evidence", 3, "p011-supervisor", "hash"));
         assertThrows(
                 ProcessRejectedException.class,
                 () -> service.submitPerformanceScore(
-                        owner,
-                        cycleId,
-                        "EMPLOYEE",
-                        1001,
-                        "employee evidence",
-                        3,
-                        "p011-employee",
-                        "hash"));
-        verify(repository, never()).submitPerformanceScore(
-                any(), any(), anyInt(), any(), anyLong(), any(), any());
+                        owner, cycleId, "EMPLOYEE", 1001, "employee evidence", 3, "p011-employee", "hash"));
+        verify(repository, never()).submitPerformanceScore(any(), any(), anyInt(), any(), anyLong(), any(), any());
     }
 
     private static Phase11CreateData createData(UUID centerId, UUID employeeId) {
@@ -197,11 +164,7 @@ class Phase11LifecycleServiceTest {
     }
 
     private static Phase11Record record(
-            UUID id,
-            DatabaseSecurityContext actor,
-            UUID workflowId,
-            String node,
-            int version) {
+            UUID id, DatabaseSecurityContext actor, UUID workflowId, String node, int version) {
         return new Phase11Record(
                 id,
                 actor.tenantId(),

@@ -32,7 +32,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/workflow")
-public final class WorkflowRuntimeController {
+public class WorkflowRuntimeController {
     public static final String PERMISSION_START = "workflow.runtime.start";
     public static final String PERMISSION_READ = "workflow.runtime.read";
     public static final String PERMISSION_ACT = "workflow.runtime.act";
@@ -40,13 +40,27 @@ public final class WorkflowRuntimeController {
     public static final String PERMISSION_FORM_SUBMIT = "workflow.form.submit";
 
     private static final Set<String> START_FIELDS = Set.of(
-            "versionId", "businessObjectType", "businessObjectId", "businessObjectNo", "title", "priority", "contextSnapshot");
+            "versionId",
+            "businessObjectType",
+            "businessObjectId",
+            "businessObjectNo",
+            "title",
+            "priority",
+            "contextSnapshot");
     private static final Set<String> ACTION_FIELDS = Set.of("taskId", "expectedNodeCode", "actionCode", "reason");
-    private static final Set<String> SUBMIT_FIELDS = Set.of(
-            "instanceId", "taskId", "formDefinitionId", "expectedFormVersion", "values");
+    private static final Set<String> SUBMIT_FIELDS =
+            Set.of("instanceId", "taskId", "formDefinitionId", "expectedFormVersion", "values");
     private static final Set<String> VALUE_FIELDS = Set.of(
-            "fieldCode", "valueType", "valueText", "valueNumber", "valueDatetime", "valueBoolean",
-            "valueJson", "searchHash", "sensitiveLevel", "encrypted");
+            "fieldCode",
+            "valueType",
+            "valueText",
+            "valueNumber",
+            "valueDatetime",
+            "valueBoolean",
+            "valueJson",
+            "searchHash",
+            "sensitiveLevel",
+            "encrypted");
 
     private final WorkflowRuntimeService runtime;
     private final WorkflowTaskAssignmentService assignments;
@@ -79,16 +93,22 @@ public final class WorkflowRuntimeController {
         authorizeData(subject, PERMISSION_START, selfTarget(subject));
         audit.recordOperation(subject, "WORKFLOW_START_ATTEMPT", "workflow.wf_instance", null);
         return runtime.start(new WorkflowRuntimeService.StartCommand(
-                subject.tenantId(), subject.employeeId(), subject.identityId(), requiredUuid(body, "versionId"),
-                requiredText(body, "businessObjectType"), optionalUuid(body, "businessObjectId"),
-                optionalText(body, "businessObjectNo"), requiredText(body, "title"), optionalText(body, "priority"),
-                optionalNode(body, "contextSnapshot"), requiredText(idempotencyKey, "Idempotency-Key")));
+                subject.tenantId(),
+                subject.employeeId(),
+                subject.identityId(),
+                requiredUuid(body, "versionId"),
+                requiredText(body, "businessObjectType"),
+                optionalUuid(body, "businessObjectId"),
+                optionalText(body, "businessObjectNo"),
+                requiredText(body, "title"),
+                optionalText(body, "priority"),
+                optionalNode(body, "contextSnapshot"),
+                requiredText(idempotencyKey, "Idempotency-Key")));
     }
 
     @GetMapping("/instances/{instanceId}")
     public WorkflowRuntimeService.Result get(
-            @AuthenticationPrincipal SessionPrincipal principal,
-            @PathVariable UUID instanceId) {
+            @AuthenticationPrincipal SessionPrincipal principal, @PathVariable UUID instanceId) {
         SessionContext subject = subject(principal);
         authorizeAction(subject, PERMISSION_READ);
         WorkflowRuntimeService.Result result = runtime.get(subject.tenantId(), instanceId);
@@ -109,9 +129,14 @@ public final class WorkflowRuntimeController {
         authorizeData(subject, PERMISSION_ACT, runtimeTarget(current));
         audit.recordOperation(subject, "WORKFLOW_ACTION_ATTEMPT", "workflow.wf_instance", instanceId);
         return runtime.act(new WorkflowRuntimeService.ActionCommand(
-                subject.tenantId(), subject.employeeId(), subject.identityId(), instanceId,
-                optionalUuid(body, "taskId"), requiredText(body, "expectedNodeCode"),
-                requiredText(body, "actionCode"), optionalText(body, "reason"),
+                subject.tenantId(),
+                subject.employeeId(),
+                subject.identityId(),
+                instanceId,
+                optionalUuid(body, "taskId"),
+                requiredText(body, "expectedNodeCode"),
+                requiredText(body, "actionCode"),
+                optionalText(body, "reason"),
                 requiredText(idempotencyKey, "Idempotency-Key")));
     }
 
@@ -130,8 +155,8 @@ public final class WorkflowRuntimeController {
                     "workflow task is not the current task of the requested instance");
         }
         audit.recordOperation(subject, "WORKFLOW_TASK_CLAIM_ATTEMPT", "workflow.wf_task", taskId);
-        return assignments.claim(new WorkflowTaskAssignmentService.ClaimCommand(
-                subject.tenantId(), taskId, subject.employeeId()));
+        return assignments.claim(
+                new WorkflowTaskAssignmentService.ClaimCommand(subject.tenantId(), taskId, subject.employeeId()));
     }
 
     @PostMapping("/forms/submissions")
@@ -155,8 +180,7 @@ public final class WorkflowRuntimeController {
         if (current.task() != null) {
             if (taskId == null || !taskId.equals(current.task().id())) {
                 throw new WorkflowException(
-                        WorkflowException.Code.STALE_VERSION,
-                        "workflow form submission must bind the current task");
+                        WorkflowException.Code.STALE_VERSION, "workflow form submission must bind the current task");
             }
             if (current.task().assigneeId() == null) {
                 throw new WorkflowException(
@@ -165,15 +189,20 @@ public final class WorkflowRuntimeController {
             }
             if (!subject.employeeId().equals(current.task().assigneeId())) {
                 throw new WorkflowException(
-                        WorkflowException.Code.FORBIDDEN,
-                        "workflow form task belongs to a different assignee");
+                        WorkflowException.Code.FORBIDDEN, "workflow form task belongs to a different assignee");
             }
         }
         audit.recordOperation(subject, "WORKFLOW_FORM_SUBMIT_ATTEMPT", "workflow.wf_instance", instanceId);
         return forms.submit(new WorkflowFormService.SubmitForm(
-                subject.tenantId(), subject.employeeId(), subject.identityId(), instanceId, taskId,
-                requiredUuid(body, "formDefinitionId"), requiredInt(body, "expectedFormVersion"),
-                values(body.get("values")), requiredText(idempotencyKey, "Idempotency-Key")));
+                subject.tenantId(),
+                subject.employeeId(),
+                subject.identityId(),
+                instanceId,
+                taskId,
+                requiredUuid(body, "formDefinitionId"),
+                requiredInt(body, "expectedFormVersion"),
+                values(body.get("values")),
+                requiredText(idempotencyKey, "Idempotency-Key")));
     }
 
     private List<WorkflowFormService.FieldValue> values(JsonNode node) {
@@ -182,10 +211,15 @@ public final class WorkflowRuntimeController {
         for (JsonNode value : node) {
             rejectUnknown(value, VALUE_FIELDS, "workflow form field value");
             values.add(new WorkflowFormService.FieldValue(
-                    requiredText(value, "fieldCode"), requiredText(value, "valueType"), optionalText(value, "valueText"),
-                    optionalDecimal(value, "valueNumber"), optionalInstant(value, "valueDatetime"),
-                    optionalBoolean(value, "valueBoolean"), optionalNode(value, "valueJson"),
-                    optionalText(value, "searchHash"), optionalText(value, "sensitiveLevel"),
+                    requiredText(value, "fieldCode"),
+                    requiredText(value, "valueType"),
+                    optionalText(value, "valueText"),
+                    optionalDecimal(value, "valueNumber"),
+                    optionalInstant(value, "valueDatetime"),
+                    optionalBoolean(value, "valueBoolean"),
+                    optionalNode(value, "valueJson"),
+                    optionalText(value, "searchHash"),
+                    optionalText(value, "sensitiveLevel"),
                     requiredBoolean(value, "encrypted")));
         }
         return List.copyOf(values);

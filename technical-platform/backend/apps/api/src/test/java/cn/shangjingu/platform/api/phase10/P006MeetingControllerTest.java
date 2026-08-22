@@ -14,16 +14,11 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 class P006MeetingControllerTest {
-    private static final UUID TENANT =
-            UUID.fromString("00000000-0000-0000-0000-000000001010");
-    private static final UUID EMPLOYEE =
-            UUID.fromString("30000000-0000-0000-0000-000000001010");
-    private static final UUID MANAGER =
-            UUID.fromString("30000000-0000-0000-0000-000000001011");
-    private static final UUID CENTER =
-            UUID.fromString("10000000-0000-0000-0000-000000001010");
-    private static final UUID POSITION =
-            UUID.fromString("20000000-0000-0000-0000-000000001010");
+    private static final UUID TENANT = UUID.fromString("00000000-0000-0000-0000-000000001010");
+    private static final UUID EMPLOYEE = UUID.fromString("30000000-0000-0000-0000-000000001010");
+    private static final UUID MANAGER = UUID.fromString("30000000-0000-0000-0000-000000001011");
+    private static final UUID CENTER = UUID.fromString("10000000-0000-0000-0000-000000001010");
+    private static final UUID POSITION = UUID.fromString("20000000-0000-0000-0000-000000001010");
 
     @Test
     void participantActionUsesParticipantAsSelfScopeSubjectWithoutChangingMeetingOwner() {
@@ -39,12 +34,8 @@ class P006MeetingControllerTest {
         SessionPrincipal principal = new SessionPrincipal("token", context);
 
         var target = P006MeetingController.participantTarget(meeting(), principal);
-        var selfGrant = new AuthorizationGrant(
-                P006MeetingController.ACTION,
-                "NORMAL",
-                "SELF",
-                "{\"scope\":\"SELF\"}",
-                null);
+        var selfGrant =
+                new AuthorizationGrant(P006MeetingController.ACTION, "NORMAL", "SELF", "{\"scope\":\"SELF\"}", null);
 
         assertEquals(EMPLOYEE, target.employeeId());
         assertEquals(MANAGER, target.ownerEmployeeId());

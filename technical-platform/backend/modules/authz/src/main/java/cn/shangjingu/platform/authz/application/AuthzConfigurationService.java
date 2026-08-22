@@ -14,12 +14,11 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 
 @Service
-public final class AuthzConfigurationService {
+public class AuthzConfigurationService {
     private final TenantTransactionRunner transactions;
     private final AuthzConfigurationRepository repository;
 
-    public AuthzConfigurationService(
-            TenantTransactionRunner transactions, AuthzConfigurationRepository repository) {
+    public AuthzConfigurationService(TenantTransactionRunner transactions, AuthzConfigurationRepository repository) {
         this.transactions = transactions;
         this.repository = repository;
     }
@@ -41,8 +40,7 @@ public final class AuthzConfigurationService {
         return new Mutation<>(null, created);
     }
 
-    public Mutation<ModuleView> updateModule(
-            DatabaseSecurityContext actor, UUID moduleId, ModuleCommand command) {
+    public Mutation<ModuleView> updateModule(DatabaseSecurityContext actor, UUID moduleId, ModuleCommand command) {
         validate(command);
         return transactions.required(actor, () -> {
             repository.validateModuleReferences(actor.tenantId(), moduleId, command);
@@ -115,18 +113,16 @@ public final class AuthzConfigurationService {
         Objects.requireNonNull(command.orgId(), "orgId");
         Objects.requireNonNull(command.positionId(), "positionId");
         Instant at = command.effectiveAt() == null ? Instant.now() : command.effectiveAt();
-        Set<UUID> direct = command.directRoleIds() == null
-                ? Set.of()
-                : new LinkedHashSet<>(command.directRoleIds());
+        Set<UUID> direct = command.directRoleIds() == null ? Set.of() : new LinkedHashSet<>(command.directRoleIds());
         return transactions.required(actor, () -> {
             repository.validatePreviewContext(actor.tenantId(), command.orgId(), command.positionId());
-            Set<UUID> positionRoleIds = repository.activePositionRoleIds(
-                    actor.tenantId(), command.positionId(), at);
+            Set<UUID> positionRoleIds = repository.activePositionRoleIds(actor.tenantId(), command.positionId(), at);
             Set<UUID> allRoleIds = new LinkedHashSet<>(positionRoleIds);
             allRoleIds.addAll(direct);
             List<RoleView> roles = repository.roles(actor.tenantId(), allRoleIds);
             if (roles.size() != allRoleIds.size()) {
-                throw new IllegalArgumentException("one or more simulated roles are missing, disabled, or cross-tenant");
+                throw new IllegalArgumentException(
+                        "one or more simulated roles are missing, disabled, or cross-tenant");
             }
             List<RoleSource> sources = new ArrayList<>();
             for (RoleView role : roles) {
@@ -135,8 +131,7 @@ public final class AuthzConfigurationService {
                 String source = fromPosition && fromDirect
                         ? "POSITION+DIRECT_SIMULATION"
                         : fromPosition ? "POSITION" : "DIRECT_SIMULATION";
-                sources.add(new RoleSource(
-                        role.id(), role.roleCode(), role.roleName(), role.dataScopeCode(), source));
+                sources.add(new RoleSource(role.id(), role.roleCode(), role.roleName(), role.dataScopeCode(), source));
             }
             List<ModuleView> enabled = repository.enabledModules(actor.tenantId(), command.orgId(), at);
             List<PermissionFact> facts = repository.permissionFacts(actor.tenantId(), allRoleIds);

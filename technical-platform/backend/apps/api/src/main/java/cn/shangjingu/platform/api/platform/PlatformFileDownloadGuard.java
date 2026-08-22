@@ -21,9 +21,15 @@ public final class PlatformFileDownloadGuard implements FileDownloadGuard {
     private final JdbcSecurityAuditService audit;
     private final FileDownloadAuthorizationTargetResolver targets;
 
-    public PlatformFileDownloadGuard(AuthorizationService authorization, StepUpService stepUp,
-                                     JdbcSecurityAuditService audit, FileDownloadAuthorizationTargetResolver targets) {
-        this.authorization=Objects.requireNonNull(authorization);this.stepUp=Objects.requireNonNull(stepUp);this.audit=Objects.requireNonNull(audit);this.targets=Objects.requireNonNull(targets);
+    public PlatformFileDownloadGuard(
+            AuthorizationService authorization,
+            StepUpService stepUp,
+            JdbcSecurityAuditService audit,
+            FileDownloadAuthorizationTargetResolver targets) {
+        this.authorization = Objects.requireNonNull(authorization);
+        this.stepUp = Objects.requireNonNull(stepUp);
+        this.audit = Objects.requireNonNull(audit);
+        this.targets = Objects.requireNonNull(targets);
     }
 
     @Override
@@ -31,15 +37,20 @@ public final class PlatformFileDownloadGuard implements FileDownloadGuard {
         if (file == null) throw new AccessDeniedException("file is required");
         FileDownloadAuthorizationContext.Request request = FileDownloadAuthorizationContext.requireCurrent();
         SessionContext subject = request.subject();
-        if (!Objects.equals(subject.tenantId(), file.tenantId())) throw new AccessDeniedException("file tenant mismatch");
+        if (!Objects.equals(subject.tenantId(), file.tenantId()))
+            throw new AccessDeniedException("file tenant mismatch");
         requireAllowed(authorization.authorizeAction(subject, PERMISSION));
-        AuthorizationTarget target = targets.resolve(file).orElseThrow(() -> new AccessDeniedException("file data-scope target is unavailable"));
+        AuthorizationTarget target = targets.resolve(file)
+                .orElseThrow(() -> new AccessDeniedException("file data-scope target is unavailable"));
         requireAllowed(authorization.authorizeData(subject, PERMISSION, target));
         stepUp.requireAndConsume(request.stepUpTicket(), subject, STEP_UP_PURPOSE, REQUIRED_MFA_LEVEL);
-        audit.recordSensitiveAccess(subject, "document.file_object", file.id(), "[\"content\"]", "SIGNED_FILE_DOWNLOAD");
+        audit.recordSensitiveAccess(
+                subject, "document.file_object", file.id(), "[\"content\"]", "SIGNED_FILE_DOWNLOAD");
     }
 
     private static void requireAllowed(AuthorizationDecision decision) {
-        if (decision == null || !decision.allowed()) throw new AccessDeniedException("authorization denied: " + (decision == null ? "UNKNOWN" : decision.reason()));
+        if (decision == null || !decision.allowed())
+            throw new AccessDeniedException(
+                    "authorization denied: " + (decision == null ? "UNKNOWN" : decision.reason()));
     }
 }

@@ -25,10 +25,7 @@ public final class SessionService {
     private final Clock clock;
     private final SecureRandom random;
 
-    public SessionService(
-            IdentityDirectoryService identities,
-            SessionStore store,
-            SessionPolicy policy) {
+    public SessionService(IdentityDirectoryService identities, SessionStore store, SessionPolicy policy) {
         this(identities, store, policy, Clock.systemUTC(), new SecureRandom());
     }
 
@@ -50,9 +47,8 @@ public final class SessionService {
     }
 
     public SessionTokens issue(IdentityRecord identity, AppointmentRecord appointment) {
-        return issueResolved(new ResolvedIdentity(
-                Objects.requireNonNull(identity),
-                Objects.requireNonNull(appointment)));
+        return issueResolved(
+                new ResolvedIdentity(Objects.requireNonNull(identity), Objects.requireNonNull(appointment)));
     }
 
     public Optional<SessionContext> authenticateAccess(String token) {
@@ -95,17 +91,10 @@ public final class SessionService {
         }
 
         RawPair raw = rawPair();
-        SessionStore.StoredSession replacement = stored(
-                current.familyId(),
-                resolved,
-                raw.accessDigest(),
-                raw.refreshDigest());
-        SessionStore.RotationOutcome outcome = store.rotate(
-                current,
-                refreshDigest,
-                replacement,
-                policy.accessTtl(),
-                policy.refreshTtl());
+        SessionStore.StoredSession replacement =
+                stored(current.familyId(), resolved, raw.accessDigest(), raw.refreshDigest());
+        SessionStore.RotationOutcome outcome =
+                store.rotate(current, refreshDigest, replacement, policy.accessTtl(), policy.refreshTtl());
 
         if (outcome == SessionStore.RotationOutcome.REPLAYED) {
             throw new SessionRejectedException(SessionRejectedException.Reason.REFRESH_REPLAY);
@@ -118,11 +107,8 @@ public final class SessionService {
 
     public SessionTokens switchIdentity(String accessToken, UUID targetIdentityId) {
         SessionStore.StoredSession current = requireAccess(accessToken);
-        ResolvedIdentity target = resolveIdentity(
-                current.context().tenantId(),
-                current.context().userId(),
-                targetIdentityId,
-                null);
+        ResolvedIdentity target =
+                resolveIdentity(current.context().tenantId(), current.context().userId(), targetIdentityId, null);
         store.revoke(current);
         return issueResolved(target);
     }
@@ -155,8 +141,7 @@ public final class SessionService {
             throw new SessionRejectedException(SessionRejectedException.Reason.INVALID_ACCESS);
         }
         SessionStore.StoredSession session = store.findByAccessDigest(digest(token))
-                .orElseThrow(() -> new SessionRejectedException(
-                        SessionRejectedException.Reason.INVALID_ACCESS));
+                .orElseThrow(() -> new SessionRejectedException(SessionRejectedException.Reason.INVALID_ACCESS));
         if (!authoritativeContextStillActive(session.context())) {
             store.revoke(session);
             throw new SessionRejectedException(SessionRejectedException.Reason.APPOINTMENT_INACTIVE);
@@ -167,10 +152,7 @@ public final class SessionService {
     private boolean authoritativeContextStillActive(SessionContext context) {
         try {
             ResolvedIdentity resolved = resolveIdentity(
-                    context.tenantId(),
-                    context.userId(),
-                    context.identityId(),
-                    context.appointmentId());
+                    context.tenantId(), context.userId(), context.identityId(), context.appointmentId());
             return resolved.identity().employeeId().equals(context.employeeId())
                     && resolved.identity().orgId().equals(context.orgId())
                     && resolved.identity().positionId().equals(context.positionId());
@@ -181,20 +163,14 @@ public final class SessionService {
 
     private SessionTokens issueResolved(ResolvedIdentity resolved) {
         RawPair raw = rawPair();
-        SessionStore.StoredSession session = stored(
-                UUID.randomUUID(),
-                resolved,
-                raw.accessDigest(),
-                raw.refreshDigest());
+        SessionStore.StoredSession session =
+                stored(UUID.randomUUID(), resolved, raw.accessDigest(), raw.refreshDigest());
         store.create(session, policy.accessTtl(), policy.refreshTtl());
         return tokens(raw, session);
     }
 
     private SessionStore.StoredSession stored(
-            UUID familyId,
-            ResolvedIdentity resolved,
-            String accessDigest,
-            String refreshDigest) {
+            UUID familyId, ResolvedIdentity resolved, String accessDigest, String refreshDigest) {
         Instant now = clock.instant();
         SessionContext context = new SessionContext(
                 resolved.identity().tenantId(),
@@ -223,32 +199,26 @@ public final class SessionService {
                 session.context());
     }
 
-    private ResolvedIdentity resolveIdentity(
-            UUID tenantId,
-            UUID userId,
-            UUID identityId,
-            UUID requiredAppointmentId) {
-        IdentityRecord identity = identities.activeIdentity(tenantId, userId, identityId)
-                .orElseThrow(() -> new SessionRejectedException(
-                        SessionRejectedException.Reason.IDENTITY_INACTIVE));
+    private ResolvedIdentity resolveIdentity(UUID tenantId, UUID userId, UUID identityId, UUID requiredAppointmentId) {
+        IdentityRecord identity = identities
+                .activeIdentity(tenantId, userId, identityId)
+                .orElseThrow(() -> new SessionRejectedException(SessionRejectedException.Reason.IDENTITY_INACTIVE));
         AppointmentRecord appointment = requiredAppointmentId == null
-                ? identities.activeAppointment(tenantId, userId, identityId)
-                        .orElseThrow(() -> new SessionRejectedException(
-                                SessionRejectedException.Reason.APPOINTMENT_INACTIVE))
-                : identities.activeAppointment(tenantId, userId, identityId, requiredAppointmentId)
-                        .orElseThrow(() -> new SessionRejectedException(
-                                SessionRejectedException.Reason.APPOINTMENT_INACTIVE));
+                ? identities
+                        .activeAppointment(tenantId, userId, identityId)
+                        .orElseThrow(() ->
+                                new SessionRejectedException(SessionRejectedException.Reason.APPOINTMENT_INACTIVE))
+                : identities
+                        .activeAppointment(tenantId, userId, identityId, requiredAppointmentId)
+                        .orElseThrow(() ->
+                                new SessionRejectedException(SessionRejectedException.Reason.APPOINTMENT_INACTIVE));
         return new ResolvedIdentity(identity, appointment);
     }
 
     private RawPair rawPair() {
         String accessToken = rawToken();
         String refreshToken = rawToken();
-        return new RawPair(
-                accessToken,
-                refreshToken,
-                digest(accessToken),
-                digest(refreshToken));
+        return new RawPair(accessToken, refreshToken, digest(accessToken), digest(refreshToken));
     }
 
     private String rawToken() {
@@ -259,8 +229,8 @@ public final class SessionService {
 
     static String digest(String token) {
         try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
-                    .digest(token.getBytes(StandardCharsets.UTF_8)));
+            return HexFormat.of()
+                    .formatHex(MessageDigest.getInstance("SHA-256").digest(token.getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException exception) {
             throw new IllegalStateException(exception);
         }
@@ -276,11 +246,7 @@ public final class SessionService {
             Instant accessExpiresAt,
             Instant refreshExpiresAt) {}
 
-    private record RawPair(
-            String accessToken,
-            String refreshToken,
-            String accessDigest,
-            String refreshDigest) {}
+    private record RawPair(String accessToken, String refreshToken, String accessDigest, String refreshDigest) {}
 
     private record ResolvedIdentity(IdentityRecord identity, AppointmentRecord appointment) {}
 }

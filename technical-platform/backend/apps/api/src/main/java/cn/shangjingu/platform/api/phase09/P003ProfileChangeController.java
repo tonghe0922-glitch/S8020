@@ -24,7 +24,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/processes/P003/profile-changes")
-public final class P003ProfileChangeController {
+public class P003ProfileChangeController {
     private static final String SUBMIT = "p003.change.submit";
     private static final String READ = "p003.change.read";
     private static final String REVIEW = "p003.change.review";
@@ -36,8 +36,10 @@ public final class P003ProfileChangeController {
     private final ObjectMapper mapper;
 
     public P003ProfileChangeController(
-            ProfileChangeService changes, AuthorizationService authorization,
-            JdbcSecurityAuditService audit, ObjectMapper mapper) {
+            ProfileChangeService changes,
+            AuthorizationService authorization,
+            JdbcSecurityAuditService audit,
+            ObjectMapper mapper) {
         this.changes = changes;
         this.authorization = authorization;
         this.audit = audit;
@@ -50,11 +52,18 @@ public final class P003ProfileChangeController {
             @RequestHeader("Idempotency-Key") String idempotencyKey,
             @RequestBody ProfileChangeService.CreateCommand command) {
         require(authorization.authorizeAction(principal.context(), SUBMIT));
-        require(authorization.authorizeData(principal.context(), SUBMIT, new AuthorizationTarget(
-                principal.context().tenantId(), principal.context().employeeId(), principal.context().orgId(),
-                principal.context().positionId(), principal.context().employeeId())));
+        require(authorization.authorizeData(
+                principal.context(),
+                SUBMIT,
+                new AuthorizationTarget(
+                        principal.context().tenantId(),
+                        principal.context().employeeId(),
+                        principal.context().orgId(),
+                        principal.context().positionId(),
+                        principal.context().employeeId())));
         audit.recordOperation(principal.context(), "P003_CREATE_ATTEMPT", "hr.employee_profile_change", null);
-        ProfileChangeService.ProfileChange created = changes.create(context(principal), idempotencyKey, hash(command), command);
+        ProfileChangeService.ProfileChange created =
+                changes.create(context(principal), idempotencyKey, hash(command), command);
         audit.recordOperation(principal.context(), "P003_CREATED", "hr.employee_profile_change", created.id());
         return created;
     }
@@ -74,7 +83,9 @@ public final class P003ProfileChangeController {
     public List<ProfileChangeService.ProfileChange> list(@AuthenticationPrincipal SessionPrincipal principal) {
         require(authorization.authorizeAction(principal.context(), READ));
         List<ProfileChangeService.ProfileChange> visible = changes.list(context(principal)).stream()
-                .filter(change -> authorization.authorizeData(principal.context(), READ, target(change)).allowed())
+                .filter(change -> authorization
+                        .authorizeData(principal.context(), READ, target(change))
+                        .allowed())
                 .toList();
         audit.recordOperation(principal.context(), "P003_LIST", "hr.employee_profile_change", null);
         return visible;
@@ -82,26 +93,28 @@ public final class P003ProfileChangeController {
 
     @PostMapping("/{id}/actions/review")
     public ProfileChangeService.ProfileChange review(
-            @AuthenticationPrincipal SessionPrincipal principal, @PathVariable UUID id,
+            @AuthenticationPrincipal SessionPrincipal principal,
+            @PathVariable UUID id,
             @RequestHeader("Idempotency-Key") String idempotencyKey,
             @RequestBody ProfileChangeService.ReviewCommand command) {
         ProfileChangeService.ProfileChange current = scoped(principal, id, REVIEW);
         audit.recordOperation(principal.context(), "P003_REVIEW_ATTEMPT", "hr.employee_profile_change", id);
-        ProfileChangeService.ProfileChange result = changes.review(
-                context(principal), current.id(), idempotencyKey, hash(command), command);
+        ProfileChangeService.ProfileChange result =
+                changes.review(context(principal), current.id(), idempotencyKey, hash(command), command);
         audit.recordOperation(principal.context(), "P003_REVIEWED", "hr.employee_profile_change", id);
         return result;
     }
 
     @PostMapping("/{id}/actions/apply")
     public ProfileChangeService.ProfileChange apply(
-            @AuthenticationPrincipal SessionPrincipal principal, @PathVariable UUID id,
+            @AuthenticationPrincipal SessionPrincipal principal,
+            @PathVariable UUID id,
             @RequestHeader("Idempotency-Key") String idempotencyKey,
             @RequestBody ProfileChangeService.ApplyCommand command) {
         ProfileChangeService.ProfileChange current = scoped(principal, id, APPLY);
         audit.recordOperation(principal.context(), "P003_APPLY_ATTEMPT", "hr.employee_profile_change", id);
-        ProfileChangeService.ProfileChange result = changes.apply(
-                context(principal), current.id(), idempotencyKey, hash(command), command);
+        ProfileChangeService.ProfileChange result =
+                changes.apply(context(principal), current.id(), idempotencyKey, hash(command), command);
         audit.recordOperation(principal.context(), "P003_APPLIED", "hr.employee_profile_change", id);
         return result;
     }
@@ -115,8 +128,8 @@ public final class P003ProfileChangeController {
     }
 
     private static AuthorizationTarget target(ProfileChangeService.ProfileChange change) {
-        return new AuthorizationTarget(change.tenantId(), change.ownerEmployeeId(), change.ownerCenterId(), null,
-                change.ownerEmployeeId());
+        return new AuthorizationTarget(
+                change.tenantId(), change.ownerEmployeeId(), change.ownerCenterId(), null, change.ownerEmployeeId());
     }
 
     private static DatabaseSecurityContext context(SessionPrincipal principal) {
@@ -131,7 +144,8 @@ public final class P003ProfileChangeController {
 
     private String hash(Object value) {
         try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(mapper.writeValueAsBytes(value)));
+            return HexFormat.of()
+                    .formatHex(MessageDigest.getInstance("SHA-256").digest(mapper.writeValueAsBytes(value)));
         } catch (Exception ex) {
             throw new IllegalArgumentException("P003 request cannot be hashed", ex);
         }

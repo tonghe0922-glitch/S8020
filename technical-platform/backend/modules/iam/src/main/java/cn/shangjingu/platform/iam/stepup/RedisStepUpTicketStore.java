@@ -9,7 +9,8 @@ import org.springframework.data.redis.core.script.DefaultRedisScript;
 public final class RedisStepUpTicketStore implements StepUpTicketStore {
     private static final String PREFIX = "sjg:iam:stepup:";
 
-    private static final DefaultRedisScript<Long> CREATE_SCRIPT = new DefaultRedisScript<>("""
+    private static final DefaultRedisScript<Long> CREATE_SCRIPT = new DefaultRedisScript<>(
+            """
             if redis.call('EXISTS', KEYS[1]) == 1 or redis.call('EXISTS', KEYS[2]) == 1 then
               return 0
             end
@@ -19,9 +20,11 @@ public final class RedisStepUpTicketStore implements StepUpTicketStore {
               'requiredMfaLevel', ARGV[9], 'expiresAt', ARGV[10])
             redis.call('PEXPIRE', KEYS[1], ARGV[11])
             return 1
-            """, Long.class);
+            """,
+            Long.class);
 
-    private static final DefaultRedisScript<Long> CONSUME_SCRIPT = new DefaultRedisScript<>("""
+    private static final DefaultRedisScript<Long> CONSUME_SCRIPT = new DefaultRedisScript<>(
+            """
             if redis.call('EXISTS', KEYS[2]) == 1 then return -1 end
             if redis.call('EXISTS', KEYS[1]) == 0 then return 0 end
             if redis.call('HGET', KEYS[1], 'tenantId') ~= ARGV[1]
@@ -44,22 +47,29 @@ public final class RedisStepUpTicketStore implements StepUpTicketStore {
             redis.call('SET', KEYS[2], '1', 'PX', ttl)
             redis.call('DEL', KEYS[1])
             return 1
-            """, Long.class);
+            """,
+            Long.class);
 
     private final StringRedisTemplate redis;
-    public RedisStepUpTicketStore(StringRedisTemplate redis) { this.redis = redis; }
+
+    public RedisStepUpTicketStore(StringRedisTemplate redis) {
+        this.redis = redis;
+    }
 
     @Override
     public void create(StoredStepUpTicket ticket, Duration ttl) {
         SessionContext subject = ticket.subject();
         List<String> keys = List.of(ticketKey(ticket.ticketDigest()), usedKey(ticket.ticketDigest()));
         Object[] args = new Object[] {
-                subject.tenantId().toString(), subject.userId().toString(), subject.identityId().toString(), subject.employeeId().toString(),
-                subject.appointmentId().toString(), subject.orgId().toString(), subject.positionId().toString(), ticket.purpose(),
-                Integer.toString(ticket.requiredMfaLevel()), ticket.expiresAt().toString(), Long.toString(ttl.toMillis())
+            subject.tenantId().toString(), subject.userId().toString(),
+                    subject.identityId().toString(), subject.employeeId().toString(),
+            subject.appointmentId().toString(), subject.orgId().toString(),
+                    subject.positionId().toString(), ticket.purpose(),
+            Integer.toString(ticket.requiredMfaLevel()), ticket.expiresAt().toString(), Long.toString(ttl.toMillis())
         };
         Long result = redis.execute(CREATE_SCRIPT, keys, args);
-        if (result == null || result != 1L) throw new StepUpRejectedException(StepUpRejectedException.Reason.TICKET_CONFLICT);
+        if (result == null || result != 1L)
+            throw new StepUpRejectedException(StepUpRejectedException.Reason.TICKET_CONFLICT);
     }
 
     @Override
@@ -71,9 +81,15 @@ public final class RedisStepUpTicketStore implements StepUpTicketStore {
     public ConsumeOutcome consume(String ticketDigest, SessionContext subject, String purpose, int minimumMfaLevel) {
         List<String> keys = List.of(ticketKey(ticketDigest), usedKey(ticketDigest));
         Object[] args = new Object[] {
-                subject.tenantId().toString(), subject.userId().toString(), subject.identityId().toString(), subject.employeeId().toString(),
-                subject.appointmentId().toString(), subject.orgId().toString(), subject.positionId().toString(), purpose,
-                Integer.toString(Math.max(0, minimumMfaLevel))
+            subject.tenantId().toString(),
+            subject.userId().toString(),
+            subject.identityId().toString(),
+            subject.employeeId().toString(),
+            subject.appointmentId().toString(),
+            subject.orgId().toString(),
+            subject.positionId().toString(),
+            purpose,
+            Integer.toString(Math.max(0, minimumMfaLevel))
         };
         Long result = redis.execute(CONSUME_SCRIPT, keys, args);
         if (result == null || result == 0L) return ConsumeOutcome.MISSING_OR_EXPIRED;
@@ -83,7 +99,16 @@ public final class RedisStepUpTicketStore implements StepUpTicketStore {
         return ConsumeOutcome.CONSUMED;
     }
 
-    @Override public void revoke(String ticketDigest) { redis.delete(ticketKey(ticketDigest)); }
-    private static String ticketKey(String digest) { return PREFIX + "ticket:" + digest; }
-    private static String usedKey(String digest) { return PREFIX + "used:" + digest; }
+    @Override
+    public void revoke(String ticketDigest) {
+        redis.delete(ticketKey(ticketDigest));
+    }
+
+    private static String ticketKey(String digest) {
+        return PREFIX + "ticket:" + digest;
+    }
+
+    private static String usedKey(String digest) {
+        return PREFIX + "used:" + digest;
+    }
 }

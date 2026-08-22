@@ -15,13 +15,7 @@ public class P008LeaveStatusProjectionWriter {
         this.jdbc = jdbc;
     }
 
-    public int moveStatus(
-            UUID tenantId,
-            UUID id,
-            int version,
-            String status,
-            Instant closedAt,
-            UUID actor) {
+    public int moveStatus(UUID tenantId, UUID id, int version, String status, Instant closedAt, UUID actor) {
         return jdbc.update(
                 """
                 update attendance.leave_request

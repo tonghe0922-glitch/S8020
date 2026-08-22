@@ -45,18 +45,33 @@ public final class Phase05ImportWorker {
                 if (!"S08".equals(job.status()) || job.versionNo() != expectedVersion) {
                     throw new ProcessRejectedException("data import worker event version/state mismatch");
                 }
-                audit.record(tenantId, "P018_WORKER_EXECUTE_ATTEMPT", "integration.data_import_job", jobId,
-                        Map.of("event_id", eventId.toString(), "expected_version", expectedVersion, "import_type", job.importType()));
+                audit.record(
+                        tenantId,
+                        "P018_WORKER_EXECUTE_ATTEMPT",
+                        "integration.data_import_job",
+                        jobId,
+                        Map.of(
+                                "event_id",
+                                eventId.toString(),
+                                "expected_version",
+                                expectedVersion,
+                                "import_type",
+                                job.importType()));
                 DataImportService.ImportExecutor executor = resolveExecutor(job.importType());
-                DataImportService.ExecutionResult result = executor.execute(
-                        job, imports.items(DatabaseSecurityContext.tenantOnly(tenantId), jobId));
-                imports.recordExecutionResult(DatabaseSecurityContext.tenantOnly(tenantId), jobId, expectedVersion, result);
-                int published = jdbc.update("""
+                DataImportService.ExecutionResult result =
+                        executor.execute(job, imports.items(DatabaseSecurityContext.tenantOnly(tenantId), jobId));
+                imports.recordExecutionResult(
+                        DatabaseSecurityContext.tenantOnly(tenantId), jobId, expectedVersion, result);
+                int published = jdbc.update(
+                        """
                         update core.outbox_event
                         set publish_status='PUBLISHED',published_at=now(),updated_at=now()
                         where tenant_id=? and id=? and event_type='P018_EXECUTE' and publish_status='PENDING'
-                        """, tenantId, eventId);
-                if (published != 1) throw new ProcessRejectedException("data import outbox publish acknowledgement conflict");
+                        """,
+                        tenantId,
+                        eventId);
+                if (published != 1)
+                    throw new ProcessRejectedException("data import outbox publish acknowledgement conflict");
                 return null;
             });
         } catch (RuntimeException failure) {
@@ -67,21 +82,31 @@ public final class Phase05ImportWorker {
 
     DataImportService.ImportExecutor resolveExecutor(String importType) {
         List<DataImportService.ImportExecutor> matches = executors.stream()
-                .filter(executor -> importType.equals(executor.importType())).toList();
+                .filter(executor -> importType.equals(executor.importType()))
+                .toList();
         if (matches.size() != 1) {
-            throw new ProcessRejectedException("data import executor is unavailable or ambiguous for type: " + importType);
+            throw new ProcessRejectedException(
+                    "data import executor is unavailable or ambiguous for type: " + importType);
         }
         return matches.getFirst();
     }
 
     private OutboxEvent loadEvent(UUID tenantId, UUID eventId, UUID jobId) {
-        OutboxEvent event = jdbc.query("""
+        OutboxEvent event = jdbc.query(
+                """
                 select id,aggregate_id,publish_status,retry_count
                 from core.outbox_event
                 where tenant_id=? and id=? and event_type='P018_EXECUTE' and not is_deleted
-                """, rs -> rs.next()
-                ? new OutboxEvent(rs.getObject("id", UUID.class), rs.getObject("aggregate_id", UUID.class),
-                        rs.getString("publish_status"), rs.getInt("retry_count")) : null, tenantId, eventId);
+                """,
+                rs -> rs.next()
+                        ? new OutboxEvent(
+                                rs.getObject("id", UUID.class),
+                                rs.getObject("aggregate_id", UUID.class),
+                                rs.getString("publish_status"),
+                                rs.getInt("retry_count"))
+                        : null,
+                tenantId,
+                eventId);
         if (event == null || !jobId.equals(event.aggregateId())) {
             throw new ProcessRejectedException("data import outbox event is missing or mismatched");
         }
@@ -90,14 +115,19 @@ public final class Phase05ImportWorker {
 
     private void recordFailure(UUID tenantId, UUID eventId, UUID jobId, int expectedVersion, RuntimeException failure) {
         transactions.required(tenantId, () -> {
-            Integer retry = jdbc.query("""
+            Integer retry = jdbc.query(
+                    """
                     update core.outbox_event set retry_count=retry_count+1,updated_at=now()
                     where tenant_id=? and id=? and event_type='P018_EXECUTE' and publish_status='PENDING'
                     returning retry_count
-                    """, rs -> rs.next() ? rs.getInt(1) : null, tenantId, eventId);
+                    """,
+                    rs -> rs.next() ? rs.getInt(1) : null,
+                    tenantId,
+                    eventId);
             if (retry != null && retry >= MAX_ATTEMPTS) {
                 String message = sanitize(failure.getMessage());
-                jdbc.update("""
+                jdbc.update(
+                        """
                         insert into integration.dead_letter(id,tenant_id,source_type,source_id,payload,error_code,error_message,status)
                         select ?,tenant_id,'P018_EXECUTE',cast(id as text),
                                jsonb_build_object('job_id',cast(? as text),'expected_version',cast(? as integer),'event_id',cast(? as text)),
@@ -106,12 +136,24 @@ public final class Phase05ImportWorker {
                         where tenant_id=? and id=? and event_type='P018_EXECUTE'
                           and not exists (select 1 from integration.dead_letter d where d.tenant_id=?
                             and d.source_type='P018_EXECUTE' and d.source_id=cast(? as text) and not d.is_deleted)
-                        """, UUID.randomUUID(), jobId.toString(), expectedVersion, eventId.toString(),
-                        failure.getClass().getSimpleName(), message, tenantId, eventId, tenantId, eventId.toString());
-                jdbc.update("""
+                        """,
+                        UUID.randomUUID(),
+                        jobId.toString(),
+                        expectedVersion,
+                        eventId.toString(),
+                        failure.getClass().getSimpleName(),
+                        message,
+                        tenantId,
+                        eventId,
+                        tenantId,
+                        eventId.toString());
+                jdbc.update(
+                        """
                         update core.outbox_event set publish_status='DEAD_LETTER',updated_at=now()
                         where tenant_id=? and id=? and event_type='P018_EXECUTE' and publish_status='PENDING'
-                        """, tenantId, eventId);
+                        """,
+                        tenantId,
+                        eventId);
             }
             return null;
         });

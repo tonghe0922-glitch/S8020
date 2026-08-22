@@ -63,7 +63,8 @@ class Phase11P014DatabaseIT {
     void p014PublishedGraphMatchesFrozenContract() throws Exception {
         assertEquals(
                 "S01,S02,S03,S04,S05,S06,S07,S08,S09,S10,S11,S12,END",
-                scalarString("""
+                scalarString(
+                        """
                         select string_agg(n.node_code,',' order by n.sort_no)
                         from workflow.wf_node n
                         join workflow.wf_version v on v.tenant_id=n.tenant_id and v.id=n.version_id
@@ -71,16 +72,24 @@ class Phase11P014DatabaseIT {
                         where d.tenant_id='%s' and d.process_code='P014'
                           and v.status='PUBLISHED' and v.checksum='phase11-p014-c0-v2'
                           and not n.is_deleted and not v.is_deleted and not d.is_deleted
-                        """.formatted(TENANT)));
-        assertEquals(12L, scalarLong("""
+                        """
+                                .formatted(TENANT)));
+        assertEquals(
+                12L,
+                scalarLong(
+                        """
                 select count(*) from workflow.wf_transition t
                 join workflow.wf_version v on v.tenant_id=t.tenant_id and v.id=t.version_id
                 join workflow.wf_definition d on d.tenant_id=v.tenant_id and d.id=v.definition_id
                 where d.tenant_id='%s' and d.process_code='P014'
                   and v.status='PUBLISHED' and v.checksum='phase11-p014-c0-v2'
                   and not t.is_deleted and not v.is_deleted and not d.is_deleted
-                """.formatted(TENANT)));
-        assertEquals(12L, scalarLong("""
+                """
+                                .formatted(TENANT)));
+        assertEquals(
+                12L,
+                scalarLong(
+                        """
                 select count(*) from workflow.wf_transition t
                 join workflow.wf_version v on v.tenant_id=t.tenant_id and v.id=t.version_id
                 join workflow.wf_definition d on d.tenant_id=v.tenant_id and d.id=v.definition_id
@@ -91,80 +100,104 @@ class Phase11P014DatabaseIT {
                     'COMPLETE_RESPONSIBILITY_REVIEW','APPROVE_DECISION','ACKNOWLEDGE_SERVICE',
                     'EXECUTE_IMPACTS','RESOLVE_APPEAL','CLOSE_CORE_CASE','COMPLETE_OBSERVATION','ARCHIVE'])
                   and not t.is_deleted
-                """.formatted(TENANT)));
-        assertEquals(1L, scalarLong("""
+                """
+                                .formatted(TENANT)));
+        assertEquals(
+                1L,
+                scalarLong(
+                        """
                 select count(*) from workflow.wf_form_definition
                 where tenant_id='%s' and process_code='P014' and form_code='CTR-P014-F01'
                   and node_code='S01' and enabled and not is_deleted
-                """.formatted(TENANT)));
+                """
+                                .formatted(TENANT)));
     }
 
     @Test
     void oneSourceFactCreatesAtMostOneDisciplineCase() {
-        SQLException duplicate = assertSqlRejected("""
+        SQLException duplicate = assertSqlRejected(
+                """
                 insert into reward.discipline_case(
                   id,tenant_id,business_no,status,current_node_code,subject,reason,
                   owner_center_id,owner_employee_id,employee_event_type,fact_occurred_at,
                   fact_summary,impact_level,source_fact_key,source_type)
                 values(gen_random_uuid(),'%s','P014-DUP','线索登记','S01','duplicate','duplicate',
                   '%s','%s','P014_DISCIPLINE',now(),'duplicate','EMPLOYEE','P014-SOURCE-1','INTERNAL')
-                """.formatted(TENANT, CENTER, SUBJECT));
+                """
+                        .formatted(TENANT, CENTER, SUBJECT));
         assertTrue(message(duplicate).contains("uq_p014_source_fact"));
     }
 
     @Test
     void databaseRejectsInvestigationDecisionAndAppealRoleConflicts() throws SQLException {
-        SQLException selfInvestigation = assertSqlRejected("""
+        SQLException selfInvestigation = assertSqlRejected(
+                """
                 update reward.discipline_case
                    set investigator_employee_id='%s'
                  where id='%s'
-                """.formatted(SUBJECT, DISCIPLINE));
+                """
+                        .formatted(SUBJECT, DISCIPLINE));
         assertTrue(message(selfInvestigation).contains("ck_p014_investigator_sod"));
 
-        SQLException selfDecision = assertSqlRejected("""
+        SQLException selfDecision = assertSqlRejected(
+                """
                 update reward.discipline_case
                    set decision_employee_id='%s'
                  where id='%s'
-                """.formatted(SUBJECT, DISCIPLINE));
+                """
+                        .formatted(SUBJECT, DISCIPLINE));
         assertTrue(message(selfDecision).contains("ck_p014_decision_sod"));
 
-        execute("""
+        execute(
+                """
                 update reward.discipline_case
                    set decision_employee_id='%s'
                  where id='%s'
-                """.formatted(DECIDER, DISCIPLINE));
-        SQLException originalDecisionReviewer = assertSqlRejected("""
+                """
+                        .formatted(DECIDER, DISCIPLINE));
+        SQLException originalDecisionReviewer = assertSqlRejected(
+                """
                 update reward.discipline_case
                    set appeal_reviewer_employee_id='%s'
                  where id='%s'
-                """.formatted(DECIDER, DISCIPLINE));
+                """
+                        .formatted(DECIDER, DISCIPLINE));
         assertTrue(message(originalDecisionReviewer).contains("ck_p014_appeal_reviewer_sod"));
 
-        SQLException subjectReviewer = assertSqlRejected("""
+        SQLException subjectReviewer = assertSqlRejected(
+                """
                 update reward.discipline_case
                    set appeal_reviewer_employee_id='%s'
                  where id='%s'
-                """.formatted(SUBJECT, DISCIPLINE));
+                """
+                        .formatted(SUBJECT, DISCIPLINE));
         assertTrue(message(subjectReviewer).contains("ck_p014_appeal_reviewer_sod"));
     }
 
     @Test
     void ordinaryInternalCaseDoesNotRequireCrmButCrmLinkCannotLeakToInternalSource() throws Exception {
-        execute("""
+        execute(
+                """
                 insert into reward.discipline_case(
                   id,tenant_id,business_no,status,current_node_code,subject,reason,
                   owner_center_id,owner_employee_id,employee_event_type,fact_occurred_at,
                   fact_summary,impact_level,source_fact_key,source_type)
                 values(gen_random_uuid(),'%s','P014-INTERNAL-2','线索登记','S01','internal','internal',
                   '%s','%s','P014_DISCIPLINE',now(),'internal fact','EMPLOYEE','P014-SOURCE-2','INTERNAL')
-                """.formatted(TENANT, CENTER, SUBJECT));
-        assertEquals(1L, scalarLong("""
+                """
+                        .formatted(TENANT, CENTER, SUBJECT));
+        assertEquals(
+                1L,
+                scalarLong(
+                        """
                 select count(*) from reward.discipline_case
                 where tenant_id='%s' and business_no='P014-INTERNAL-2'
                   and customer_id is null and customer_name is null
-                """.formatted(TENANT)));
+                """
+                                .formatted(TENANT)));
 
-        SQLException leakedCrm = assertSqlRejected("""
+        SQLException leakedCrm = assertSqlRejected(
+                """
                 insert into reward.discipline_case(
                   id,tenant_id,business_no,status,current_node_code,subject,reason,
                   owner_center_id,owner_employee_id,customer_id,customer_name,employee_event_type,
@@ -172,20 +205,24 @@ class Phase11P014DatabaseIT {
                 values(gen_random_uuid(),'%s','P014-CRM-INVALID','线索登记','S01','invalid','invalid',
                   '%s','%s','CRM-1','Customer','P014_DISCIPLINE',now(),'invalid fact','EMPLOYEE',
                   'P014-SOURCE-CRM-INVALID','INTERNAL')
-                """.formatted(TENANT, CENTER, SUBJECT));
+                """
+                        .formatted(TENANT, CENTER, SUBJECT));
         assertTrue(message(leakedCrm).contains("ck_p014_customer_link_scope"));
     }
 
     @Test
     void p014MigrationAndRlsAreInstalled() throws Exception {
-        assertEquals(1L, scalarLong(
-                "select count(*) from flyway_schema_history where success and version='125'"));
-        assertTrue(scalarBoolean("""
+        assertEquals(1L, scalarLong("select count(*) from flyway_schema_history where success and version='125'"));
+        assertTrue(
+                scalarBoolean(
+                        """
                 select exists(select 1 from pg_policies
                 where schemaname='reward' and tablename='discipline_case'
                   and policyname='p_tenant_discipline_case')
                 """));
-        assertTrue(scalarBoolean("""
+        assertTrue(
+                scalarBoolean(
+                        """
                 select exists(select 1 from pg_indexes
                 where schemaname='reward' and tablename='discipline_case'
                   and indexname='uq_p014_source_fact')
@@ -193,18 +230,23 @@ class Phase11P014DatabaseIT {
     }
 
     private static void seedFacts() throws SQLException {
-        execute("""
+        execute(
+                """
                 insert into org.organization(id,tenant_id,org_code,org_name,org_type,status)
                 values('%s','%s','PHASE11-P014-CENTER','PHASE-11 P014 Center','CENTER','ACTIVE')
-                """.formatted(CENTER, TENANT));
-        execute("""
+                """
+                        .formatted(CENTER, TENANT));
+        execute(
+                """
                 insert into org.position(id,tenant_id,position_code,position_name,org_id,status)
                 values('%s','%s','P014-POS','P014 Position','%s','ACTIVE')
-                """.formatted(POSITION, TENANT, CENTER));
+                """
+                        .formatted(POSITION, TENANT, CENTER));
         seedEmployee(SUBJECT, "P014-SUBJECT", "P014 Subject");
         seedEmployee(INVESTIGATOR, "P014-INVESTIGATOR", "P014 Investigator");
         seedEmployee(DECIDER, "P014-DECIDER", "P014 Decider");
-        execute("""
+        execute(
+                """
                 insert into reward.discipline_case(
                   id,tenant_id,business_no,status,current_node_code,version_no,business_date,
                   subject,reason,priority,risk_level,owner_center_id,owner_employee_id,
@@ -214,20 +256,25 @@ class Phase11P014DatabaseIT {
                   'P014 discipline test','discipline','NORMAL','HIGH','%s','%s',
                   'P014_DISCIPLINE',timestamptz '2026-08-16 00:00:00+00','discipline fact','EMPLOYEE',
                   'P014-SOURCE-1','INTERNAL','P014-CONTENT-V1','2026-Q3')
-                """.formatted(DISCIPLINE, TENANT, CENTER, SUBJECT));
-        execute("""
+                """
+                        .formatted(DISCIPLINE, TENANT, CENTER, SUBJECT));
+        execute(
+                """
                 update reward.discipline_case set investigator_employee_id='%s'
                 where id='%s'
-                """.formatted(INVESTIGATOR, DISCIPLINE));
+                """
+                        .formatted(INVESTIGATOR, DISCIPLINE));
     }
 
     private static void seedEmployee(UUID id, String employeeNo, String name) throws SQLException {
-        execute("""
+        execute(
+                """
                 insert into org.employee(
                   id,tenant_id,employee_no,person_name,employment_status,hire_date,
                   primary_org_id,primary_position_id)
                 values('%s','%s','%s','%s','ACTIVE',date '2026-01-01','%s','%s')
-                """.formatted(id, TENANT, employeeNo, name, CENTER, POSITION));
+                """
+                        .formatted(id, TENANT, employeeNo, name, CENTER, POSITION));
     }
 
     private static SQLException assertSqlRejected(String sql) {
@@ -285,13 +332,12 @@ class Phase11P014DatabaseIT {
 
     private static void migrate(String database, String generatedFolder, String overlayFolder) {
         List<String> locations = new ArrayList<>();
-        locations.add("filesystem:" + repoRoot
-                .resolve("technical-platform/database/flyway")
-                .resolve(generatedFolder));
+        locations.add("filesystem:"
+                + repoRoot.resolve("technical-platform/database/flyway").resolve(generatedFolder));
         if (overlayFolder != null) {
-            locations.add("filesystem:" + repoRoot
-                    .resolve("technical-platform/database/flyway-overlays")
-                    .resolve(overlayFolder));
+            locations.add("filesystem:"
+                    + repoRoot.resolve("technical-platform/database/flyway-overlays")
+                            .resolve(overlayFolder));
         }
         Flyway flyway = Flyway.configure()
                 .dataSource(jdbcUrl(database), postgres.getUsername(), postgres.getPassword())
@@ -307,8 +353,7 @@ class Phase11P014DatabaseIT {
     }
 
     private static Connection admin(String database) throws SQLException {
-        return DriverManager.getConnection(
-                jdbcUrl(database), postgres.getUsername(), postgres.getPassword());
+        return DriverManager.getConnection(jdbcUrl(database), postgres.getUsername(), postgres.getPassword());
     }
 
     private static String jdbcUrl(String database) {

@@ -404,6 +404,13 @@
       "target": "oms"
     }
   },
+  "maintenance_policy": {
+    "active_process": "hand-maintained immutable baseline plus additive overlays",
+    "existing_migrations": "immutable after merge or shared-environment execution",
+    "historical_source_paths": "provenance only; source directories may no longer exist in this repository",
+    "new_version_rule": "greater than the current maximum across base and overlays for the same logical database",
+    "validation": "scripts/quality/flyway_versions.py and cold-start CI"
+  },
   "phase": "PHASE-03",
   "policy": "approved Knowledge Base DDL is copied deterministically; source bodies keep SQL semantics and execute as sjg_owner",
   "source_root": "Knowledge Base/03 数据库需求规则/03_SQL_DDL"

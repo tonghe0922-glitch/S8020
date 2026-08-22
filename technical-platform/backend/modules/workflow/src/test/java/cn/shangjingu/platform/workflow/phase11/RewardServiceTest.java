@@ -85,8 +85,6 @@ class RewardServiceTest {
                 Instant.parse("2026-08-16T00:00:00Z"),
                 null,
                 JsonNodeFactory.instance.objectNode());
-        assertThrows(
-                ProcessRejectedException.class,
-                () -> RewardService.validateActor(record, EMPLOYEE));
+        assertThrows(ProcessRejectedException.class, () -> RewardService.validateActor(record, EMPLOYEE));
     }
 }

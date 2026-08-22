@@ -25,7 +25,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 @Service
-public final class LearningService {
+public class LearningService {
     public static final String PROCESS_CODE = "P010";
     public static final String MANAGE = "p010.learning.manage";
     public static final String CERTIFY = "p010.learning.certify";
@@ -76,11 +76,7 @@ public final class LearningService {
         this(tx, idempotency, null, outbox, workflow, tasks, forms, repo, mapper);
     }
 
-    public Aggregate create(
-            DatabaseSecurityContext actor,
-            String key,
-            String requestHash,
-            CreateCommand command) {
+    public Aggregate create(DatabaseSecurityContext actor, String key, String requestHash, CreateCommand command) {
         actor(actor);
         validateCreate(command);
         if (!actor.orgId().equals(command.ownerCenterId())) {
@@ -101,8 +97,7 @@ public final class LearningService {
             if (numbers == null) {
                 throw reject("business number service missing");
             }
-            if (!repo.activeEmployeeInCenter(
-                    actor.tenantId(), command.ownerEmployeeId(), command.ownerCenterId())) {
+            if (!repo.activeEmployeeInCenter(actor.tenantId(), command.ownerEmployeeId(), command.ownerCenterId())) {
                 throw reject("target employee is not active in owner center");
             }
             if (repo.workflowVersion(actor.tenantId()).isEmpty()) {
@@ -163,11 +158,7 @@ public final class LearningService {
     }
 
     public Aggregate progress(
-            DatabaseSecurityContext actor,
-            UUID id,
-            String key,
-            String hash,
-            ProgressCommand command) {
+            DatabaseSecurityContext actor, UUID id, String key, String hash, ProgressCommand command) {
         actor(actor);
         Objects.requireNonNull(command);
         if (command.completionRate() == null
@@ -208,12 +199,7 @@ public final class LearningService {
         });
     }
 
-    public Aggregate exam(
-            DatabaseSecurityContext actor,
-            UUID id,
-            String key,
-            String hash,
-            ExamCommand command) {
+    public Aggregate exam(DatabaseSecurityContext actor, UUID id, String key, String hash, ExamCommand command) {
         actor(actor);
         Objects.requireNonNull(command);
         if (command.score1000() < 0 || command.score1000() > 1000) {
@@ -250,11 +236,7 @@ public final class LearningService {
     }
 
     public Aggregate practical(
-            DatabaseSecurityContext actor,
-            UUID id,
-            String key,
-            String hash,
-            PracticalCommand command) {
+            DatabaseSecurityContext actor, UUID id, String key, String hash, PracticalCommand command) {
         actor(actor);
         Objects.requireNonNull(command);
         String result = practical(command.result());
@@ -289,12 +271,7 @@ public final class LearningService {
     }
 
     public Aggregate action(
-            DatabaseSecurityContext actor,
-            UUID id,
-            String action,
-            String key,
-            String hash,
-            ActionCommand command) {
+            DatabaseSecurityContext actor, UUID id, String action, String key, String hash, ActionCommand command) {
         actor(actor);
         Objects.requireNonNull(command);
         String normalizedAction = safe(action);
@@ -303,12 +280,7 @@ public final class LearningService {
             if (record.versionNo() != command.expectedVersion()) {
                 throw reject("version conflict");
             }
-            if (claim(
-                    actor,
-                    key,
-                    hash,
-                    "action." + normalizedAction.toLowerCase(Locale.ROOT),
-                    id)) {
+            if (claim(actor, key, hash, "action." + normalizedAction.toLowerCase(Locale.ROOT), id)) {
                 return aggregate(record);
             }
             switch (record.currentNodeCode()) {
@@ -320,17 +292,10 @@ public final class LearningService {
                 case "S02" -> {
                     must(normalizedAction, "ASSIGN_BY_RISK");
                     repo.markRiskAssigned(actor.tenantId(), id, actor.employeeId());
-                    advance(
-                            actor,
-                            record,
-                            "S02",
-                            normalizedAction,
-                            scope(key, "workflow"),
-                            command.note());
+                    advance(actor, record, "S02", normalizedAction, scope(key, "workflow"), command.note());
                 }
                 case "S06" -> {
-                    if (!normalizedAction.equals("CERTIFY")
-                            && !normalizedAction.equals("RETURN_FOR_TRAINING")) {
+                    if (!normalizedAction.equals("CERTIFY") && !normalizedAction.equals("RETURN_FOR_TRAINING")) {
                         throw reject("certification action invalid");
                     }
                     repo.appendEvidence(
@@ -346,29 +311,18 @@ public final class LearningService {
                     if (normalizedAction.equals("CERTIFY")) {
                         repo.markCertified(actor.tenantId(), id, actor.employeeId());
                     }
-                    advance(
-                            actor,
-                            record,
-                            "S06",
-                            normalizedAction,
-                            scope(key, "workflow"),
-                            command.note());
+                    advance(actor, record, "S06", normalizedAction, scope(key, "workflow"), command.note());
                 }
                 case "S07" -> {
                     must(normalizedAction, "ACTIVATE_QUALIFICATION");
                     if (command.effectiveDate() == null) {
                         throw reject("effectiveDate is required");
                     }
-                    if (command.expireDate() != null
-                            && command.expireDate().isBefore(command.effectiveDate())) {
+                    if (command.expireDate() != null && command.expireDate().isBefore(command.effectiveDate())) {
                         throw reject("expireDate before effectiveDate");
                     }
                     repo.activateQualification(
-                            actor.tenantId(),
-                            id,
-                            command.effectiveDate(),
-                            command.expireDate(),
-                            actor.employeeId());
+                            actor.tenantId(), id, command.effectiveDate(), command.expireDate(), actor.employeeId());
                     repo.appendEvidence(
                             actor.tenantId(),
                             id,
@@ -389,8 +343,7 @@ public final class LearningService {
                 }
                 case "S08" -> {
                     must(normalizedAction, "LINK_PERMISSIONS");
-                    List<UUID> roles =
-                            repo.linkPermissions(actor.tenantId(), id, actor.employeeId());
+                    List<UUID> roles = repo.linkPermissions(actor.tenantId(), id, actor.employeeId());
                     if (roles.isEmpty()) {
                         throw reject("qualification permission binding is missing; fail closed");
                     }
@@ -452,25 +405,17 @@ public final class LearningService {
         });
     }
 
-    private void start(
-            DatabaseSecurityContext actor,
-            LearningRecord record,
-            String key,
-            String note) {
+    private void start(DatabaseSecurityContext actor, LearningRecord record, String key, String note) {
         if (record.workflowInstanceId() != null) {
             throw reject("workflow already started");
         }
         if (record.ownerCenterId() == null || record.ownerEmployeeId() == null) {
             throw reject("assignment owner center/employee missing");
         }
-        UUID version =
-                repo.workflowVersion(actor.tenantId())
-                        .orElseThrow(() -> reject("workflow not published"));
+        UUID version = repo.workflowVersion(actor.tenantId()).orElseThrow(() -> reject("workflow not published"));
         FormRef form = repo.form(actor.tenantId()).orElseThrow(() -> reject("form not published"));
-        List<UUID> managers =
-                repo.permissionCandidates(actor.tenantId(), MANAGE, record.ownerCenterId());
-        List<UUID> certifiers =
-                repo.permissionCandidates(actor.tenantId(), CERTIFY, record.ownerCenterId());
+        List<UUID> managers = repo.permissionCandidates(actor.tenantId(), MANAGE, record.ownerCenterId());
+        List<UUID> certifiers = repo.permissionCandidates(actor.tenantId(), CERTIFY, record.ownerCenterId());
         if (managers.isEmpty() || certifiers.isEmpty()) {
             throw reject("manager/certifier candidates missing");
         }
@@ -479,47 +424,42 @@ public final class LearningService {
         context.set("targetEmployeeIds", uuidArray(List.of(record.ownerEmployeeId())));
         context.set("managerCandidateIds", uuidArray(managers));
         context.set("certifierCandidateIds", uuidArray(certifiers));
-        WorkflowRuntimeService.Result started =
-                workflow.start(
-                        new WorkflowRuntimeService.StartCommand(
-                                actor.tenantId(),
-                                actor.employeeId(),
-                                actor.identityId(),
-                                version,
-                                "learning.learning_assignment",
-                                record.id(),
-                                record.businessNo(),
-                                record.subject(),
-                                "NORMAL",
-                                context,
-                                scope(key, "start")));
-        forms.submit(
-                new WorkflowFormService.SubmitForm(
-                        actor.tenantId(),
-                        actor.employeeId(),
-                        actor.identityId(),
-                        started.instance().id(),
-                        null,
-                        form.id(),
-                        form.versionNo(),
-                        List.of(
-                                text("course_version_id", record.courseVersionId()),
-                                text("content_version", record.contentVersion()),
-                                text("period_or_course_no", record.periodOrCourseNo()),
-                                text("owner_employee_id", record.ownerEmployeeId().toString())),
-                        scope(key, "form")));
-        WorkflowRuntimeService.Result moved =
-                workflow.act(
-                        new WorkflowRuntimeService.ActionCommand(
-                                actor.tenantId(),
-                                actor.employeeId(),
-                                actor.identityId(),
-                                started.instance().id(),
-                                null,
-                                "S01",
-                                "PUBLISH_CONTENT",
-                                note,
-                                scope(key, "publish")));
+        WorkflowRuntimeService.Result started = workflow.start(new WorkflowRuntimeService.StartCommand(
+                actor.tenantId(),
+                actor.employeeId(),
+                actor.identityId(),
+                version,
+                "learning.learning_assignment",
+                record.id(),
+                record.businessNo(),
+                record.subject(),
+                "NORMAL",
+                context,
+                scope(key, "start")));
+        forms.submit(new WorkflowFormService.SubmitForm(
+                actor.tenantId(),
+                actor.employeeId(),
+                actor.identityId(),
+                started.instance().id(),
+                null,
+                form.id(),
+                form.versionNo(),
+                List.of(
+                        text("course_version_id", record.courseVersionId()),
+                        text("content_version", record.contentVersion()),
+                        text("period_or_course_no", record.periodOrCourseNo()),
+                        text("owner_employee_id", record.ownerEmployeeId().toString())),
+                scope(key, "form")));
+        WorkflowRuntimeService.Result moved = workflow.act(new WorkflowRuntimeService.ActionCommand(
+                actor.tenantId(),
+                actor.employeeId(),
+                actor.identityId(),
+                started.instance().id(),
+                null,
+                "S01",
+                "PUBLISH_CONTENT",
+                note,
+                scope(key, "publish")));
         if (repo.bindWorkflow(
                         actor.tenantId(),
                         record.id(),
@@ -540,34 +480,28 @@ public final class LearningService {
             String action,
             String key,
             String note) {
-        WorkflowRuntimeService.Result runtime =
-                workflow.get(actor.tenantId(), record.workflowInstanceId());
-        if (!source.equals(runtime.instance().currentNodeCode())
-                || !source.equals(record.currentNodeCode())) {
+        WorkflowRuntimeService.Result runtime = workflow.get(actor.tenantId(), record.workflowInstanceId());
+        if (!source.equals(runtime.instance().currentNodeCode()) || !source.equals(record.currentNodeCode())) {
             throw reject("stale workflow projection");
         }
         if (runtime.task() == null) {
             throw reject("workflow task missing");
         }
-        tasks.claim(
-                new WorkflowTaskAssignmentService.ClaimCommand(
-                        actor.tenantId(), runtime.task().id(), actor.employeeId()));
-        WorkflowRuntimeService.Result moved =
-                workflow.act(
-                        new WorkflowRuntimeService.ActionCommand(
-                                actor.tenantId(),
-                                actor.employeeId(),
-                                actor.identityId(),
-                                record.workflowInstanceId(),
-                                runtime.task().id(),
-                                source,
-                                action,
-                                note,
-                                key));
-        Instant closed =
-                "END".equals(moved.instance().currentNodeCode())
-                        ? moved.instance().finishedAt()
-                        : null;
+        tasks.claim(new WorkflowTaskAssignmentService.ClaimCommand(
+                actor.tenantId(), runtime.task().id(), actor.employeeId()));
+        WorkflowRuntimeService.Result moved = workflow.act(new WorkflowRuntimeService.ActionCommand(
+                actor.tenantId(),
+                actor.employeeId(),
+                actor.identityId(),
+                record.workflowInstanceId(),
+                runtime.task().id(),
+                source,
+                action,
+                note,
+                key));
+        Instant closed = "END".equals(moved.instance().currentNodeCode())
+                ? moved.instance().finishedAt()
+                : null;
         if (repo.moveNode(
                         actor.tenantId(),
                         record.id(),
@@ -589,13 +523,9 @@ public final class LearningService {
         return repo.find(tenantId, id).orElseThrow(() -> reject("assignment not found"));
     }
 
-    private boolean claim(
-            DatabaseSecurityContext actor,
-            String key,
-            String hash,
-            String type,
-            UUID id) {
-        return idempotency.claim(
+    private boolean claim(DatabaseSecurityContext actor, String key, String hash, String type, UUID id) {
+        return idempotency
+                .claim(
                         actor.tenantId(),
                         actor.employeeId(),
                         key,
@@ -613,16 +543,15 @@ public final class LearningService {
         payload.put("businessNo", record.businessNo());
         payload.put("event", event);
         payload.put("nodeCode", record.currentNodeCode());
-        outbox.enqueue(
-                new TransactionalOutboxService.Command(
-                        actor.tenantId(),
-                        actor.employeeId(),
-                        "P010_LEARNING",
-                        id,
-                        "P010_LEARNING_EVENT",
-                        1,
-                        json(payload),
-                        "p010:" + id + ":" + record.versionNo()));
+        outbox.enqueue(new TransactionalOutboxService.Command(
+                actor.tenantId(),
+                actor.employeeId(),
+                "P010_LEARNING",
+                id,
+                "P010_LEARNING_EVENT",
+                1,
+                json(payload),
+                "p010:" + id + ":" + record.versionNo()));
     }
 
     private static void validateCreate(CreateCommand command) {
@@ -649,8 +578,7 @@ public final class LearningService {
         if ((command.plannedStartAt() == null) != (command.plannedFinishAt() == null)) {
             throw reject("plannedStartAt and plannedFinishAt must be supplied together");
         }
-        if (command.plannedStartAt() != null
-                && !command.plannedFinishAt().isAfter(command.plannedStartAt())) {
+        if (command.plannedStartAt() != null && !command.plannedFinishAt().isAfter(command.plannedStartAt())) {
             throw reject("plannedFinishAt must be after plannedStartAt");
         }
     }
@@ -680,8 +608,7 @@ public final class LearningService {
     }
 
     private static String practical(String value) {
-        if (value == null
-                || !List.of("通过", "补训", "不通过", "不适用").contains(value.trim())) {
+        if (value == null || !List.of("通过", "补训", "不通过", "不适用").contains(value.trim())) {
             throw reject("practical result invalid");
         }
         return value.trim();
@@ -697,9 +624,7 @@ public final class LearningService {
 
     private static String risk(String value) {
         String normalized =
-                value == null || value.isBlank()
-                        ? "NORMAL"
-                        : value.trim().toUpperCase(Locale.ROOT);
+                value == null || value.isBlank() ? "NORMAL" : value.trim().toUpperCase(Locale.ROOT);
         if (!List.of("LOW", "NORMAL", "HIGH", "CRITICAL").contains(normalized)) {
             throw reject("riskLevel invalid");
         }
@@ -744,8 +669,7 @@ public final class LearningService {
     }
 
     private static WorkflowFormService.FieldValue text(String code, String value) {
-        return new WorkflowFormService.FieldValue(
-                code, "TEXT", value, null, null, null, null, null, "P1", false);
+        return new WorkflowFormService.FieldValue(code, "TEXT", value, null, null, null, null, null, "P1", false);
     }
 
     private ArrayNode uuidArray(List<UUID> ids) {
@@ -797,9 +721,13 @@ public final class LearningService {
 
     public interface Repository {
         Optional<UUID> workflowVersion(UUID tenantId);
+
         Optional<FormRef> form(UUID tenantId);
+
         List<UUID> permissionCandidates(UUID tenantId, String permission, UUID orgId);
+
         boolean activeEmployeeInCenter(UUID tenantId, UUID employeeId, UUID orgId);
+
         void insert(
                 LearningRecord record,
                 String reason,
@@ -809,25 +737,17 @@ public final class LearningService {
                 Instant plannedStartAt,
                 Instant plannedFinishAt,
                 UUID actor);
+
         Optional<LearningRecord> find(UUID tenantId, UUID id);
+
         List<LearningRecord> list(UUID tenantId);
+
         List<Evidence> evidence(UUID tenantId, UUID id);
-        int bindWorkflow(
-                UUID tenantId,
-                UUID id,
-                int version,
-                UUID workflowId,
-                String node,
-                String status,
-                UUID actor);
-        int moveNode(
-                UUID tenantId,
-                UUID id,
-                int version,
-                String node,
-                String status,
-                Instant closed,
-                UUID actor);
+
+        int bindWorkflow(UUID tenantId, UUID id, int version, UUID workflowId, String node, String status, UUID actor);
+
+        int moveNode(UUID tenantId, UUID id, int version, String node, String status, Instant closed, UUID actor);
+
         void appendEvidence(
                 UUID tenantId,
                 UUID id,
@@ -838,22 +758,34 @@ public final class LearningService {
                 String practical,
                 String text,
                 JsonNode json);
+
         int updateProgress(UUID tenantId, UUID id, BigDecimal progress, UUID actor);
+
         int markLearningCompleted(UUID tenantId, UUID id, UUID actor);
+
         int updateExam(UUID tenantId, UUID id, long score, UUID actor);
+
         int updatePractical(UUID tenantId, UUID id, String result, UUID actor);
+
         int markContentPublished(UUID tenantId, UUID id, UUID actor);
+
         int markRiskAssigned(UUID tenantId, UUID id, UUID actor);
+
         int markCertified(UUID tenantId, UUID id, UUID actor);
-        int activateQualification(
-                UUID tenantId, UUID id, LocalDate effective, LocalDate expire, UUID actor);
+
+        int activateQualification(UUID tenantId, UUID id, LocalDate effective, LocalDate expire, UUID actor);
+
         List<UUID> linkPermissions(UUID tenantId, UUID id, UUID actor);
+
         int markPermissionLinked(UUID tenantId, UUID id, UUID actor);
+
         int markRetrainingChecked(UUID tenantId, UUID id, UUID actor);
+
         int markArchived(UUID tenantId, UUID id, UUID actor);
     }
 
     public record FormRef(UUID id, int versionNo) {}
+
     public record CreateCommand(
             String subject,
             String reason,
@@ -867,14 +799,15 @@ public final class LearningService {
             String riskLevel,
             Instant plannedStartAt,
             Instant plannedFinishAt) {}
+
     public record ProgressCommand(BigDecimal completionRate, String note) {}
+
     public record ExamCommand(long score1000, String note) {}
+
     public record PracticalCommand(String result, String note) {}
-    public record ActionCommand(
-            int expectedVersion,
-            String note,
-            LocalDate effectiveDate,
-            LocalDate expireDate) {}
+
+    public record ActionCommand(int expectedVersion, String note, LocalDate effectiveDate, LocalDate expireDate) {}
+
     public record LearningRecord(
             UUID id,
             UUID tenantId,
@@ -900,6 +833,7 @@ public final class LearningService {
             Instant permissionLinkedAt,
             Instant archivedAt,
             Instant updatedAt) {}
+
     public record Evidence(
             UUID id,
             String evidenceType,
@@ -910,6 +844,7 @@ public final class LearningService {
             String evidenceText,
             JsonNode evidenceJson,
             Instant createdAt) {}
+
     public record Aggregate(LearningRecord record, List<Evidence> evidence) {
         public Aggregate metadataOnly() {
             LearningRecord source = record;

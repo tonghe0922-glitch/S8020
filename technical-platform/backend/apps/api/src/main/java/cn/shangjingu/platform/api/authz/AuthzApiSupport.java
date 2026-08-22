@@ -13,7 +13,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Component;
 
 @Component
-public final class AuthzApiSupport {
+public class AuthzApiSupport {
     public static final String MODULE_READ = "authz.module.read";
     public static final String MODULE_MANAGE = "authz.module.manage";
     public static final String ORG_MODULE_MANAGE = "authz.org.module.manage";
@@ -59,30 +59,22 @@ public final class AuthzApiSupport {
         requireAny(principal, CONFIG_PREVIEW, CONFIG_MANAGE);
     }
 
-    public void requireWrite(
-            SessionPrincipal principal, String capabilityPermission, String stepUpTicket) {
+    public void requireWrite(SessionPrincipal principal, String capabilityPermission, String stepUpTicket) {
         require(authorization.authorizeAction(principal.context(), capabilityPermission));
         require(authorization.authorizeAction(principal.context(), CONFIG_MANAGE));
-        stepUp.requireAndConsume(
-                stepUpTicket, principal.context(), STEP_UP_PURPOSE, REQUIRED_MFA_LEVEL);
+        stepUp.requireAndConsume(stepUpTicket, principal.context(), STEP_UP_PURPOSE, REQUIRED_MFA_LEVEL);
     }
 
-    public void auditRead(
-            SessionPrincipal principal, String action, String resourceType, UUID resourceId) {
+    public void auditRead(SessionPrincipal principal, String action, String resourceType, UUID resourceId) {
         audit.recordOperation(principal.context(), action, resourceType, resourceId);
     }
 
     public void auditMutation(
-            SessionPrincipal principal,
-            String action,
-            String resourceType,
-            UUID resourceId,
-            Mutation<?> mutation) {
+            SessionPrincipal principal, String action, String resourceType, UUID resourceId, Mutation<?> mutation) {
         try {
             String before = mapper.writeValueAsString(mutation.before());
             String after = mapper.writeValueAsString(mutation.after());
-            audit.recordConfigurationChange(
-                    principal.context(), action, resourceType, resourceId, before, after);
+            audit.recordConfigurationChange(principal.context(), action, resourceType, resourceId, before, after);
         } catch (Exception ex) {
             throw new IllegalStateException("authorization configuration audit snapshot failed", ex);
         }

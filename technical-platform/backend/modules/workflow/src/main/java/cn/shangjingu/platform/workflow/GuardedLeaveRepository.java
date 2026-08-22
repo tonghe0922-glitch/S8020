@@ -15,8 +15,7 @@ import org.springframework.stereotype.Repository;
 @Primary
 @Repository
 public class GuardedLeaveRepository implements LeaveService.Repository {
-    private static final Set<String> LEDGER_TYPES =
-            Set.of("RESERVE", "DEDUCT", "RELEASE", "ADJUST");
+    private static final Set<String> LEDGER_TYPES = Set.of("RESERVE", "DEDUCT", "RELEASE", "ADJUST");
     private final JdbcLeaveRepository delegate;
     private final P008LeaveStatusProjectionWriter statusWriter;
 
@@ -25,8 +24,7 @@ public class GuardedLeaveRepository implements LeaveService.Repository {
     }
 
     @Autowired
-    public GuardedLeaveRepository(
-            JdbcLeaveRepository delegate, P008LeaveStatusProjectionWriter statusWriter) {
+    public GuardedLeaveRepository(JdbcLeaveRepository delegate, P008LeaveStatusProjectionWriter statusWriter) {
         this.delegate = delegate;
         this.statusWriter = statusWriter;
     }
@@ -57,21 +55,12 @@ public class GuardedLeaveRepository implements LeaveService.Repository {
     }
 
     @Override
-    public int bindAndMove(
-            UUID tenantId,
-            UUID id,
-            int version,
-            UUID workflowId,
-            String status,
-            UUID actor) {
-        return required(
-                delegate.bindAndMove(tenantId, id, version, workflowId, status, actor),
-                "workflow binding");
+    public int bindAndMove(UUID tenantId, UUID id, int version, UUID workflowId, String status, UUID actor) {
+        return required(delegate.bindAndMove(tenantId, id, version, workflowId, status, actor), "workflow binding");
     }
 
     @Override
-    public int moveStatus(
-            UUID tenantId, UUID id, int version, String status, Instant closedAt, UUID actor) {
+    public int moveStatus(UUID tenantId, UUID id, int version, String status, Instant closedAt, UUID actor) {
         int updated = statusWriter == null
                 ? delegate.moveStatus(tenantId, id, version, status, closedAt, actor)
                 : statusWriter.moveStatus(tenantId, id, version, status, closedAt, actor);
@@ -90,8 +79,7 @@ public class GuardedLeaveRepository implements LeaveService.Repository {
 
     @Override
     public int markDecision(UUID tenantId, UUID id, String decision, UUID actor) {
-        return required(
-                delegate.markDecision(tenantId, id, decision, actor), "approval decision fact");
+        return required(delegate.markDecision(tenantId, id, decision, actor), "approval decision fact");
     }
 
     @Override
@@ -106,9 +94,7 @@ public class GuardedLeaveRepository implements LeaveService.Repository {
 
     @Override
     public int markLeaveStarted(UUID tenantId, UUID id, Instant actualAt, UUID actor) {
-        return required(
-                delegate.markLeaveStarted(tenantId, id, actualAt, actor),
-                "actual leave start fact");
+        return required(delegate.markLeaveStarted(tenantId, id, actualAt, actor), "actual leave start fact");
     }
 
     @Override
@@ -122,11 +108,9 @@ public class GuardedLeaveRepository implements LeaveService.Repository {
             throw new ProcessRejectedException("P008 leave must start before return-to-work");
         }
         if (actualAt.isBefore(record.leaveStartedAt())) {
-            throw new ProcessRejectedException(
-                    "P008 return-to-work cannot precede actual leave start");
+            throw new ProcessRejectedException("P008 return-to-work cannot precede actual leave start");
         }
-        return required(
-                delegate.markReturned(tenantId, id, actualAt, actor), "return-to-work fact");
+        return required(delegate.markReturned(tenantId, id, actualAt, actor), "return-to-work fact");
     }
 
     @Override
@@ -140,13 +124,7 @@ public class GuardedLeaveRepository implements LeaveService.Repository {
     }
 
     @Override
-    public void appendLedger(
-            UUID tenantId,
-            UUID id,
-            String entryType,
-            BigDecimal amount,
-            String note,
-            UUID actor) {
+    public void appendLedger(UUID tenantId, UUID id, String entryType, BigDecimal amount, String note, UUID actor) {
         validateLedger(entryType, amount);
         delegate.appendLedger(tenantId, id, entryType, amount, note, actor);
     }
@@ -182,8 +160,7 @@ public class GuardedLeaveRepository implements LeaveService.Repository {
         }
     }
 
-    private static LeaveService.LeaveRecord withCanonicalHandoverAgent(
-            LeaveService.LeaveRecord record) {
+    private static LeaveService.LeaveRecord withCanonicalHandoverAgent(LeaveService.LeaveRecord record) {
         return new LeaveService.LeaveRecord(
                 record.id(),
                 record.tenantId(),

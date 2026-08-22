@@ -26,10 +26,7 @@ public final class MinioFileObjectStorage implements FileObjectStorage {
         require(contentType, "contentType");
         if (content == null) throw new IllegalArgumentException("content is required");
         try (ByteArrayInputStream input = new ByteArrayInputStream(content)) {
-            client.putObject(PutObjectArgs.builder()
-                    .bucket(bucket)
-                    .object(objectKey)
-                    .stream(input, content.length, -1)
+            client.putObject(PutObjectArgs.builder().bucket(bucket).object(objectKey).stream(input, content.length, -1)
                     .contentType(contentType)
                     .build());
         } catch (Exception failure) {
@@ -42,8 +39,8 @@ public final class MinioFileObjectStorage implements FileObjectStorage {
         require(bucket, "bucket");
         require(objectKey, "objectKey");
         try {
-            StatObjectResponse response = client.statObject(StatObjectArgs.builder()
-                    .bucket(bucket).object(objectKey).build());
+            StatObjectResponse response = client.statObject(
+                    StatObjectArgs.builder().bucket(bucket).object(objectKey).build());
             return new StoredObject(response.size(), response.contentType());
         } catch (Exception failure) {
             throw new IllegalStateException("MinIO stat failed", failure);
@@ -74,7 +71,8 @@ public final class MinioFileObjectStorage implements FileObjectStorage {
         require(bucket, "bucket");
         require(objectKey, "objectKey");
         try {
-            client.removeObject(RemoveObjectArgs.builder().bucket(bucket).object(objectKey).build());
+            client.removeObject(
+                    RemoveObjectArgs.builder().bucket(bucket).object(objectKey).build());
         } catch (Exception failure) {
             throw new IllegalStateException("MinIO remove failed", failure);
         }

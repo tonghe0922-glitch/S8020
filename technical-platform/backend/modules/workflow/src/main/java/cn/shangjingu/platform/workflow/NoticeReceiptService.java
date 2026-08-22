@@ -26,7 +26,7 @@ import org.springframework.stereotype.Service;
 
 /** P005 policy/notice version, server-resolved audience and per-recipient receipt lifecycle. */
 @Service
-public final class NoticeReceiptService {
+public class NoticeReceiptService {
     public static final String PROCESS_CODE = "P005";
     public static final String INITIAL_FORM_CODE = "CTR-P005-F03";
     public static final String EVENT_TYPE = "P005_NOTICE_EVENT";
@@ -76,14 +76,23 @@ public final class NoticeReceiptService {
         return transactions.required(actor, () -> {
             UUID proposedId = UUID.randomUUID();
             IdempotencyClaim claim = idempotency.claim(
-                    actor.tenantId(), actor.employeeId(), idempotencyKey, requestHash,
-                    "collaboration.notice", proposedId, IDEMPOTENCY_TTL);
+                    actor.tenantId(),
+                    actor.employeeId(),
+                    idempotencyKey,
+                    requestHash,
+                    "collaboration.notice",
+                    proposedId,
+                    IDEMPOTENCY_TTL);
             if (claim.existing()) return aggregate(actor.tenantId(), claim.resourceId());
 
-            UUID workflowVersion = repository.latestPublishedWorkflowVersion(actor.tenantId(), PROCESS_CODE)
-                    .orElseThrow(() -> new ProcessRejectedException("P005 published workflow version is not configured"));
-            FormRef form = repository.latestPublishedForm(actor.tenantId(), INITIAL_FORM_CODE, PROCESS_CODE, "S01")
-                    .orElseThrow(() -> new ProcessRejectedException("P005 initial published form CTR-P005-F03 is not configured"));
+            UUID workflowVersion = repository
+                    .latestPublishedWorkflowVersion(actor.tenantId(), PROCESS_CODE)
+                    .orElseThrow(
+                            () -> new ProcessRejectedException("P005 published workflow version is not configured"));
+            FormRef form = repository
+                    .latestPublishedForm(actor.tenantId(), INITIAL_FORM_CODE, PROCESS_CODE, "S01")
+                    .orElseThrow(() ->
+                            new ProcessRejectedException("P005 initial published form CTR-P005-F03 is not configured"));
             List<AudienceMember> recipients = repository.resolveRecipients(
                     actor.tenantId(), command.targetCenterId(), trimToNull(command.targetPositionCode()));
             if (recipients.isEmpty()) throw new ProcessRejectedException("P005 server-resolved audience is empty");
@@ -98,14 +107,37 @@ public final class NoticeReceiptService {
             String businessNo = numbers.next(actor.tenantId(), actor.employeeId(), PROCESS_CODE);
             Instant now = Instant.now();
             Notice notice = new Notice(
-                    claim.resourceId(), actor.tenantId(), businessNo, null, null, "S01", label("S01"), 0,
-                    policyCode, policyVersion, command.officialSubject().trim(), command.officialType().trim(),
-                    command.officialContent().trim(), command.periodOrCourseNo().trim(), command.visibilityLevel().trim(),
-                    trimToNull(command.venueChannel()), actor.orgId(), actor.employeeId(), command.targetCenterId(),
-                    trimToNull(command.targetPositionCode()), passScore, now,
+                    claim.resourceId(),
+                    actor.tenantId(),
+                    businessNo,
+                    null,
+                    null,
+                    "S01",
+                    label("S01"),
+                    0,
+                    policyCode,
+                    policyVersion,
+                    command.officialSubject().trim(),
+                    command.officialType().trim(),
+                    command.officialContent().trim(),
+                    command.periodOrCourseNo().trim(),
+                    command.visibilityLevel().trim(),
+                    trimToNull(command.venueChannel()),
+                    actor.orgId(),
+                    actor.employeeId(),
+                    command.targetCenterId(),
+                    trimToNull(command.targetPositionCode()),
+                    passScore,
+                    now,
                     command.businessDate() == null ? LocalDate.now() : command.businessDate(),
-                    command.effectiveStartAt(), command.effectiveEndAt(), command.executionDueAt(), null, null, now);
-            repository.insertNotice(notice, recipientScope(command.targetCenterId(), command.targetPositionCode()), actor.employeeId());
+                    command.effectiveStartAt(),
+                    command.effectiveEndAt(),
+                    command.executionDueAt(),
+                    null,
+                    null,
+                    now);
+            repository.insertNotice(
+                    notice, recipientScope(command.targetCenterId(), command.targetPositionCode()), actor.employeeId());
             repository.insertRecipients(actor.tenantId(), notice.id(), recipients);
 
             ObjectNode context = mapper.createObjectNode();
@@ -115,45 +147,91 @@ public final class NoticeReceiptService {
             context.put("policyCode", policyCode);
             context.put("policyVersion", policyVersion);
             context.set("managerCandidateIds", uuidArray(managers));
-            context.set("recipientEmployeeIds", uuidArray(recipients.stream().map(AudienceMember::employeeId).toList()));
+            context.set(
+                    "recipientEmployeeIds",
+                    uuidArray(
+                            recipients.stream().map(AudienceMember::employeeId).toList()));
 
             WorkflowRuntimeService.Result started = workflow.start(new WorkflowRuntimeService.StartCommand(
-                    actor.tenantId(), actor.employeeId(), actor.identityId(), workflowVersion,
-                    "collaboration.notice", notice.id(), notice.businessNo(), notice.officialSubject(), "NORMAL",
-                    context, scopedKey(idempotencyKey, "start")));
+                    actor.tenantId(),
+                    actor.employeeId(),
+                    actor.identityId(),
+                    workflowVersion,
+                    "collaboration.notice",
+                    notice.id(),
+                    notice.businessNo(),
+                    notice.officialSubject(),
+                    "NORMAL",
+                    context,
+                    scopedKey(idempotencyKey, "start")));
             forms.submit(new WorkflowFormService.SubmitForm(
-                    actor.tenantId(), actor.employeeId(), actor.identityId(), started.instance().id(), null,
-                    form.id(), form.versionNo(), initialFormValues(started.instance(), notice), scopedKey(idempotencyKey, "form")));
+                    actor.tenantId(),
+                    actor.employeeId(),
+                    actor.identityId(),
+                    started.instance().id(),
+                    null,
+                    form.id(),
+                    form.versionNo(),
+                    initialFormValues(started.instance(), notice),
+                    scopedKey(idempotencyKey, "form")));
 
             WorkflowRuntimeService.Result published = workflow.act(new WorkflowRuntimeService.ActionCommand(
-                    actor.tenantId(), actor.employeeId(), actor.identityId(), started.instance().id(), null,
-                    "S01", "PUBLISH", null, scopedKey(idempotencyKey, "s01")));
+                    actor.tenantId(),
+                    actor.employeeId(),
+                    actor.identityId(),
+                    started.instance().id(),
+                    null,
+                    "S01",
+                    "PUBLISH",
+                    null,
+                    scopedKey(idempotencyKey, "s01")));
             if (repository.bindWorkflowAndMove(
-                    actor.tenantId(), notice.id(), 0, published.instance().id(), label("S02"), actor.employeeId()) != 1) {
+                            actor.tenantId(),
+                            notice.id(),
+                            0,
+                            published.instance().id(),
+                            label("S02"),
+                            actor.employeeId())
+                    != 1) {
                 throw new ProcessRejectedException("P005 concurrent publish transition conflict");
             }
             emit(actor.tenantId(), actor.employeeId(), notice, "S01", "PUBLISH", "S02", managers);
 
             Notice s02 = requiredNotice(actor.tenantId(), notice.id());
-            Notice s03 = advance(actor, s02, "S02", "RESOLVE_AUDIENCE", scopedKey(idempotencyKey, "s02"), null, managers);
-            List<UUID> recipientIds = recipients.stream().map(AudienceMember::employeeId).toList();
-            Notice s04 = advance(actor, s03, "S03", "QUEUE_DELIVERY", scopedKey(idempotencyKey, "s03"), null, recipientIds);
+            Notice s03 =
+                    advance(actor, s02, "S02", "RESOLVE_AUDIENCE", scopedKey(idempotencyKey, "s02"), null, managers);
+            List<UUID> recipientIds =
+                    recipients.stream().map(AudienceMember::employeeId).toList();
+            Notice s04 =
+                    advance(actor, s03, "S03", "QUEUE_DELIVERY", scopedKey(idempotencyKey, "s03"), null, recipientIds);
             return aggregate(actor.tenantId(), s04.id());
         });
     }
 
     public NoticeAggregate markRead(
-            DatabaseSecurityContext actor, UUID noticeId, String idempotencyKey, String requestHash, ReceiptCommand command) {
+            DatabaseSecurityContext actor,
+            UUID noticeId,
+            String idempotencyKey,
+            String requestHash,
+            ReceiptCommand command) {
         return receipt(actor, noticeId, idempotencyKey, requestHash, "S04", "READ", command);
     }
 
     public NoticeAggregate confirm(
-            DatabaseSecurityContext actor, UUID noticeId, String idempotencyKey, String requestHash, ReceiptCommand command) {
+            DatabaseSecurityContext actor,
+            UUID noticeId,
+            String idempotencyKey,
+            String requestHash,
+            ReceiptCommand command) {
         return receipt(actor, noticeId, idempotencyKey, requestHash, "S05", "CONFIRM", command);
     }
 
     public NoticeAggregate understanding(
-            DatabaseSecurityContext actor, UUID noticeId, String idempotencyKey, String requestHash, UnderstandingCommand command) {
+            DatabaseSecurityContext actor,
+            UUID noticeId,
+            String idempotencyKey,
+            String requestHash,
+            UnderstandingCommand command) {
         requireActor(actor);
         Objects.requireNonNull(command, "P005 understanding command is required");
         if (command.score() < 0 || command.score() > 100) {
@@ -175,15 +253,33 @@ public final class NoticeReceiptService {
             }
             boolean passed = command.score() >= current.notice().understandingPassScore();
             if (repository.markUnderstanding(
-                    actor.tenantId(), recipient.id(), recipient.versionNo(), command.score(), passed, actor.employeeId()) != 1) {
+                            actor.tenantId(),
+                            recipient.id(),
+                            recipient.versionNo(),
+                            command.score(),
+                            passed,
+                            actor.employeeId())
+                    != 1) {
                 throw new ProcessRejectedException("P005 concurrent understanding update conflict");
             }
-            repository.appendReceiptEvent(actor.tenantId(), noticeId, recipient.id(), recipient.employeeId(), actor.employeeId(),
-                    passed ? "UNDERSTANDING_PASSED" : "UNDERSTANDING_FAILED", understandingEvidence(command.score(), passed));
+            repository.appendReceiptEvent(
+                    actor.tenantId(),
+                    noticeId,
+                    recipient.id(),
+                    recipient.employeeId(),
+                    actor.employeeId(),
+                    passed ? "UNDERSTANDING_PASSED" : "UNDERSTANDING_FAILED",
+                    understandingEvidence(command.score(), passed));
             NoticeAggregate after = aggregate(actor.tenantId(), noticeId);
             if (passed && all(after.recipients(), Stage.UNDERSTANDING)) {
-                Notice moved = advance(actor, after.notice(), "S06", "PASS_UNDERSTANDING",
-                        scopedKey(idempotencyKey, "stage"), null, employeeIds(after.recipients()));
+                Notice moved = advance(
+                        actor,
+                        after.notice(),
+                        "S06",
+                        "PASS_UNDERSTANDING",
+                        scopedKey(idempotencyKey, "stage"),
+                        null,
+                        employeeIds(after.recipients()));
                 return aggregate(actor.tenantId(), moved.id());
             }
             return after;
@@ -191,7 +287,11 @@ public final class NoticeReceiptService {
     }
 
     public NoticeAggregate execute(
-            DatabaseSecurityContext actor, UUID noticeId, String idempotencyKey, String requestHash, ExecutionCommand command) {
+            DatabaseSecurityContext actor,
+            UUID noticeId,
+            String idempotencyKey,
+            String requestHash,
+            ExecutionCommand command) {
         requireActor(actor);
         Objects.requireNonNull(command, "P005 execution command is required");
         if (command.summary() == null || command.summary().isBlank()) {
@@ -212,15 +312,32 @@ public final class NoticeReceiptService {
                 throw new ProcessRejectedException("P005 execution receipt is already submitted");
             }
             if (repository.markExecuted(
-                    actor.tenantId(), recipient.id(), recipient.versionNo(), command.summary().trim(), actor.employeeId()) != 1) {
+                            actor.tenantId(),
+                            recipient.id(),
+                            recipient.versionNo(),
+                            command.summary().trim(),
+                            actor.employeeId())
+                    != 1) {
                 throw new ProcessRejectedException("P005 concurrent execution update conflict");
             }
-            repository.appendReceiptEvent(actor.tenantId(), noticeId, recipient.id(), recipient.employeeId(), actor.employeeId(),
-                    "EXECUTED", "{\"summarySubmitted\":true}");
+            repository.appendReceiptEvent(
+                    actor.tenantId(),
+                    noticeId,
+                    recipient.id(),
+                    recipient.employeeId(),
+                    actor.employeeId(),
+                    "EXECUTED",
+                    "{\"summarySubmitted\":true}");
             NoticeAggregate after = aggregate(actor.tenantId(), noticeId);
             if (all(after.recipients(), Stage.EXECUTION)) {
-                Notice moved = advance(actor, after.notice(), "S07", "SUBMIT_EXECUTION",
-                        scopedKey(idempotencyKey, "stage"), null, employeeIds(after.recipients()));
+                Notice moved = advance(
+                        actor,
+                        after.notice(),
+                        "S07",
+                        "SUBMIT_EXECUTION",
+                        scopedKey(idempotencyKey, "stage"),
+                        null,
+                        employeeIds(after.recipients()));
                 return aggregate(actor.tenantId(), moved.id());
             }
             return after;
@@ -228,8 +345,12 @@ public final class NoticeReceiptService {
     }
 
     public NoticeAggregate manage(
-            DatabaseSecurityContext actor, UUID noticeId, String actionCode,
-            String idempotencyKey, String requestHash, ManageCommand command) {
+            DatabaseSecurityContext actor,
+            UUID noticeId,
+            String actionCode,
+            String idempotencyKey,
+            String requestHash,
+            ManageCommand command) {
         requireActor(actor);
         Objects.requireNonNull(command, "P005 manage command is required");
         String action = safeAction(actionCode);
@@ -237,38 +358,60 @@ public final class NoticeReceiptService {
         return transactions.required(actor, () -> {
             NoticeAggregate current = aggregate(actor.tenantId(), noticeId);
             IdempotencyClaim claim = idempotency.claim(
-                    actor.tenantId(), actor.employeeId(), idempotencyKey, requestHash,
-                    "collaboration.notice.manage." + action.toLowerCase(Locale.ROOT), noticeId, IDEMPOTENCY_TTL);
+                    actor.tenantId(),
+                    actor.employeeId(),
+                    idempotencyKey,
+                    requestHash,
+                    "collaboration.notice.manage." + action.toLowerCase(Locale.ROOT),
+                    noticeId,
+                    IDEMPOTENCY_TTL);
             if (claim.existing()) return current;
             if (current.notice().versionNo() != command.expectedVersion()) {
                 throw new ProcessRejectedException("P005 notice version conflict");
             }
             String node = current.notice().currentNodeCode();
-            String expectedAction = switch (node) {
-                case "S08" -> "ACCEPT_EXECUTION";
-                case "S09" -> "RESOLVE_ESCALATIONS";
-                case "S10" -> "ARCHIVE";
-                default -> throw new ProcessRejectedException("P005 center action is not allowed from the current source node");
-            };
+            String expectedAction =
+                    switch (node) {
+                        case "S08" -> "ACCEPT_EXECUTION";
+                        case "S09" -> "RESOLVE_ESCALATIONS";
+                        case "S10" -> "ARCHIVE";
+                        default -> throw new ProcessRejectedException(
+                                "P005 center action is not allowed from the current source node");
+                    };
             if (!expectedAction.equals(action)) {
                 throw new ProcessRejectedException("P005 action is not allowed from the current source node");
             }
             if ("S08".equals(node) && !all(current.recipients(), Stage.EXECUTION)) {
-                throw new ProcessRejectedException("P005 all recipient execution receipts are required before acceptance");
+                throw new ProcessRejectedException(
+                        "P005 all recipient execution receipts are required before acceptance");
             }
             if ("S08".equals(node)) {
                 for (Recipient recipient : current.recipients()) {
                     if (recipient.acceptedAt() == null) {
-                        if (repository.markAccepted(actor.tenantId(), recipient.id(), recipient.versionNo(), actor.employeeId()) != 1) {
+                        if (repository.markAccepted(
+                                        actor.tenantId(), recipient.id(), recipient.versionNo(), actor.employeeId())
+                                != 1) {
                             throw new ProcessRejectedException("P005 concurrent acceptance update conflict");
                         }
-                        repository.appendReceiptEvent(actor.tenantId(), noticeId, recipient.id(), recipient.employeeId(),
-                                actor.employeeId(), "ACCEPTED", null);
+                        repository.appendReceiptEvent(
+                                actor.tenantId(),
+                                noticeId,
+                                recipient.id(),
+                                recipient.employeeId(),
+                                actor.employeeId(),
+                                "ACCEPTED",
+                                null);
                     }
                 }
             }
-            Notice moved = advance(actor, current.notice(), node, action, scopedKey(idempotencyKey, "workflow"),
-                    trimToNull(command.reason()), employeeIds(current.recipients()));
+            Notice moved = advance(
+                    actor,
+                    current.notice(),
+                    node,
+                    action,
+                    scopedKey(idempotencyKey, "workflow"),
+                    trimToNull(command.reason()),
+                    employeeIds(current.recipients()));
             if ("S10".equals(node)) {
                 Notice closed = requiredNotice(actor.tenantId(), moved.id());
                 if (!"END".equals(closed.currentNodeCode()) || closed.archivedAt() == null) {
@@ -281,7 +424,8 @@ public final class NoticeReceiptService {
 
     public Optional<NoticeAggregate> find(DatabaseSecurityContext actor, UUID noticeId) {
         requireActor(actor);
-        return transactions.required(actor, () -> repository.findNotice(actor.tenantId(), noticeId)
+        return transactions.required(actor, () -> repository
+                .findNotice(actor.tenantId(), noticeId)
                 .map(notice -> new NoticeAggregate(notice, repository.listRecipients(actor.tenantId(), notice.id()))));
     }
 
@@ -293,39 +437,71 @@ public final class NoticeReceiptService {
     }
 
     private NoticeAggregate receipt(
-            DatabaseSecurityContext actor, UUID noticeId, String idempotencyKey, String requestHash,
-            String requiredNode, String operation, ReceiptCommand command) {
+            DatabaseSecurityContext actor,
+            UUID noticeId,
+            String idempotencyKey,
+            String requestHash,
+            String requiredNode,
+            String operation,
+            ReceiptCommand command) {
         requireActor(actor);
         Objects.requireNonNull(command, "P005 receipt command is required");
         return transactions.required(actor, () -> {
             NoticeAggregate current = aggregate(actor.tenantId(), noticeId);
             Recipient recipient = ownRecipient(current, actor.employeeId());
-            if (claimReceipt(actor, recipient, idempotencyKey, requestHash, operation.toLowerCase(Locale.ROOT))) return current;
+            if (claimReceipt(actor, recipient, idempotencyKey, requestHash, operation.toLowerCase(Locale.ROOT)))
+                return current;
             requireNode(current.notice(), requiredNode);
             if (recipient.versionNo() != command.expectedRecipientVersion()) {
                 throw new ProcessRejectedException("P005 recipient version conflict");
             }
             if ("READ".equals(operation)) {
-                if (recipient.deliveredAt() == null) throw new ProcessRejectedException("P005 notice must be delivered before it can be read");
+                if (recipient.deliveredAt() == null)
+                    throw new ProcessRejectedException("P005 notice must be delivered before it can be read");
                 if (recipient.readAt() != null) throw new ProcessRejectedException("P005 notice is already read");
-                if (repository.markRead(actor.tenantId(), recipient.id(), recipient.versionNo(), actor.employeeId()) != 1) {
+                if (repository.markRead(actor.tenantId(), recipient.id(), recipient.versionNo(), actor.employeeId())
+                        != 1) {
                     throw new ProcessRejectedException("P005 concurrent read update conflict");
                 }
-                repository.appendReceiptEvent(actor.tenantId(), noticeId, recipient.id(), recipient.employeeId(), actor.employeeId(), "READ", null);
+                repository.appendReceiptEvent(
+                        actor.tenantId(),
+                        noticeId,
+                        recipient.id(),
+                        recipient.employeeId(),
+                        actor.employeeId(),
+                        "READ",
+                        null);
             } else {
-                if (recipient.readAt() == null) throw new ProcessRejectedException("P005 read receipt is required before confirmation");
-                if (recipient.confirmedAt() != null) throw new ProcessRejectedException("P005 notice is already confirmed");
-                if (repository.markConfirmed(actor.tenantId(), recipient.id(), recipient.versionNo(), actor.employeeId()) != 1) {
+                if (recipient.readAt() == null)
+                    throw new ProcessRejectedException("P005 read receipt is required before confirmation");
+                if (recipient.confirmedAt() != null)
+                    throw new ProcessRejectedException("P005 notice is already confirmed");
+                if (repository.markConfirmed(
+                                actor.tenantId(), recipient.id(), recipient.versionNo(), actor.employeeId())
+                        != 1) {
                     throw new ProcessRejectedException("P005 concurrent confirmation update conflict");
                 }
-                repository.appendReceiptEvent(actor.tenantId(), noticeId, recipient.id(), recipient.employeeId(), actor.employeeId(), "CONFIRMED", null);
+                repository.appendReceiptEvent(
+                        actor.tenantId(),
+                        noticeId,
+                        recipient.id(),
+                        recipient.employeeId(),
+                        actor.employeeId(),
+                        "CONFIRMED",
+                        null);
             }
             NoticeAggregate after = aggregate(actor.tenantId(), noticeId);
             Stage stage = "READ".equals(operation) ? Stage.READ : Stage.CONFIRM;
             if (all(after.recipients(), stage)) {
                 String action = stage == Stage.READ ? "COMPLETE_READ" : "COMPLETE_CONFIRM";
-                Notice moved = advance(actor, after.notice(), requiredNode, action, scopedKey(idempotencyKey, "stage"),
-                        null, employeeIds(after.recipients()));
+                Notice moved = advance(
+                        actor,
+                        after.notice(),
+                        requiredNode,
+                        action,
+                        scopedKey(idempotencyKey, "stage"),
+                        null,
+                        employeeIds(after.recipients()));
                 return aggregate(actor.tenantId(), moved.id());
             }
             return after;
@@ -333,15 +509,31 @@ public final class NoticeReceiptService {
     }
 
     private boolean claimReceipt(
-            DatabaseSecurityContext actor, Recipient recipient, String idempotencyKey, String requestHash, String suffix) {
-        return idempotency.claim(
-                actor.tenantId(), actor.employeeId(), idempotencyKey, requestHash,
-                "collaboration.notice_recipient." + suffix, recipient.id(), IDEMPOTENCY_TTL).existing();
+            DatabaseSecurityContext actor,
+            Recipient recipient,
+            String idempotencyKey,
+            String requestHash,
+            String suffix) {
+        return idempotency
+                .claim(
+                        actor.tenantId(),
+                        actor.employeeId(),
+                        idempotencyKey,
+                        requestHash,
+                        "collaboration.notice_recipient." + suffix,
+                        recipient.id(),
+                        IDEMPOTENCY_TTL)
+                .existing();
     }
 
     private Notice advance(
-            DatabaseSecurityContext actor, Notice current, String node, String action, String workflowKey,
-            String reason, List<UUID> eventRecipients) {
+            DatabaseSecurityContext actor,
+            Notice current,
+            String node,
+            String action,
+            String workflowKey,
+            String reason,
+            List<UUID> eventRecipients) {
         WorkflowRuntimeService.Result runtime = workflow.get(actor.tenantId(), current.workflowInstanceId());
         if (!node.equals(runtime.instance().currentNodeCode()) || !node.equals(current.currentNodeCode())) {
             throw new ProcessRejectedException("P005 business projection is stale relative to workflow runtime");
@@ -350,16 +542,39 @@ public final class NoticeReceiptService {
         taskAssignment.claim(new WorkflowTaskAssignmentService.ClaimCommand(
                 actor.tenantId(), runtime.task().id(), actor.employeeId()));
         WorkflowRuntimeService.Result result = workflow.act(new WorkflowRuntimeService.ActionCommand(
-                actor.tenantId(), actor.employeeId(), actor.identityId(), current.workflowInstanceId(), runtime.task().id(),
-                node, action, reason, workflowKey));
-        Instant archivedAt = "S10".equals(node) && "END".equals(result.instance().currentNodeCode()) ? Instant.now() : null;
-        Instant closedAt = "END".equals(result.instance().currentNodeCode()) ? result.instance().finishedAt() : null;
+                actor.tenantId(),
+                actor.employeeId(),
+                actor.identityId(),
+                current.workflowInstanceId(),
+                runtime.task().id(),
+                node,
+                action,
+                reason,
+                workflowKey));
+        Instant archivedAt =
+                "S10".equals(node) && "END".equals(result.instance().currentNodeCode()) ? Instant.now() : null;
+        Instant closedAt = "END".equals(result.instance().currentNodeCode())
+                ? result.instance().finishedAt()
+                : null;
         if (repository.moveStatus(
-                actor.tenantId(), current.id(), current.versionNo(), label(result.instance().currentNodeCode()),
-                archivedAt, closedAt, actor.employeeId()) != 1) {
+                        actor.tenantId(),
+                        current.id(),
+                        current.versionNo(),
+                        label(result.instance().currentNodeCode()),
+                        archivedAt,
+                        closedAt,
+                        actor.employeeId())
+                != 1) {
             throw new ProcessRejectedException("P005 concurrent aggregate transition conflict");
         }
-        emit(actor.tenantId(), actor.employeeId(), current, node, action, result.instance().currentNodeCode(), eventRecipients);
+        emit(
+                actor.tenantId(),
+                actor.employeeId(),
+                current,
+                node,
+                action,
+                result.instance().currentNodeCode(),
+                eventRecipients);
         return requiredNotice(actor.tenantId(), current.id());
     }
 
@@ -369,18 +584,27 @@ public final class NoticeReceiptService {
     }
 
     private Notice requiredNotice(UUID tenantId, UUID noticeId) {
-        return repository.findNotice(tenantId, noticeId)
+        return repository
+                .findNotice(tenantId, noticeId)
                 .orElseThrow(() -> new ProcessRejectedException("P005 notice not found"));
     }
 
     private static Recipient ownRecipient(NoticeAggregate aggregate, UUID employeeId) {
-        return aggregate.recipients().stream().filter(r -> employeeId.equals(r.employeeId())).findFirst()
-                .orElseThrow(() -> new ProcessRejectedException("P005 employee is not in the server-resolved audience"));
+        return aggregate.recipients().stream()
+                .filter(r -> employeeId.equals(r.employeeId()))
+                .findFirst()
+                .orElseThrow(
+                        () -> new ProcessRejectedException("P005 employee is not in the server-resolved audience"));
     }
 
     private void emit(
-            UUID tenantId, UUID actorId, Notice notice, String completedNode, String actionCode,
-            String targetNode, List<UUID> recipients) {
+            UUID tenantId,
+            UUID actorId,
+            Notice notice,
+            String completedNode,
+            String actionCode,
+            String targetNode,
+            List<UUID> recipients) {
         ObjectNode payload = mapper.createObjectNode();
         payload.put("noticeId", notice.id().toString());
         payload.put("businessNo", notice.businessNo());
@@ -391,7 +615,13 @@ public final class NoticeReceiptService {
         payload.put("nodeCode", targetNode);
         payload.set("recipientEmployeeIds", uuidArray(recipients));
         outbox.enqueue(new TransactionalOutboxService.Command(
-                tenantId, actorId, AGGREGATE_TYPE, notice.id(), EVENT_TYPE, 1, json(payload),
+                tenantId,
+                actorId,
+                AGGREGATE_TYPE,
+                notice.id(),
+                EVENT_TYPE,
+                1,
+                json(payload),
                 "p005:" + notice.id() + ":" + completedNode.toLowerCase(Locale.ROOT)));
     }
 
@@ -410,7 +640,8 @@ public final class NoticeReceiptService {
         values.add(text("target_center_id", notice.targetCenterId().toString()));
         addText(values, "target_position_code", notice.targetPositionCode());
         values.add(number("understanding_pass_score", notice.understandingPassScore()));
-        if (notice.executionDueAt() != null) values.add(text("execution_due_at", notice.executionDueAt().toString()));
+        if (notice.executionDueAt() != null)
+            values.add(text("execution_due_at", notice.executionDueAt().toString()));
         return List.copyOf(values);
     }
 
@@ -419,7 +650,8 @@ public final class NoticeReceiptService {
     }
 
     private static WorkflowFormService.FieldValue number(String code, int value) {
-        return new WorkflowFormService.FieldValue(code, "NUMBER", null, java.math.BigDecimal.valueOf(value), null, null, null, null, "P1", false);
+        return new WorkflowFormService.FieldValue(
+                code, "NUMBER", null, java.math.BigDecimal.valueOf(value), null, null, null, null, "P1", false);
     }
 
     private static void addText(List<WorkflowFormService.FieldValue> values, String code, String value) {
@@ -505,15 +737,21 @@ public final class NoticeReceiptService {
                 && (command.understandingPassScore() < 0 || command.understandingPassScore() > 100)) {
             throw new ProcessRejectedException("P005 understandingPassScore must be between 0 and 100");
         }
-        if (command.effectiveEndAt() != null && command.effectiveStartAt() != null
+        if (command.effectiveEndAt() != null
+                && command.effectiveStartAt() != null
                 && command.effectiveEndAt().isBefore(command.effectiveStartAt())) {
             throw new ProcessRejectedException("P005 effectiveEndAt cannot be before effectiveStartAt");
         }
     }
 
     private static void requireActor(DatabaseSecurityContext actor) {
-        if (actor == null || actor.tenantId() == null || actor.userId() == null || actor.identityId() == null
-                || actor.employeeId() == null || actor.orgId() == null || actor.positionId() == null) {
+        if (actor == null
+                || actor.tenantId() == null
+                || actor.userId() == null
+                || actor.identityId() == null
+                || actor.employeeId() == null
+                || actor.orgId() == null
+                || actor.positionId() == null) {
             throw new ProcessRejectedException("P005 authenticated employee context is required");
         }
     }
@@ -525,7 +763,8 @@ public final class NoticeReceiptService {
     }
 
     private static void requireText(String value, String field) {
-        if (value == null || value.isBlank()) throw new ProcessRejectedException("P005 required field is missing: " + field);
+        if (value == null || value.isBlank())
+            throw new ProcessRejectedException("P005 required field is missing: " + field);
     }
 
     private static String normalizePolicyCode(String value) {
@@ -543,8 +782,11 @@ public final class NoticeReceiptService {
     }
 
     private String json(JsonNode value) {
-        try { return mapper.writeValueAsString(value); }
-        catch (JsonProcessingException ex) { throw new ProcessRejectedException("P005 JSON serialization failed", ex); }
+        try {
+            return mapper.writeValueAsString(value);
+        } catch (JsonProcessingException ex) {
+            throw new ProcessRejectedException("P005 JSON serialization failed", ex);
+        }
     }
 
     private ArrayNode uuidArray(List<UUID> ids) {
@@ -560,78 +802,233 @@ public final class NoticeReceiptService {
         return value;
     }
 
-    private static String trimToNull(String value) { return value == null || value.isBlank() ? null : value.trim(); }
+    private static String trimToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
+    }
 
     public interface Repository {
         Optional<UUID> latestPublishedWorkflowVersion(UUID tenantId, String processCode);
+
         Optional<FormRef> latestPublishedForm(UUID tenantId, String formCode, String processCode, String nodeCode);
+
         List<UUID> permissionCandidates(UUID tenantId, String permissionCode, UUID orgId);
+
         List<AudienceMember> resolveRecipients(UUID tenantId, UUID centerId, String positionCode);
+
         int nextPolicyVersion(UUID tenantId, String policyCode);
+
         void insertNotice(Notice notice, String recipientScopeJson, UUID actorId);
+
         void insertRecipients(UUID tenantId, UUID noticeId, List<AudienceMember> recipients);
-        int bindWorkflowAndMove(UUID tenantId, UUID noticeId, int expectedVersion, UUID workflowInstanceId, String status, UUID actorId);
-        int moveStatus(UUID tenantId, UUID noticeId, int expectedVersion, String status, Instant archivedAt, Instant closedAt, UUID actorId);
+
+        int bindWorkflowAndMove(
+                UUID tenantId,
+                UUID noticeId,
+                int expectedVersion,
+                UUID workflowInstanceId,
+                String status,
+                UUID actorId);
+
+        int moveStatus(
+                UUID tenantId,
+                UUID noticeId,
+                int expectedVersion,
+                String status,
+                Instant archivedAt,
+                Instant closedAt,
+                UUID actorId);
+
         int markRead(UUID tenantId, UUID recipientId, int expectedVersion, UUID actorId);
+
         int markConfirmed(UUID tenantId, UUID recipientId, int expectedVersion, UUID actorId);
-        int markUnderstanding(UUID tenantId, UUID recipientId, int expectedVersion, int score, boolean passed, UUID actorId);
+
+        int markUnderstanding(
+                UUID tenantId, UUID recipientId, int expectedVersion, int score, boolean passed, UUID actorId);
+
         int markExecuted(UUID tenantId, UUID recipientId, int expectedVersion, String summary, UUID actorId);
+
         int markAccepted(UUID tenantId, UUID recipientId, int expectedVersion, UUID actorId);
-        void appendReceiptEvent(UUID tenantId, UUID noticeId, UUID recipientId, UUID employeeId, UUID actorId, String eventType, String evidenceJson);
+
+        void appendReceiptEvent(
+                UUID tenantId,
+                UUID noticeId,
+                UUID recipientId,
+                UUID employeeId,
+                UUID actorId,
+                String eventType,
+                String evidenceJson);
+
         Optional<Notice> findNotice(UUID tenantId, UUID noticeId);
+
         List<Notice> listNotices(UUID tenantId);
+
         List<Recipient> listRecipients(UUID tenantId, UUID noticeId);
     }
 
     public record FormRef(UUID id, int versionNo) {}
+
     public record AudienceMember(UUID employeeId, UUID identityId, UUID orgId, UUID positionId, String positionCode) {}
+
     public record PublishCommand(
-            String policyCode, String officialSubject, String officialType, String officialContent,
-            String periodOrCourseNo, String visibilityLevel, String venueChannel, UUID targetCenterId,
-            String targetPositionCode, Integer understandingPassScore, LocalDate businessDate,
-            Instant effectiveStartAt, Instant effectiveEndAt, Instant executionDueAt) {}
+            String policyCode,
+            String officialSubject,
+            String officialType,
+            String officialContent,
+            String periodOrCourseNo,
+            String visibilityLevel,
+            String venueChannel,
+            UUID targetCenterId,
+            String targetPositionCode,
+            Integer understandingPassScore,
+            LocalDate businessDate,
+            Instant effectiveStartAt,
+            Instant effectiveEndAt,
+            Instant executionDueAt) {}
+
     public record ReceiptCommand(int expectedRecipientVersion) {}
+
     public record UnderstandingCommand(int expectedRecipientVersion, int score) {}
+
     public record ExecutionCommand(int expectedRecipientVersion, String summary) {}
+
     public record ManageCommand(int expectedVersion, String reason) {}
+
     public record Notice(
-            UUID id, UUID tenantId, String businessNo, UUID workflowInstanceId, String workflowInstanceNo,
-            String currentNodeCode, String status, int versionNo, String policyCode, int policyVersion,
-            String officialSubject, String officialType, String officialContent, String periodOrCourseNo,
-            String visibilityLevel, String venueChannel, UUID ownerCenterId, UUID ownerEmployeeId,
-            UUID targetCenterId, String targetPositionCode, int understandingPassScore, Instant publishedAt,
-            LocalDate businessDate, Instant effectiveStartAt, Instant effectiveEndAt, Instant executionDueAt,
-            Instant archivedAt, Instant actualEndAt, Instant updatedAt) {}
+            UUID id,
+            UUID tenantId,
+            String businessNo,
+            UUID workflowInstanceId,
+            String workflowInstanceNo,
+            String currentNodeCode,
+            String status,
+            int versionNo,
+            String policyCode,
+            int policyVersion,
+            String officialSubject,
+            String officialType,
+            String officialContent,
+            String periodOrCourseNo,
+            String visibilityLevel,
+            String venueChannel,
+            UUID ownerCenterId,
+            UUID ownerEmployeeId,
+            UUID targetCenterId,
+            String targetPositionCode,
+            int understandingPassScore,
+            Instant publishedAt,
+            LocalDate businessDate,
+            Instant effectiveStartAt,
+            Instant effectiveEndAt,
+            Instant executionDueAt,
+            Instant archivedAt,
+            Instant actualEndAt,
+            Instant updatedAt) {}
+
     public record Recipient(
-            UUID id, UUID noticeId, UUID employeeId, UUID identityId, UUID orgId, UUID positionId, String positionCode,
-            String deliveryStatus, Instant deliveredAt, Instant readAt, Instant confirmedAt, Integer understandingScore,
-            Instant understandingPassedAt, String executionSummary, Instant executedAt, Instant acceptedAt,
-            UUID acceptedBy, Instant lastRemindedAt, int escalationCount, int versionNo, Instant updatedAt) {}
+            UUID id,
+            UUID noticeId,
+            UUID employeeId,
+            UUID identityId,
+            UUID orgId,
+            UUID positionId,
+            String positionCode,
+            String deliveryStatus,
+            Instant deliveredAt,
+            Instant readAt,
+            Instant confirmedAt,
+            Integer understandingScore,
+            Instant understandingPassedAt,
+            String executionSummary,
+            Instant executedAt,
+            Instant acceptedAt,
+            UUID acceptedBy,
+            Instant lastRemindedAt,
+            int escalationCount,
+            int versionNo,
+            Instant updatedAt) {}
+
     public record NoticeAggregate(Notice notice, List<Recipient> recipients) {
         public NoticeAggregate {
             recipients = List.copyOf(recipients == null ? List.of() : recipients);
         }
+
         public NoticeAggregate recipientView(UUID employeeId) {
-            return new NoticeAggregate(notice, recipients.stream().filter(r -> employeeId.equals(r.employeeId())).toList());
+            return new NoticeAggregate(
+                    notice,
+                    recipients.stream()
+                            .filter(r -> employeeId.equals(r.employeeId()))
+                            .toList());
         }
+
         public NoticeAggregate metadataOnly() {
-            Notice n = new Notice(notice.id(), notice.tenantId(), notice.businessNo(), notice.workflowInstanceId(),
-                    notice.workflowInstanceNo(), notice.currentNodeCode(), notice.status(), notice.versionNo(),
-                    notice.policyCode(), notice.policyVersion(), null, notice.officialType(), null, null,
-                    notice.visibilityLevel(), null, notice.ownerCenterId(), null, notice.targetCenterId(),
-                    notice.targetPositionCode(), notice.understandingPassScore(), notice.publishedAt(), notice.businessDate(),
-                    notice.effectiveStartAt(), notice.effectiveEndAt(), notice.executionDueAt(), notice.archivedAt(),
-                    notice.actualEndAt(), notice.updatedAt());
+            Notice n = new Notice(
+                    notice.id(),
+                    notice.tenantId(),
+                    notice.businessNo(),
+                    notice.workflowInstanceId(),
+                    notice.workflowInstanceNo(),
+                    notice.currentNodeCode(),
+                    notice.status(),
+                    notice.versionNo(),
+                    notice.policyCode(),
+                    notice.policyVersion(),
+                    null,
+                    notice.officialType(),
+                    null,
+                    null,
+                    notice.visibilityLevel(),
+                    null,
+                    notice.ownerCenterId(),
+                    null,
+                    notice.targetCenterId(),
+                    notice.targetPositionCode(),
+                    notice.understandingPassScore(),
+                    notice.publishedAt(),
+                    notice.businessDate(),
+                    notice.effectiveStartAt(),
+                    notice.effectiveEndAt(),
+                    notice.executionDueAt(),
+                    notice.archivedAt(),
+                    notice.actualEndAt(),
+                    notice.updatedAt());
             return new NoticeAggregate(n, List.of());
         }
-        public int recipientCount() { return recipients.size(); }
-        public long deliveredCount() { return recipients.stream().filter(r -> r.deliveredAt() != null).count(); }
-        public long readCount() { return recipients.stream().filter(r -> r.readAt() != null).count(); }
-        public long confirmedCount() { return recipients.stream().filter(r -> r.confirmedAt() != null).count(); }
-        public long understandingPassedCount() { return recipients.stream().filter(r -> r.understandingPassedAt() != null).count(); }
-        public long executedCount() { return recipients.stream().filter(r -> r.executedAt() != null).count(); }
-        public long acceptedCount() { return recipients.stream().filter(r -> r.acceptedAt() != null).count(); }
+
+        public int recipientCount() {
+            return recipients.size();
+        }
+
+        public long deliveredCount() {
+            return recipients.stream().filter(r -> r.deliveredAt() != null).count();
+        }
+
+        public long readCount() {
+            return recipients.stream().filter(r -> r.readAt() != null).count();
+        }
+
+        public long confirmedCount() {
+            return recipients.stream().filter(r -> r.confirmedAt() != null).count();
+        }
+
+        public long understandingPassedCount() {
+            return recipients.stream()
+                    .filter(r -> r.understandingPassedAt() != null)
+                    .count();
+        }
+
+        public long executedCount() {
+            return recipients.stream().filter(r -> r.executedAt() != null).count();
+        }
+
+        public long acceptedCount() {
+            return recipients.stream().filter(r -> r.acceptedAt() != null).count();
+        }
     }
 
-    private enum Stage { READ, CONFIRM, UNDERSTANDING, EXECUTION }
+    private enum Stage {
+        READ,
+        CONFIRM,
+        UNDERSTANDING,
+        EXECUTION
+    }
 }

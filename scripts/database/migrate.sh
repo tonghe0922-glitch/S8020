@@ -25,9 +25,21 @@ fi
 : "${SJG_BOOTSTRAP_DB_PASSWORD:=${POSTGRES_PASSWORD:-}}"
 export SJG_BOOTSTRAP_DB_URL SJG_BOOTSTRAP_DB_USERNAME SJG_BOOTSTRAP_DB_PASSWORD
 
-./mvnw -q -ntp \
+MODULE_POM=technical-platform/backend/modules/database-baseline/pom.xml
+
+# Install the selected module and every internal reactor dependency first.
+# The database-baseline POM has internal test-scope dependencies that still
+# participate in dependency resolution even though this command skips tests.
+bash ./mvnw -q -ntp \
   -pl technical-platform/backend/modules/database-baseline \
-  -DskipTests compile \
+  -am \
+  -DskipTests install
+
+# Execute from the module POM so the migrator class is loaded from that
+# module rather than from the root aggregator project.
+bash ./mvnw -q -ntp \
+  -f "$MODULE_POM" \
+  -DskipTests \
   org.codehaus.mojo:exec-maven-plugin:3.5.0:java \
   -Dexec.mainClass=cn.shangjingu.platform.database.Phase03DatabaseMigrator \
   -Dexec.classpathScope=runtime

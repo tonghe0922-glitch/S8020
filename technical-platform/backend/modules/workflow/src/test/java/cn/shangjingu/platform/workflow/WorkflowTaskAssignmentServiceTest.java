@@ -45,14 +45,17 @@ class WorkflowTaskAssignmentServiceTest {
         UUID outsider = f.employee("OUTSIDER");
         f.appoint(eligible);
 
-        WorkflowException forbidden = assertThrows(WorkflowException.class, () -> f.service.claim(
-                new WorkflowTaskAssignmentService.ClaimCommand(f.tenantId, f.taskId, outsider)));
+        WorkflowException forbidden = assertThrows(
+                WorkflowException.class,
+                () -> f.service.claim(new WorkflowTaskAssignmentService.ClaimCommand(f.tenantId, f.taskId, outsider)));
         assertEquals(WorkflowException.Code.FORBIDDEN, forbidden.code());
 
         Fixture self = new Fixture();
         self.appoint(self.initiatorId);
-        WorkflowException noApprover = assertThrows(WorkflowException.class, () -> self.service.claim(
-                new WorkflowTaskAssignmentService.ClaimCommand(self.tenantId, self.taskId, self.initiatorId)));
+        WorkflowException noApprover = assertThrows(
+                WorkflowException.class,
+                () -> self.service.claim(
+                        new WorkflowTaskAssignmentService.ClaimCommand(self.tenantId, self.taskId, self.initiatorId)));
         assertEquals(WorkflowException.Code.NO_ELIGIBLE_APPROVER, noApprover.code());
     }
 
@@ -65,14 +68,16 @@ class WorkflowTaskAssignmentServiceTest {
         f.appoint(second);
         f.repository.task = new WorkflowTaskAssignmentService.CandidateTask(
                 f.taskId, f.instanceId, "OLD_NODE", null, f.rule, WorkflowRuntimeService.PENDING);
-        WorkflowException staleNode = assertThrows(WorkflowException.class, () -> f.service.claim(
-                new WorkflowTaskAssignmentService.ClaimCommand(f.tenantId, f.taskId, first)));
+        WorkflowException staleNode = assertThrows(
+                WorkflowException.class,
+                () -> f.service.claim(new WorkflowTaskAssignmentService.ClaimCommand(f.tenantId, f.taskId, first)));
         assertEquals(WorkflowException.Code.STALE_VERSION, staleNode.code());
 
         f.repository.task = new WorkflowTaskAssignmentService.CandidateTask(
                 f.taskId, f.instanceId, "REVIEW", first, f.rule, WorkflowRuntimeService.PENDING);
-        WorkflowException competing = assertThrows(WorkflowException.class, () -> f.service.claim(
-                new WorkflowTaskAssignmentService.ClaimCommand(f.tenantId, f.taskId, second)));
+        WorkflowException competing = assertThrows(
+                WorkflowException.class,
+                () -> f.service.claim(new WorkflowTaskAssignmentService.ClaimCommand(f.tenantId, f.taskId, second)));
         assertEquals(WorkflowException.Code.STALE_VERSION, competing.code());
         assertEquals(first, f.repository.task.assigneeId());
     }
@@ -109,13 +114,21 @@ class WorkflowTaskAssignmentServiceTest {
         }
 
         private EmployeeRecord employeeRecord(UUID id, String code) {
-            return new EmployeeRecord(id, tenantId, code, code, "ACTIVE", LocalDate.now().minusYears(1), null, orgId, positionId);
+            return new EmployeeRecord(
+                    id, tenantId, code, code, "ACTIVE", LocalDate.now().minusYears(1), null, orgId, positionId);
         }
 
         void appoint(UUID employeeId) {
             directory.appointments.add(new AppointmentRecord(
-                    UUID.randomUUID(), tenantId, employeeId, positionId, orgId, false,
-                    LocalDate.now().minusDays(1), null, "ACTIVE"));
+                    UUID.randomUUID(),
+                    tenantId,
+                    employeeId,
+                    positionId,
+                    orgId,
+                    false,
+                    LocalDate.now().minusDays(1),
+                    null,
+                    "ACTIVE"));
         }
     }
 
@@ -123,17 +136,26 @@ class WorkflowTaskAssignmentServiceTest {
         WorkflowTaskAssignmentService.CandidateTask task;
         WorkflowTaskAssignmentService.CandidateInstance instance;
 
-        @Override public Optional<WorkflowTaskAssignmentService.CandidateTask> findTask(UUID tenantId, UUID taskId) {
+        @Override
+        public Optional<WorkflowTaskAssignmentService.CandidateTask> findTask(UUID tenantId, UUID taskId) {
             return task != null && task.id().equals(taskId) ? Optional.of(task) : Optional.empty();
         }
-        @Override public Optional<WorkflowTaskAssignmentService.CandidateInstance> lockInstance(UUID tenantId, UUID instanceId) {
+
+        @Override
+        public Optional<WorkflowTaskAssignmentService.CandidateInstance> lockInstance(UUID tenantId, UUID instanceId) {
             return instance != null && instance.id().equals(instanceId) ? Optional.of(instance) : Optional.empty();
         }
-        @Override public Optional<WorkflowTaskAssignmentService.CandidateTask> lockTask(UUID tenantId, UUID taskId) {
+
+        @Override
+        public Optional<WorkflowTaskAssignmentService.CandidateTask> lockTask(UUID tenantId, UUID taskId) {
             return findTask(tenantId, taskId);
         }
-        @Override public int claimTask(UUID tenantId, UUID taskId, UUID assigneeId, UUID actorId) {
-            if (task == null || !task.id().equals(taskId) || task.assigneeId() != null
+
+        @Override
+        public int claimTask(UUID tenantId, UUID taskId, UUID assigneeId, UUID actorId) {
+            if (task == null
+                    || !task.id().equals(taskId)
+                    || task.assigneeId() != null
                     || !WorkflowRuntimeService.PENDING.equals(task.status())) return 0;
             task = new WorkflowTaskAssignmentService.CandidateTask(
                     task.id(), task.instanceId(), task.nodeCode(), assigneeId, task.candidateRule(), task.status());
@@ -154,27 +176,42 @@ class WorkflowTaskAssignmentServiceTest {
             this.positionId = positionId;
         }
 
-        @Override public Optional<EmployeeRecord> findEmployee(UUID tenantId, UUID employeeId) {
+        @Override
+        public Optional<EmployeeRecord> findEmployee(UUID tenantId, UUID employeeId) {
             return this.tenantId.equals(tenantId) ? Optional.ofNullable(employees.get(employeeId)) : Optional.empty();
         }
-        @Override public Optional<OrganizationUnit> findOrganization(UUID tenantId, UUID orgId) {
+
+        @Override
+        public Optional<OrganizationUnit> findOrganization(UUID tenantId, UUID orgId) {
             return this.tenantId.equals(tenantId) && this.orgId.equals(orgId)
                     ? Optional.of(new OrganizationUnit(orgId, tenantId, "ORG", "Org", "CENTER", null, null, "ACTIVE"))
                     : Optional.empty();
         }
-        @Override public Optional<PositionRecord> findPosition(UUID tenantId, UUID positionId) {
+
+        @Override
+        public Optional<PositionRecord> findPosition(UUID tenantId, UUID positionId) {
             return this.tenantId.equals(tenantId) && this.positionId.equals(positionId)
                     ? Optional.of(new PositionRecord(positionId, tenantId, "POS", "Approver", orgId, null, "ACTIVE"))
                     : Optional.empty();
         }
-        @Override public List<AppointmentRecord> findActiveAppointments(UUID tenantId, UUID employeeId) {
-            return appointments.stream().filter(a -> a.employeeId().equals(employeeId)).toList();
+
+        @Override
+        public List<AppointmentRecord> findActiveAppointments(UUID tenantId, UUID employeeId) {
+            return appointments.stream()
+                    .filter(a -> a.employeeId().equals(employeeId))
+                    .toList();
         }
-        @Override public List<AppointmentRecord> findActiveAppointmentsByOrgAndPosition(UUID tenantId, UUID orgId, UUID positionId) {
-            if (!this.tenantId.equals(tenantId) || !this.orgId.equals(orgId) || !this.positionId.equals(positionId)) return List.of();
+
+        @Override
+        public List<AppointmentRecord> findActiveAppointmentsByOrgAndPosition(
+                UUID tenantId, UUID orgId, UUID positionId) {
+            if (!this.tenantId.equals(tenantId) || !this.orgId.equals(orgId) || !this.positionId.equals(positionId))
+                return List.of();
             return appointments;
         }
-        @Override public boolean hasActiveAppointment(UUID tenantId, UUID employeeId, UUID orgId, UUID positionId) {
+
+        @Override
+        public boolean hasActiveAppointment(UUID tenantId, UUID employeeId, UUID orgId, UUID positionId) {
             return findActiveAppointmentsByOrgAndPosition(tenantId, orgId, positionId).stream()
                     .anyMatch(a -> a.employeeId().equals(employeeId));
         }

@@ -18,8 +18,7 @@ import org.testcontainers.utility.DockerImageName;
 /** Real PHASE-10 / P006-P010 Spring Boot + PostgreSQL16 + Redis browser fixture. */
 public final class Phase10BrowserBackendFixture {
     private static final String POSTGRES_IMAGE = "postgres:16.14-alpine3.24";
-    private static final DockerImageName REDIS_IMAGE =
-            DockerImageName.parse("redis:7.4-alpine");
+    private static final DockerImageName REDIS_IMAGE = DockerImageName.parse("redis:7.4-alpine");
     private static final String API_PASSWORD = "phase10_api_" + shortId();
     private static final String AUDIT_PASSWORD = "phase10_audit_" + shortId();
 
@@ -48,9 +47,7 @@ public final class Phase10BrowserBackendFixture {
         new CountDownLatch(1).await();
     }
 
-    private static ConfigurableApplicationContext startApi(
-            PostgreSQLContainer<?> postgres,
-            GenericContainer<?> redis) {
+    private static ConfigurableApplicationContext startApi(PostgreSQLContainer<?> postgres, GenericContainer<?> redis) {
         SpringApplication application = new SpringApplication(ApiApplication.class);
         return application.run(
                 "--server.port=18110",
@@ -68,10 +65,8 @@ public final class Phase10BrowserBackendFixture {
     }
 
     private static void prepareDatabases(
-            PostgreSQLContainer<?> postgres,
-            String tenantCode,
-            String employeeLogin,
-            String password) throws Exception {
+            PostgreSQLContainer<?> postgres, String tenantCode, String employeeLogin, String password)
+            throws Exception {
         Path root = findRepoRoot();
         Flyway.configure()
                 .dataSource(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword())
@@ -93,9 +88,12 @@ public final class Phase10BrowserBackendFixture {
                         "filesystem:" + root.resolve("technical-platform/database/flyway/oms"),
                         "filesystem:" + root.resolve("technical-platform/database/flyway-overlays/oms"))
                 .placeholders(Map.of(
-                        "sjg_tenant_id", Phase10FixtureData.TENANT.toString(),
-                        "sjg_tenant_code", tenantCode,
-                        "sjg_tenant_name", "PHASE10 Browser Tenant"))
+                        "sjg_tenant_id",
+                        Phase10FixtureData.TENANT.toString(),
+                        "sjg_tenant_code",
+                        tenantCode,
+                        "sjg_tenant_name",
+                        "PHASE10 Browser Tenant"))
                 .cleanDisabled(true)
                 .load()
                 .migrate();
@@ -111,29 +109,27 @@ public final class Phase10BrowserBackendFixture {
         Phase10ProfessionalCertifierData.seed(postgres, password);
     }
 
-    private static void writeRuntimeFacts(
-            PostgreSQLContainer<?> postgres,
-            GenericContainer<?> redis) throws Exception {
-        Path output = findRepoRoot().resolve(
-                "technical-platform/backend/apps/api/target/phase10-fixture-runtime.json");
+    private static void writeRuntimeFacts(PostgreSQLContainer<?> postgres, GenericContainer<?> redis) throws Exception {
+        Path output = findRepoRoot().resolve("technical-platform/backend/apps/api/target/phase10-fixture-runtime.json");
         Files.createDirectories(output.getParent());
-        Files.writeString(output, "{\n"
-                + "  \"postgresContainerId\": \"" + postgres.getContainerId() + "\",\n"
-                + "  \"redisContainerId\": \"" + redis.getContainerId() + "\",\n"
-                + "  \"tenantId\": \"" + Phase10FixtureData.TENANT + "\",\n"
-                + "  \"centerAId\": \"" + Phase10FixtureData.CENTER_A + "\",\n"
-                + "  \"centerBId\": \"" + Phase10FixtureData.CENTER_B + "\",\n"
-                + "  \"employeeId\": \"" + Phase10FixtureData.EMPLOYEE + "\",\n"
-                + "  \"managerEmployeeId\": \"" + Phase10FixtureData.MANAGER + "\",\n"
-                + "  \"techEmployeeId\": \"" + Phase10FixtureData.TECH + "\",\n"
-                + "  \"outEmployeeId\": \"" + Phase10FixtureData.OUT + "\",\n"
-                + "  \"qualificationRoleId\": \"" + Phase10FixtureData.QUALIFICATION_ROLE + "\"\n"
-                + "}\n");
+        Files.writeString(
+                output,
+                "{\n"
+                        + "  \"postgresContainerId\": \"" + postgres.getContainerId() + "\",\n"
+                        + "  \"redisContainerId\": \"" + redis.getContainerId() + "\",\n"
+                        + "  \"tenantId\": \"" + Phase10FixtureData.TENANT + "\",\n"
+                        + "  \"centerAId\": \"" + Phase10FixtureData.CENTER_A + "\",\n"
+                        + "  \"centerBId\": \"" + Phase10FixtureData.CENTER_B + "\",\n"
+                        + "  \"employeeId\": \"" + Phase10FixtureData.EMPLOYEE + "\",\n"
+                        + "  \"managerEmployeeId\": \"" + Phase10FixtureData.MANAGER + "\",\n"
+                        + "  \"techEmployeeId\": \"" + Phase10FixtureData.TECH + "\",\n"
+                        + "  \"outEmployeeId\": \"" + Phase10FixtureData.OUT + "\",\n"
+                        + "  \"qualificationRoleId\": \"" + Phase10FixtureData.QUALIFICATION_ROLE + "\"\n"
+                        + "}\n");
     }
 
     private static String jdbcUrl(PostgreSQLContainer<?> postgres, String database) {
-        return "jdbc:postgresql://" + postgres.getHost() + ":"
-                + postgres.getMappedPort(5432) + "/" + database;
+        return "jdbc:postgresql://" + postgres.getHost() + ":" + postgres.getMappedPort(5432) + "/" + database;
     }
 
     private static String requiredEnv(String name) {
@@ -151,8 +147,7 @@ public final class Phase10BrowserBackendFixture {
     private static Path findRepoRoot() {
         Path cursor = Path.of("").toAbsolutePath();
         while (cursor != null) {
-            if (Files.exists(cursor.resolve("mvnw"))
-                    && Files.isDirectory(cursor.resolve("technical-platform"))) {
+            if (Files.exists(cursor.resolve("mvnw")) && Files.isDirectory(cursor.resolve("technical-platform"))) {
                 return cursor;
             }
             cursor = cursor.getParent();

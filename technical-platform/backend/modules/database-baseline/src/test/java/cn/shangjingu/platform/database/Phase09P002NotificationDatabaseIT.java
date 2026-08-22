@@ -56,7 +56,8 @@ class Phase09P002NotificationDatabaseIT {
                 .withPassword("phase09-notify-bootstrap-" + UUID.randomUUID());
         postgres.start();
         migrate("postgres", "cluster", null);
-        try (Connection connection = admin("postgres"); Statement statement = connection.createStatement()) {
+        try (Connection connection = admin("postgres");
+                Statement statement = connection.createStatement()) {
             statement.execute("ALTER ROLE sjg_worker_runtime PASSWORD '" + WORKER_PASSWORD + "'");
             statement.execute("CREATE DATABASE sjg_oms");
         }
@@ -72,7 +73,8 @@ class Phase09P002NotificationDatabaseIT {
         transactions = new TenantTransactionRunner(jdbc, transactionManager);
         ObjectMapper mapper = new ObjectMapper();
         TransactionalOutboxService outbox = new TransactionalOutboxService(jdbc);
-        NotificationService notifications = new NotificationService(jdbc, outbox, new NotificationTemplateRenderer(mapper));
+        NotificationService notifications =
+                new NotificationService(jdbc, outbox, new NotificationTemplateRenderer(mapper));
         handler = new Phase09P002NotificationHandler(notifications, jdbc, mapper);
     }
 
@@ -91,16 +93,29 @@ class Phase09P002NotificationDatabaseIT {
         handle(event);
         handle(event);
 
-        assertEquals(1L, scalarLong("select count(*) from notification.message where tenant_id='" + TENANT
-                + "' and recipient_id='" + RECIPIENT + "' and channel='IN_APP' and status='PENDING' and not is_deleted"));
-        assertEquals("权限申请进度：业务负责人确认", scalarString("select title from notification.message where tenant_id='" + TENANT
-                + "' and recipient_id='" + RECIPIENT + "' and not is_deleted"));
-        assertEquals("权限申请 P002-NOTIFY-001 当前状态：业务负责人确认（事件 SUBMITTED）。", scalarString(
-                "select body from notification.message where tenant_id='" + TENANT + "' and recipient_id='" + RECIPIENT + "' and not is_deleted"));
-        assertEquals(1L, scalarLong("select count(*) from core.outbox_event where tenant_id='" + TENANT
-                + "' and aggregate_type='NOTIFICATION_MESSAGE' and event_type='NOTIFICATION_SEND' and not is_deleted"));
-        assertEquals(1L, scalarLong("select count(*) from notification.template where tenant_id='" + TENANT
-                + "' and template_code='P002_PERMISSION_EVENT' and channel='IN_APP' and enabled and not is_deleted"));
+        assertEquals(
+                1L,
+                scalarLong(
+                        "select count(*) from notification.message where tenant_id='" + TENANT + "' and recipient_id='"
+                                + RECIPIENT + "' and channel='IN_APP' and status='PENDING' and not is_deleted"));
+        assertEquals(
+                "权限申请进度：业务负责人确认",
+                scalarString("select title from notification.message where tenant_id='" + TENANT
+                        + "' and recipient_id='" + RECIPIENT + "' and not is_deleted"));
+        assertEquals(
+                "权限申请 P002-NOTIFY-001 当前状态：业务负责人确认（事件 SUBMITTED）。",
+                scalarString("select body from notification.message where tenant_id='" + TENANT + "' and recipient_id='"
+                        + RECIPIENT + "' and not is_deleted"));
+        assertEquals(
+                1L,
+                scalarLong(
+                        "select count(*) from core.outbox_event where tenant_id='" + TENANT
+                                + "' and aggregate_type='NOTIFICATION_MESSAGE' and event_type='NOTIFICATION_SEND' and not is_deleted"));
+        assertEquals(
+                1L,
+                scalarLong(
+                        "select count(*) from notification.template where tenant_id='" + TENANT
+                                + "' and template_code='P002_PERMISSION_EVENT' and channel='IN_APP' and enabled and not is_deleted"));
     }
 
     @Test
@@ -112,10 +127,15 @@ class Phase09P002NotificationDatabaseIT {
                         + "\"recipientEmployeeIds\":[\"" + RECIPIENT + "\"]}");
 
         assertThrows(IllegalArgumentException.class, () -> handle(invalid));
-        assertEquals(0L, scalarLong("select count(*) from notification.message where tenant_id='" + TENANT
-                + "' and body like '%P002-NOTIFY-BAD%' and not is_deleted"));
-        assertEquals(0L, scalarLong("select count(*) from core.outbox_event where tenant_id='" + TENANT
-                + "' and aggregate_type='NOTIFICATION_MESSAGE' and payload::text like '%P002-NOTIFY-BAD%' and not is_deleted"));
+        assertEquals(
+                0L,
+                scalarLong("select count(*) from notification.message where tenant_id='" + TENANT
+                        + "' and body like '%P002-NOTIFY-BAD%' and not is_deleted"));
+        assertEquals(
+                0L,
+                scalarLong(
+                        "select count(*) from core.outbox_event where tenant_id='" + TENANT
+                                + "' and aggregate_type='NOTIFICATION_MESSAGE' and payload::text like '%P002-NOTIFY-BAD%' and not is_deleted"));
     }
 
     private static void handle(PlatformOutboxEvent event) {
@@ -144,14 +164,18 @@ class Phase09P002NotificationDatabaseIT {
     }
 
     private static long scalarLong(String sql) throws SQLException {
-        try (Connection connection = admin("sjg_oms"); Statement statement = connection.createStatement(); ResultSet result = statement.executeQuery(sql)) {
+        try (Connection connection = admin("sjg_oms");
+                Statement statement = connection.createStatement();
+                ResultSet result = statement.executeQuery(sql)) {
             assertTrue(result.next());
             return result.getLong(1);
         }
     }
 
     private static String scalarString(String sql) throws SQLException {
-        try (Connection connection = admin("sjg_oms"); Statement statement = connection.createStatement(); ResultSet result = statement.executeQuery(sql)) {
+        try (Connection connection = admin("sjg_oms");
+                Statement statement = connection.createStatement();
+                ResultSet result = statement.executeQuery(sql)) {
             assertTrue(result.next());
             return result.getString(1);
         }
@@ -159,9 +183,12 @@ class Phase09P002NotificationDatabaseIT {
 
     private static void migrate(String database, String generatedFolder, String overlayFolder) {
         List<String> locations = new ArrayList<>();
-        locations.add("filesystem:" + repoRoot.resolve("technical-platform/database/flyway").resolve(generatedFolder));
+        locations.add("filesystem:"
+                + repoRoot.resolve("technical-platform/database/flyway").resolve(generatedFolder));
         if (overlayFolder != null) {
-            locations.add("filesystem:" + repoRoot.resolve("technical-platform/database/flyway-overlays").resolve(overlayFolder));
+            locations.add("filesystem:"
+                    + repoRoot.resolve("technical-platform/database/flyway-overlays")
+                            .resolve(overlayFolder));
         }
         Flyway flyway = Flyway.configure()
                 .dataSource(jdbcUrl(database), postgres.getUsername(), postgres.getPassword())

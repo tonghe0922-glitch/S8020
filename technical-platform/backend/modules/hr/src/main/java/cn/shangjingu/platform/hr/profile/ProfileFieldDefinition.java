@@ -20,14 +20,24 @@ public enum ProfileFieldDefinition {
         this.proofRequired = proofRequired;
     }
 
-    public String code() { return code; }
-    public String sensitivity() { return sensitivity; }
-    public boolean proofRequired() { return proofRequired; }
+    public String code() {
+        return code;
+    }
+
+    public String sensitivity() {
+        return sensitivity;
+    }
+
+    public boolean proofRequired() {
+        return proofRequired;
+    }
 
     public String normalize(String raw) {
-        if (raw == null || raw.isBlank()) throw new ProcessRejectedException("P003 proposed value is required for " + code);
+        if (raw == null || raw.isBlank())
+            throw new ProcessRejectedException("P003 proposed value is required for " + code);
         String value = raw.trim();
-        if (value.length() > maxLength) throw new ProcessRejectedException("P003 proposed value is too long for " + code);
+        if (value.length() > maxLength)
+            throw new ProcessRejectedException("P003 proposed value is too long for " + code);
         return switch (this) {
             case PERSON_NAME -> value;
             case MOBILE -> normalizeMobile(value);
@@ -44,13 +54,15 @@ public enum ProfileFieldDefinition {
 
     private static String normalizeMobile(String value) {
         String normalized = value.replace(" ", "").replace("-", "");
-        if (!normalized.matches("^\\+?[0-9]{6,20}$")) throw new ProcessRejectedException("P003 mobile format is invalid");
+        if (!normalized.matches("^\\+?[0-9]{6,20}$"))
+            throw new ProcessRejectedException("P003 mobile format is invalid");
         return normalized;
     }
 
     private static String normalizeIdNo(String value) {
         String normalized = value.toUpperCase(Locale.ROOT);
-        if (!normalized.matches("^[0-9A-Z]{6,32}$")) throw new ProcessRejectedException("P003 identity number format is invalid");
+        if (!normalized.matches("^[0-9A-Z]{6,32}$"))
+            throw new ProcessRejectedException("P003 identity number format is invalid");
         return normalized;
     }
 }

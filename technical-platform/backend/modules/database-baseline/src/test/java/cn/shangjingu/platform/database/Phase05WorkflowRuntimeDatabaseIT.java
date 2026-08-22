@@ -34,7 +34,8 @@ class Phase05WorkflowRuntimeDatabaseIT {
                 .withPassword("phase05-runtime-test-only");
         postgres.start();
         migrate("postgres", "cluster", null);
-        try (Connection connection = connection("postgres"); Statement statement = connection.createStatement()) {
+        try (Connection connection = connection("postgres");
+                Statement statement = connection.createStatement()) {
             statement.execute("CREATE DATABASE sjg_oms");
         }
         migrate("sjg_oms", "oms", "oms");
@@ -47,8 +48,8 @@ class Phase05WorkflowRuntimeDatabaseIT {
 
     @Test
     void instanceTaskAndActionMustStayInsidePublishedBoundVersion() throws Exception {
-        UUID definitionId = scalarUuid("select id from workflow.wf_definition where tenant_id='" + TENANT_ID
-                + "' and process_code='P003'");
+        UUID definitionId = scalarUuid(
+                "select id from workflow.wf_definition where tenant_id='" + TENANT_ID + "' and process_code='P003'");
         UUID employeeId = createEmployee();
         UUID publishedVersion = createVersion(definitionId, 9101, "PUBLISHED");
         UUID secondPublished = createVersion(definitionId, 9102, "PUBLISHED");
@@ -60,33 +61,47 @@ class Phase05WorkflowRuntimeDatabaseIT {
                 + instanceId + "','" + TENANT_ID + "','WFI-RUNTIME-1','" + definitionId + "','" + publishedVersion
                 + "','P003','TEST','Runtime test','" + employeeId + "','START','RUNNING','NORMAL','{}'::jsonb)");
 
-        assertSqlRejected("insert into workflow.wf_instance(id,tenant_id,instance_no,definition_id,version_id,process_code,"
-                + "business_object_type,title,initiator_id,current_node_code,status,priority) values ('"
-                + UUID.randomUUID() + "','" + TENANT_ID + "','WFI-DRAFT','" + definitionId + "','" + draftVersion
-                + "','P003','TEST','Draft invalid','" + employeeId + "','START','RUNNING','NORMAL')");
-        assertSqlRejected("update workflow.wf_instance set version_id='" + secondPublished + "' where id='" + instanceId + "'");
+        assertSqlRejected(
+                "insert into workflow.wf_instance(id,tenant_id,instance_no,definition_id,version_id,process_code,"
+                        + "business_object_type,title,initiator_id,current_node_code,status,priority) values ('"
+                        + UUID.randomUUID() + "','" + TENANT_ID + "','WFI-DRAFT','" + definitionId + "','"
+                        + draftVersion
+                        + "','P003','TEST','Draft invalid','" + employeeId + "','START','RUNNING','NORMAL')");
+        assertSqlRejected(
+                "update workflow.wf_instance set version_id='" + secondPublished + "' where id='" + instanceId + "'");
         assertSqlRejected("update workflow.wf_instance set current_node_code='OUTSIDE' where id='" + instanceId + "'");
 
         UUID taskId = UUID.randomUUID();
         execute("insert into workflow.wf_task(id,tenant_id,instance_id,task_no,node_code,task_type,status) values ('"
                 + taskId + "','" + TENANT_ID + "','" + instanceId + "','WFT-RUNTIME-1','REVIEW','TASK','PENDING')");
-        assertSqlRejected("insert into workflow.wf_task(id,tenant_id,instance_id,task_no,node_code,task_type,status) values ('"
-                + UUID.randomUUID() + "','" + TENANT_ID + "','" + instanceId + "','WFT-INVALID','OUTSIDE','TASK','PENDING')");
+        assertSqlRejected(
+                "insert into workflow.wf_task(id,tenant_id,instance_id,task_no,node_code,task_type,status) values ('"
+                        + UUID.randomUUID() + "','" + TENANT_ID + "','" + instanceId
+                        + "','WFT-INVALID','OUTSIDE','TASK','PENDING')");
         assertSqlRejected("update workflow.wf_task set node_code='END' where id='" + taskId + "'");
 
         UUID actionId = UUID.randomUUID();
-        execute("insert into workflow.wf_action_log(id,tenant_id,instance_id,task_id,action_code,from_status,to_status,request_id) values ('"
-                + actionId + "','" + TENANT_ID + "','" + instanceId + "','" + taskId
-                + "','APPROVE','REVIEW','END','runtime-request-1')");
-        assertSqlRejected("insert into workflow.wf_action_log(id,tenant_id,instance_id,action_code,request_id) values ('"
-                + UUID.randomUUID() + "','" + TENANT_ID + "','" + instanceId + "','APPROVE','runtime-request-1')");
-        assertSqlRejected("insert into workflow.wf_action_log(id,tenant_id,instance_id,task_id,action_code,request_id) values ('"
-                + UUID.randomUUID() + "','" + TENANT_ID + "','" + UUID.randomUUID() + "','" + taskId
-                + "','APPROVE','runtime-request-2')");
+        execute(
+                "insert into workflow.wf_action_log(id,tenant_id,instance_id,task_id,action_code,from_status,to_status,request_id) values ('"
+                        + actionId + "','" + TENANT_ID + "','" + instanceId + "','" + taskId
+                        + "','APPROVE','REVIEW','END','runtime-request-1')");
+        assertSqlRejected(
+                "insert into workflow.wf_action_log(id,tenant_id,instance_id,action_code,request_id) values ('"
+                        + UUID.randomUUID() + "','" + TENANT_ID + "','" + instanceId
+                        + "','APPROVE','runtime-request-1')");
+        assertSqlRejected(
+                "insert into workflow.wf_action_log(id,tenant_id,instance_id,task_id,action_code,request_id) values ('"
+                        + UUID.randomUUID() + "','" + TENANT_ID + "','" + UUID.randomUUID() + "','" + taskId
+                        + "','APPROVE','runtime-request-2')");
 
-        assertEquals(publishedVersion, scalarUuid("select version_id from workflow.wf_instance where id='" + instanceId + "'"));
-        assertEquals("START", scalarString("select current_node_code from workflow.wf_instance where id='" + instanceId + "'"));
-        assertEquals(1L, scalarLong("select count(*) from workflow.wf_action_log where request_id='runtime-request-1'"));
+        assertEquals(
+                publishedVersion,
+                scalarUuid("select version_id from workflow.wf_instance where id='" + instanceId + "'"));
+        assertEquals(
+                "START",
+                scalarString("select current_node_code from workflow.wf_instance where id='" + instanceId + "'"));
+        assertEquals(
+                1L, scalarLong("select count(*) from workflow.wf_action_log where request_id='runtime-request-1'"));
     }
 
     private static UUID createEmployee() throws SQLException {
@@ -98,9 +113,11 @@ class Phase05WorkflowRuntimeDatabaseIT {
 
     private static UUID createVersion(UUID definitionId, int versionNo, String status) throws SQLException {
         UUID versionId = UUID.randomUUID();
-        execute("insert into workflow.wf_version(id,tenant_id,definition_id,version_no,status,effective_at,definition_json,checksum) values ('"
-                + versionId + "','" + TENANT_ID + "','" + definitionId + "'," + versionNo + ",'DRAFT',null,'{}'::jsonb,'draft-"
-                + versionNo + "')");
+        execute(
+                "insert into workflow.wf_version(id,tenant_id,definition_id,version_no,status,effective_at,definition_json,checksum) values ('"
+                        + versionId + "','" + TENANT_ID + "','" + definitionId + "'," + versionNo
+                        + ",'DRAFT',null,'{}'::jsonb,'draft-"
+                        + versionNo + "')");
         execute("insert into workflow.wf_node(id,tenant_id,version_id,node_code,node_name,node_type,sort_no) values ('"
                 + UUID.randomUUID() + "','" + TENANT_ID + "','" + versionId + "','START','Start','START',10)");
         execute("insert into workflow.wf_node(id,tenant_id,version_id,node_code,node_name,node_type,sort_no) values ('"
@@ -108,8 +125,8 @@ class Phase05WorkflowRuntimeDatabaseIT {
         execute("insert into workflow.wf_node(id,tenant_id,version_id,node_code,node_name,node_type,sort_no) values ('"
                 + UUID.randomUUID() + "','" + TENANT_ID + "','" + versionId + "','END','End','END',30)");
         if ("PUBLISHED".equals(status)) {
-            execute("update workflow.wf_version set status='PUBLISHED',effective_at=now(),checksum='published-" + versionNo
-                    + "' where id='" + versionId + "'");
+            execute("update workflow.wf_version set status='PUBLISHED',effective_at=now(),checksum='published-"
+                    + versionNo + "' where id='" + versionId + "'");
         }
         return versionId;
     }
@@ -120,30 +137,34 @@ class Phase05WorkflowRuntimeDatabaseIT {
     }
 
     private static void execute(String sql) throws SQLException {
-        try (Connection connection = connection("sjg_oms"); Statement statement = connection.createStatement()) {
+        try (Connection connection = connection("sjg_oms");
+                Statement statement = connection.createStatement()) {
             statement.execute(sql);
         }
     }
 
     private static UUID scalarUuid(String sql) throws SQLException {
-        try (Connection connection = connection("sjg_oms"); Statement statement = connection.createStatement();
-             ResultSet result = statement.executeQuery(sql)) {
+        try (Connection connection = connection("sjg_oms");
+                Statement statement = connection.createStatement();
+                ResultSet result = statement.executeQuery(sql)) {
             assertTrue(result.next());
             return result.getObject(1, UUID.class);
         }
     }
 
     private static String scalarString(String sql) throws SQLException {
-        try (Connection connection = connection("sjg_oms"); Statement statement = connection.createStatement();
-             ResultSet result = statement.executeQuery(sql)) {
+        try (Connection connection = connection("sjg_oms");
+                Statement statement = connection.createStatement();
+                ResultSet result = statement.executeQuery(sql)) {
             assertTrue(result.next());
             return result.getString(1);
         }
     }
 
     private static long scalarLong(String sql) throws SQLException {
-        try (Connection connection = connection("sjg_oms"); Statement statement = connection.createStatement();
-             ResultSet result = statement.executeQuery(sql)) {
+        try (Connection connection = connection("sjg_oms");
+                Statement statement = connection.createStatement();
+                ResultSet result = statement.executeQuery(sql)) {
             assertTrue(result.next());
             return result.getLong(1);
         }
@@ -151,9 +172,12 @@ class Phase05WorkflowRuntimeDatabaseIT {
 
     private static void migrate(String database, String generatedFolder, String overlayFolder) {
         var locations = new java.util.ArrayList<String>();
-        locations.add("filesystem:" + repoRoot.resolve("technical-platform/database/flyway").resolve(generatedFolder));
+        locations.add("filesystem:"
+                + repoRoot.resolve("technical-platform/database/flyway").resolve(generatedFolder));
         if (overlayFolder != null) {
-            locations.add("filesystem:" + repoRoot.resolve("technical-platform/database/flyway-overlays").resolve(overlayFolder));
+            locations.add("filesystem:"
+                    + repoRoot.resolve("technical-platform/database/flyway-overlays")
+                            .resolve(overlayFolder));
         }
         Flyway flyway = Flyway.configure()
                 .dataSource(jdbcUrl(database), postgres.getUsername(), postgres.getPassword())

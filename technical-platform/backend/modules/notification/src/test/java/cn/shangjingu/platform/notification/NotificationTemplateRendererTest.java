@@ -13,8 +13,8 @@ class NotificationTemplateRendererTest {
     @Test
     void rendersLiteralVariablesWithoutExpressionEvaluation() {
         String schema = "{\"properties\":{\"name\":{},\"code\":{}},\"required\":[\"name\",\"code\"]}";
-        NotificationTemplateRenderer.Rendered rendered = renderer.render(
-                "Hello {{name}}", "Code={{code}}", schema, Map.of("name", "$1\\value", "code", "A-01"));
+        NotificationTemplateRenderer.Rendered rendered =
+                renderer.render("Hello {{name}}", "Code={{code}}", schema, Map.of("name", "$1\\value", "code", "A-01"));
         assertEquals("Hello $1\\value", rendered.title());
         assertEquals("Code=A-01", rendered.body());
     }
@@ -23,7 +23,10 @@ class NotificationTemplateRendererTest {
     void missingUndeclaredOrMalformedVariablesFailClosed() {
         String schema = "{\"properties\":{\"name\":{}},\"required\":[\"name\"]}";
         assertThrows(IllegalArgumentException.class, () -> renderer.render(null, "Hi {{name}}", schema, Map.of()));
-        assertThrows(IllegalArgumentException.class, () -> renderer.render(null, "Hi {{name}}", schema, Map.of("name", "A", "extra", "B")));
-        assertThrows(IllegalArgumentException.class, () -> renderer.render(null, "Hi {{name", schema, Map.of("name", "A")));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> renderer.render(null, "Hi {{name}}", schema, Map.of("name", "A", "extra", "B")));
+        assertThrows(
+                IllegalArgumentException.class, () -> renderer.render(null, "Hi {{name", schema, Map.of("name", "A")));
     }
 }

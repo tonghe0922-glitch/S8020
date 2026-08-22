@@ -13,7 +13,8 @@ import org.springframework.stereotype.Repository;
 /** Persists the P007 canonical shift record with semantic named parameters. */
 @Repository
 public class P007ShiftChangeInsertWriter {
-    static final String INSERT_SQL = """
+    static final String INSERT_SQL =
+            """
             insert into attendance.shift_change_request(
               id,tenant_id,business_no,status,version_no,
               created_by,updated_by,source_channel,business_date,
@@ -44,37 +45,29 @@ public class P007ShiftChangeInsertWriter {
     }
 
     public void insert(ShiftChangeService.ShiftRecord record, UUID actor) {
-        MapSqlParameterSource parameters =
-                new MapSqlParameterSource()
-                        .addValue("id", record.id())
-                        .addValue("tenantId", record.tenantId())
-                        .addValue("businessNo", record.businessNo())
-                        .addValue("status", record.status())
-                        .addValue("actor", actor)
-                        .addValue("subject", record.subject())
-                        .addValue("reason", record.reason())
-                        .addValue("ownerCenterId", record.ownerCenterId())
-                        .addValue("ownerEmployeeId", record.ownerEmployeeId())
-                        .addValue("changeAction", record.changeAction())
-                        .addValue("changeReason", record.changeReason())
-                        .addValue(
-                                "contentVersion",
-                                record.templateCode() == null
-                                        ? "CURRENT"
-                                        : record.templateCode())
-                        .addValue("durationHours", record.durationHours())
-                        .addValue("endAt", timestamp(record.endAt()))
-                        .addValue("periodOrCourseNo", record.periodOrCourseNo())
-                        .addValue("startAt", timestamp(record.startAt()))
-                        .addValue("templateCode", record.templateCode())
-                        .addValue("targetEmployeeId", record.targetEmployeeId())
-                        .addValue(
-                                "replacementEmployeeId",
-                                record.replacementEmployeeId());
+        MapSqlParameterSource parameters = new MapSqlParameterSource()
+                .addValue("id", record.id())
+                .addValue("tenantId", record.tenantId())
+                .addValue("businessNo", record.businessNo())
+                .addValue("status", record.status())
+                .addValue("actor", actor)
+                .addValue("subject", record.subject())
+                .addValue("reason", record.reason())
+                .addValue("ownerCenterId", record.ownerCenterId())
+                .addValue("ownerEmployeeId", record.ownerEmployeeId())
+                .addValue("changeAction", record.changeAction())
+                .addValue("changeReason", record.changeReason())
+                .addValue("contentVersion", record.templateCode() == null ? "CURRENT" : record.templateCode())
+                .addValue("durationHours", record.durationHours())
+                .addValue("endAt", timestamp(record.endAt()))
+                .addValue("periodOrCourseNo", record.periodOrCourseNo())
+                .addValue("startAt", timestamp(record.startAt()))
+                .addValue("templateCode", record.templateCode())
+                .addValue("targetEmployeeId", record.targetEmployeeId())
+                .addValue("replacementEmployeeId", record.replacementEmployeeId());
         int inserted = jdbc.update(INSERT_SQL, parameters);
         if (inserted != 1) {
-            throw new ProcessRejectedException(
-                    "P007 canonical shift record insert failed");
+            throw new ProcessRejectedException("P007 canonical shift record insert failed");
         }
     }
 

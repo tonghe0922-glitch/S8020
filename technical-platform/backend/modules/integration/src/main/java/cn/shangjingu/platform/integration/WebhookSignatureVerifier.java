@@ -5,5 +5,6 @@ package cn.shangjingu.platform.integration;
 public interface WebhookSignatureVerifier {
     boolean verify(WebhookRequest request);
 
-    record WebhookRequest(String endpointCode, String providerEventId, String eventType, String payload, String signature) {}
+    record WebhookRequest(
+            String endpointCode, String providerEventId, String eventType, String payload, String signature) {}
 }

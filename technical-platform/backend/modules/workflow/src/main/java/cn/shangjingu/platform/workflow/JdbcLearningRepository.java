@@ -31,7 +31,8 @@ public class JdbcLearningRepository implements LearningService.Repository {
 
     @Override
     public Optional<UUID> workflowVersion(UUID tenantId) {
-        return jdbc.query(
+        return jdbc
+                .query(
                         """
                         select v.id
                         from workflow.wf_version v
@@ -54,7 +55,8 @@ public class JdbcLearningRepository implements LearningService.Repository {
 
     @Override
     public Optional<FormRef> form(UUID tenantId) {
-        return jdbc.query(
+        return jdbc
+                .query(
                         """
                         select id,version_no
                         from workflow.wf_form_definition
@@ -67,17 +69,14 @@ public class JdbcLearningRepository implements LearningService.Repository {
                         order by version_no desc
                         limit 1
                         """,
-                        (result, row) ->
-                                new FormRef(
-                                        result.getObject(1, UUID.class), result.getInt(2)),
+                        (result, row) -> new FormRef(result.getObject(1, UUID.class), result.getInt(2)),
                         tenantId)
                 .stream()
                 .findFirst();
     }
 
     @Override
-    public List<UUID> permissionCandidates(
-            UUID tenantId, String permission, UUID orgId) {
+    public List<UUID> permissionCandidates(UUID tenantId, String permission, UUID orgId) {
         return jdbc.query(
                 """
                 select distinct ui.employee_id
@@ -114,11 +113,9 @@ public class JdbcLearningRepository implements LearningService.Repository {
     }
 
     @Override
-    public boolean activeEmployeeInCenter(
-            UUID tenantId, UUID employeeId, UUID orgId) {
-        Boolean active =
-                jdbc.queryForObject(
-                        """
+    public boolean activeEmployeeInCenter(UUID tenantId, UUID employeeId, UUID orgId) {
+        Boolean active = jdbc.queryForObject(
+                """
                         select exists(
                           select 1
                           from org.employee e
@@ -143,11 +140,11 @@ public class JdbcLearningRepository implements LearningService.Repository {
                             )
                         )
                         """,
-                        Boolean.class,
-                        tenantId,
-                        employeeId,
-                        orgId,
-                        orgId);
+                Boolean.class,
+                tenantId,
+                employeeId,
+                orgId,
+                orgId);
         return Boolean.TRUE.equals(active);
     }
 
@@ -197,7 +194,8 @@ public class JdbcLearningRepository implements LearningService.Repository {
 
     @Override
     public Optional<LearningRecord> find(UUID tenantId, UUID id) {
-        return jdbc.query(
+        return jdbc
+                .query(
                         select("where a.tenant_id=? and a.id=? and not a.is_deleted"),
                         (result, row) -> map(result),
                         tenantId,
@@ -209,9 +207,7 @@ public class JdbcLearningRepository implements LearningService.Repository {
     @Override
     public List<LearningRecord> list(UUID tenantId) {
         return jdbc.query(
-                select(
-                        "where a.tenant_id=? and not a.is_deleted "
-                                + "order by a.updated_at desc,a.id desc"),
+                select("where a.tenant_id=? and not a.is_deleted " + "order by a.updated_at desc,a.id desc"),
                 (result, row) -> map(result),
                 tenantId);
     }
@@ -226,30 +222,23 @@ public class JdbcLearningRepository implements LearningService.Repository {
                 where tenant_id=? and assignment_id=?
                 order by created_at,id
                 """,
-                (result, row) ->
-                        new Evidence(
-                                result.getObject(1, UUID.class),
-                                result.getString(2),
-                                result.getObject(3, UUID.class),
-                                result.getObject(4) == null ? null : result.getLong(4),
-                                result.getBigDecimal(5),
-                                result.getString(6),
-                                result.getString(7),
-                                json(result.getString(8)),
-                                instant(result, "created_at")),
+                (result, row) -> new Evidence(
+                        result.getObject(1, UUID.class),
+                        result.getString(2),
+                        result.getObject(3, UUID.class),
+                        result.getObject(4) == null ? null : result.getLong(4),
+                        result.getBigDecimal(5),
+                        result.getString(6),
+                        result.getString(7),
+                        json(result.getString(8)),
+                        instant(result, "created_at")),
                 tenantId,
                 id);
     }
 
     @Override
     public int bindWorkflow(
-            UUID tenantId,
-            UUID id,
-            int version,
-            UUID workflowId,
-            String node,
-            String status,
-            UUID actor) {
+            UUID tenantId, UUID id, int version, UUID workflowId, String node, String status, UUID actor) {
         return jdbc.update(
                 """
                 update learning.learning_assignment
@@ -274,14 +263,7 @@ public class JdbcLearningRepository implements LearningService.Repository {
     }
 
     @Override
-    public int moveNode(
-            UUID tenantId,
-            UUID id,
-            int version,
-            String node,
-            String status,
-            Instant closed,
-            UUID actor) {
+    public int moveNode(UUID tenantId, UUID id, int version, String node, String status, Instant closed, UUID actor) {
         return jdbc.update(
                 """
                 update learning.learning_assignment
@@ -335,8 +317,7 @@ public class JdbcLearningRepository implements LearningService.Repository {
     }
 
     @Override
-    public int updateProgress(
-            UUID tenantId, UUID id, BigDecimal progress, UUID actor) {
+    public int updateProgress(UUID tenantId, UUID id, BigDecimal progress, UUID actor) {
         return jdbc.update(
                 """
                 update learning.learning_assignment
@@ -380,8 +361,7 @@ public class JdbcLearningRepository implements LearningService.Repository {
     }
 
     @Override
-    public int updatePractical(
-            UUID tenantId, UUID id, String result, UUID actor) {
+    public int updatePractical(UUID tenantId, UUID id, String result, UUID actor) {
         return jdbc.update(
                 """
                 update learning.learning_assignment
@@ -442,12 +422,7 @@ public class JdbcLearningRepository implements LearningService.Repository {
     }
 
     @Override
-    public int activateQualification(
-            UUID tenantId,
-            UUID id,
-            LocalDate effective,
-            LocalDate expire,
-            UUID actor) {
+    public int activateQualification(UUID tenantId, UUID id, LocalDate effective, LocalDate expire, UUID actor) {
         return jdbc.update(
                 """
                 update learning.learning_assignment
@@ -471,9 +446,8 @@ public class JdbcLearningRepository implements LearningService.Repository {
     @Override
     public List<UUID> linkPermissions(UUID tenantId, UUID id, UUID actor) {
         LearningRecord assignment = find(tenantId, id).orElseThrow();
-        List<Identity> identities =
-                jdbc.query(
-                        """
+        List<Identity> identities = jdbc.query(
+                """
                         select id,user_id,position_id
                         from iam.user_identity
                         where tenant_id=?
@@ -485,21 +459,19 @@ public class JdbcLearningRepository implements LearningService.Repository {
                         order by is_primary desc,effective_start_at desc
                         limit 1
                         """,
-                        (result, row) ->
-                                new Identity(
-                                        result.getObject(1, UUID.class),
-                                        result.getObject(2, UUID.class),
-                                        result.getObject(3, UUID.class)),
-                        tenantId,
-                        assignment.ownerEmployeeId(),
-                        assignment.ownerCenterId());
+                (result, row) -> new Identity(
+                        result.getObject(1, UUID.class),
+                        result.getObject(2, UUID.class),
+                        result.getObject(3, UUID.class)),
+                tenantId,
+                assignment.ownerEmployeeId(),
+                assignment.ownerCenterId());
         if (identities.isEmpty()) {
             return List.of();
         }
         Identity identity = identities.getFirst();
-        List<UUID> roles =
-                jdbc.query(
-                        """
+        List<UUID> roles = jdbc.query(
+                """
                         select role_id
                         from learning.qualification_permission_binding
                         where tenant_id=?
@@ -509,10 +481,10 @@ public class JdbcLearningRepository implements LearningService.Repository {
                           and (position_id is null or position_id=?)
                         order by role_id
                         """,
-                        (result, row) -> result.getObject(1, UUID.class),
-                        tenantId,
-                        assignment.courseVersionId(),
-                        identity.positionId());
+                (result, row) -> result.getObject(1, UUID.class),
+                tenantId,
+                assignment.courseVersionId(),
+                identity.positionId());
         List<UUID> linked = new ArrayList<>();
         for (UUID role : roles) {
             jdbc.update(
@@ -650,9 +622,7 @@ public class JdbcLearningRepository implements LearningService.Repository {
                 result.getString("course_version_id"),
                 result.getString("period_or_course_no"),
                 result.getBigDecimal("completion_rate"),
-                result.getObject("score_1000") == null
-                        ? null
-                        : result.getLong("score_1000"),
+                result.getObject("score_1000") == null ? null : result.getLong("score_1000"),
                 result.getString("practical_result"),
                 result.getObject("qualification_effective_date", LocalDate.class),
                 result.getObject("qualification_expire_date", LocalDate.class),
@@ -675,8 +645,7 @@ public class JdbcLearningRepository implements LearningService.Repository {
         return value == null ? null : Timestamp.from(value);
     }
 
-    private static Instant instant(ResultSet result, String column)
-            throws SQLException {
+    private static Instant instant(ResultSet result, String column) throws SQLException {
         Object value = result.getObject(column);
         if (value == null) {
             return null;

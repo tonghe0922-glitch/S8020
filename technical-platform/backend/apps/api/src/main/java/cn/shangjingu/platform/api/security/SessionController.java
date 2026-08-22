@@ -12,15 +12,12 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/session")
-public final class SessionController {
+public class SessionController {
     private final SessionService sessions;
     private final SessionViewFactory sessionViews;
     private final JdbcSecurityAuditService audit;
 
-    public SessionController(
-            SessionService sessions,
-            SessionViewFactory sessionViews,
-            JdbcSecurityAuditService audit) {
+    public SessionController(SessionService sessions, SessionViewFactory sessionViews, JdbcSecurityAuditService audit) {
         this.sessions = sessions;
         this.sessionViews = sessionViews;
         this.audit = audit;
@@ -33,8 +30,7 @@ public final class SessionController {
 
     @PostMapping("/switch")
     public SessionTokenResponse switchIdentity(
-            @AuthenticationPrincipal SessionPrincipal principal,
-            @RequestBody SwitchRequest request) {
+            @AuthenticationPrincipal SessionPrincipal principal, @RequestBody SwitchRequest request) {
         SessionTokens switched = sessions.switchIdentity(principal.accessToken(), request.identityId());
         try {
             audit.recordOperation(switched.context(), "SESSION_SWITCH", "SESSION", null);

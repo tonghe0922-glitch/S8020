@@ -1,7 +1,7 @@
 package cn.shangjingu.platform.core.event;
 
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
@@ -36,7 +36,13 @@ class TransactionalOutboxServiceTest {
 
     private static TransactionalOutboxService.Command command(String key) {
         return new TransactionalOutboxService.Command(
-                UUID.randomUUID(), UUID.randomUUID(), "C2_TEST", UUID.randomUUID(),
-                "C2_TEST_EVENT", 1, "{\"ok\":true}", key);
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                "C2_TEST",
+                UUID.randomUUID(),
+                "C2_TEST_EVENT",
+                1,
+                "{\"ok\":true}",
+                key);
     }
 }

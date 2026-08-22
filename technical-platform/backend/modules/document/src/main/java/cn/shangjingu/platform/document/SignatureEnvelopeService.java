@@ -17,11 +17,11 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 
 @Service
-public final class SignatureEnvelopeService {
+public class SignatureEnvelopeService {
     public static final String PROCESS_CODE = "P017";
     private static final Duration IDEMPOTENCY_TTL = Duration.ofDays(7);
-    private static final SequentialStateMachine STATES = new SequentialStateMachine(
-            List.of("S01", "S02", "S03", "S04", "S05", "S06", "S07", "S08", "S09"));
+    private static final SequentialStateMachine STATES =
+            new SequentialStateMachine(List.of("S01", "S02", "S03", "S04", "S05", "S06", "S07", "S08", "S09"));
 
     private final TenantTransactionRunner transactions;
     private final IdempotencyRegistry idempotency;
@@ -45,24 +45,47 @@ public final class SignatureEnvelopeService {
         this.providers = List.copyOf(providers);
     }
 
-    public Envelope create(DatabaseSecurityContext actor, String idempotencyKey, String requestHash, CreateCommand command) {
+    public Envelope create(
+            DatabaseSecurityContext actor, String idempotencyKey, String requestHash, CreateCommand command) {
         validateCreate(command);
         return transactions.required(actor, () -> {
             files.assertSafe(actor.tenantId(), command.sourceFileId(), command.documentHash());
             UUID proposed = UUID.randomUUID();
             IdempotencyClaim claim = idempotency.claim(
-                    actor.tenantId(), actor.userId(), idempotencyKey, requestHash,
-                    "document.signature_envelope", proposed, IDEMPOTENCY_TTL);
+                    actor.tenantId(),
+                    actor.userId(),
+                    idempotencyKey,
+                    requestHash,
+                    "document.signature_envelope",
+                    proposed,
+                    IDEMPOTENCY_TTL);
             if (claim.existing()) {
-                return repository.find(actor.tenantId(), claim.resourceId())
-                        .orElseThrow(() -> new ProcessRejectedException("idempotent signature envelope no longer exists"));
+                return repository
+                        .find(actor.tenantId(), claim.resourceId())
+                        .orElseThrow(
+                                () -> new ProcessRejectedException("idempotent signature envelope no longer exists"));
             }
             String no = numbers.next(actor.tenantId(), actor.userId(), PROCESS_CODE);
             Envelope envelope = new Envelope(
-                    proposed, actor.tenantId(), no, no, STATES.initial(), 0, command.documentHash(),
-                    command.templateVersion(), command.signingOrder(), command.signDeadlineAt(), "PENDING",
-                    null, command.authenticationMethod(), command.businessDate(), command.documentType(),
-                    command.resultSummary(), Instant.now(), null, actor.userId());
+                    proposed,
+                    actor.tenantId(),
+                    no,
+                    no,
+                    STATES.initial(),
+                    0,
+                    command.documentHash(),
+                    command.templateVersion(),
+                    command.signingOrder(),
+                    command.signDeadlineAt(),
+                    "PENDING",
+                    null,
+                    command.authenticationMethod(),
+                    command.businessDate(),
+                    command.documentType(),
+                    command.resultSummary(),
+                    Instant.now(),
+                    null,
+                    actor.userId());
             repository.insert(envelope, command.sourceFileId(), command.parties(), actor.userId());
             return envelope;
         });
@@ -88,17 +111,22 @@ public final class SignatureEnvelopeService {
             if ("S04".equals(requestedStatus)) {
                 provider().initiate(current, repository.parties(actor.tenantId(), id));
             }
-            if ("S08".equals(requestedStatus) || "S09".equals(requestedStatus)
+            if ("S08".equals(requestedStatus)
+                    || "S09".equals(requestedStatus)
                     || SequentialStateMachine.CLOSED.equals(requestedStatus)) {
                 if (!repository.hasCompleteEvidence(actor.tenantId(), id)) {
                     throw new ProcessRejectedException("signature evidence set is incomplete");
                 }
             }
             if (SequentialStateMachine.CLOSED.equals(requestedStatus) && !"SIGNED".equals(current.signStatus())) {
-                throw new ProcessRejectedException("signature envelope cannot close before signed evidence is verified");
+                throw new ProcessRejectedException(
+                        "signature envelope cannot close before signed evidence is verified");
             }
             int updated = repository.updateStatus(
-                    actor.tenantId(), id, expectedVersion, requestedStatus,
+                    actor.tenantId(),
+                    id,
+                    expectedVersion,
+                    requestedStatus,
                     SequentialStateMachine.CLOSED.equals(requestedStatus) ? Instant.now() : null,
                     actor.userId());
             if (updated != 1) {
@@ -118,8 +146,13 @@ public final class SignatureEnvelopeService {
         validateEvidence(evidence);
         return transactions.required(actor, () -> {
             IdempotencyClaim claim = idempotency.claim(
-                    actor.tenantId(), actor.userId(), providerEventKey, callbackHash,
-                    "document.signature_callback:" + id, id, IDEMPOTENCY_TTL);
+                    actor.tenantId(),
+                    actor.userId(),
+                    providerEventKey,
+                    callbackHash,
+                    "document.signature_callback:" + id,
+                    id,
+                    IDEMPOTENCY_TTL);
             Envelope current = required(actor.tenantId(), id);
             if (claim.existing() && atOrAfterVerified(current.status())) {
                 return current;
@@ -140,7 +173,8 @@ public final class SignatureEnvelopeService {
             }
             Envelope verified = required(actor.tenantId(), id);
             if (!repository.hasCompleteEvidence(actor.tenantId(), id)) {
-                throw new ProcessRejectedException("signature provider callback did not produce a complete evidence set");
+                throw new ProcessRejectedException(
+                        "signature provider callback did not produce a complete evidence set");
             }
             return verified;
         });
@@ -154,7 +188,8 @@ public final class SignatureEnvelopeService {
     }
 
     private Envelope required(UUID tenantId, UUID id) {
-        return repository.find(tenantId, id)
+        return repository
+                .find(tenantId, id)
                 .orElseThrow(() -> new ProcessRejectedException("signature envelope not found"));
     }
 
@@ -164,24 +199,38 @@ public final class SignatureEnvelopeService {
 
     private static void validateCreate(CreateCommand command) {
         Objects.requireNonNull(command, "command");
-        if (command.sourceFileId() == null || blank(command.documentHash()) || command.documentHash().length() < 32
-                || blank(command.signingOrder()) || blank(command.authenticationMethod()) || command.businessDate() == null
-                || blank(command.documentType()) || blank(command.resultSummary()) || command.parties() == null
+        if (command.sourceFileId() == null
+                || blank(command.documentHash())
+                || command.documentHash().length() < 32
+                || blank(command.signingOrder())
+                || blank(command.authenticationMethod())
+                || command.businessDate() == null
+                || blank(command.documentType())
+                || blank(command.resultSummary())
+                || command.parties() == null
                 || command.parties().isEmpty()) {
             throw new ProcessRejectedException("required signature envelope fields are missing");
         }
-        long uniqueOrders = command.parties().stream().map(PartyCommand::signOrder).distinct().count();
-        if (uniqueOrders != command.parties().size() || command.parties().stream().anyMatch(p -> p.signOrder() <= 0 || blank(p.partyName()))) {
+        long uniqueOrders = command.parties().stream()
+                .map(PartyCommand::signOrder)
+                .distinct()
+                .count();
+        if (uniqueOrders != command.parties().size()
+                || command.parties().stream().anyMatch(p -> p.signOrder() <= 0 || blank(p.partyName()))) {
             throw new ProcessRejectedException("signature party order/name is invalid");
         }
     }
 
     private static void validateEvidence(CallbackEvidence evidence) {
         Objects.requireNonNull(evidence, "evidence");
-        if (evidence.completedFileId() == null || blank(evidence.completedFileSha256())
-                || evidence.certificateFileId() == null || evidence.timestampFileId() == null
-                || evidence.callbackEvidenceFileId() == null || blank(evidence.verificationResult())
-                || evidence.partyEvidence() == null || evidence.partyEvidence().isEmpty()
+        if (evidence.completedFileId() == null
+                || blank(evidence.completedFileSha256())
+                || evidence.certificateFileId() == null
+                || evidence.timestampFileId() == null
+                || evidence.callbackEvidenceFileId() == null
+                || blank(evidence.verificationResult())
+                || evidence.partyEvidence() == null
+                || evidence.partyEvidence().isEmpty()
                 || evidence.partyEvidence().stream().anyMatch(p -> p.partyId() == null || blank(p.evidenceNo()))) {
             throw new ProcessRejectedException("signature callback evidence is incomplete");
         }
@@ -193,11 +242,17 @@ public final class SignatureEnvelopeService {
 
     public interface Repository {
         void insert(Envelope envelope, UUID sourceFileId, List<PartyCommand> parties, UUID actorId);
+
         Optional<Envelope> find(UUID tenantId, UUID id);
+
         List<Party> parties(UUID tenantId, UUID envelopeId);
+
         int updateStatus(UUID tenantId, UUID id, int expectedVersion, String status, Instant actualEndAt, UUID actorId);
+
         void recordEvidence(UUID tenantId, UUID envelopeId, CallbackEvidence evidence, UUID actorId);
+
         int updateVerified(UUID tenantId, UUID id, int expectedVersion, UUID completedFileId, UUID actorId);
+
         boolean hasCompleteEvidence(UUID tenantId, UUID envelopeId);
     }
 
@@ -207,22 +262,16 @@ public final class SignatureEnvelopeService {
 
     public interface SignatureProviderCapability {
         void initiate(Envelope envelope, List<Party> parties);
+
         void verify(Envelope envelope, CallbackEvidence evidence);
     }
 
     public record PartyCommand(
-            String partyType,
-            UUID partyId,
-            String partyName,
-            int signOrder,
-            String authenticationMethod) {
-    }
+            String partyType, UUID partyId, String partyName, int signOrder, String authenticationMethod) {}
 
-    public record Party(UUID id, UUID partyId, String partyType, int signOrder, String signStatus, String evidenceNo) {
-    }
+    public record Party(UUID id, UUID partyId, String partyType, int signOrder, String signStatus, String evidenceNo) {}
 
-    public record PartyEvidence(UUID partyId, String evidenceNo) {
-    }
+    public record PartyEvidence(UUID partyId, String evidenceNo) {}
 
     public record CallbackEvidence(
             UUID completedFileId,
@@ -231,8 +280,7 @@ public final class SignatureEnvelopeService {
             UUID timestampFileId,
             UUID callbackEvidenceFileId,
             String verificationResult,
-            List<PartyEvidence> partyEvidence) {
-    }
+            List<PartyEvidence> partyEvidence) {}
 
     public record CreateCommand(
             UUID sourceFileId,
@@ -244,8 +292,7 @@ public final class SignatureEnvelopeService {
             LocalDate businessDate,
             String documentType,
             String resultSummary,
-            List<PartyCommand> parties) {
-    }
+            List<PartyCommand> parties) {}
 
     public record Envelope(
             UUID id,
@@ -266,6 +313,5 @@ public final class SignatureEnvelopeService {
             String resultSummary,
             Instant actualStartAt,
             Instant actualEndAt,
-            UUID createdBy) {
-    }
+            UUID createdBy) {}
 }

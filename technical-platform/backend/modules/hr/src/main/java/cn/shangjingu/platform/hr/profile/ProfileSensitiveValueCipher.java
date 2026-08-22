@@ -14,7 +14,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Component
-public final class ProfileSensitiveValueCipher {
+public class ProfileSensitiveValueCipher {
     private static final int IV_BYTES = 12;
     private static final int TAG_BITS = 128;
     private final String masterKeyBase64;
@@ -25,8 +25,9 @@ public final class ProfileSensitiveValueCipher {
     }
 
     public String encryptProposal(UUID tenantId, UUID requestId, String fieldCode, String plaintext) {
-        return Base64.getEncoder().encodeToString(encrypt(plaintext.getBytes(StandardCharsets.UTF_8),
-                aad("proposal", tenantId, requestId, fieldCode)));
+        return Base64.getEncoder()
+                .encodeToString(encrypt(
+                        plaintext.getBytes(StandardCharsets.UTF_8), aad("proposal", tenantId, requestId, fieldCode)));
     }
 
     public String decryptProposal(UUID tenantId, UUID requestId, String fieldCode, String encoded) {
@@ -50,14 +51,18 @@ public final class ProfileSensitiveValueCipher {
             cipher.init(Cipher.ENCRYPT_MODE, key(), new GCMParameterSpec(TAG_BITS, iv));
             cipher.updateAAD(aad);
             byte[] encrypted = cipher.doFinal(plaintext);
-            return ByteBuffer.allocate(iv.length + encrypted.length).put(iv).put(encrypted).array();
+            return ByteBuffer.allocate(iv.length + encrypted.length)
+                    .put(iv)
+                    .put(encrypted)
+                    .array();
         } catch (GeneralSecurityException ex) {
             throw new ProcessRejectedException("P003 sensitive value encryption failed", ex);
         }
     }
 
     private byte[] decrypt(byte[] encoded, byte[] aad) {
-        if (encoded == null || encoded.length <= IV_BYTES) throw new ProcessRejectedException("P003 ciphertext is invalid");
+        if (encoded == null || encoded.length <= IV_BYTES)
+            throw new ProcessRejectedException("P003 ciphertext is invalid");
         try {
             ByteBuffer buffer = ByteBuffer.wrap(encoded);
             byte[] iv = new byte[IV_BYTES];
@@ -76,8 +81,11 @@ public final class ProfileSensitiveValueCipher {
     private SecretKeySpec key() {
         if (masterKeyBase64.isBlank()) throw new ProcessRejectedException("P003 profile master key is not configured");
         byte[] key;
-        try { key = Base64.getDecoder().decode(masterKeyBase64); }
-        catch (IllegalArgumentException ex) { throw new ProcessRejectedException("P003 profile master key is invalid", ex); }
+        try {
+            key = Base64.getDecoder().decode(masterKeyBase64);
+        } catch (IllegalArgumentException ex) {
+            throw new ProcessRejectedException("P003 profile master key is invalid", ex);
+        }
         if (key.length != 32) throw new ProcessRejectedException("P003 profile master key must decode to 32 bytes");
         return new SecretKeySpec(key, "AES");
     }

@@ -54,9 +54,13 @@ public final class Phase09P002NotificationHandler implements PlatformOutboxHandl
         Set<UUID> recipients = recipients(payload.path("recipientEmployeeIds"));
         for (UUID recipient : recipients) {
             notifications.create(new NotificationService.CreateCommand(
-                    event.tenantId(), null,
+                    event.tenantId(),
+                    null,
                     "p002-notify:" + event.id() + ":" + recipient,
-                    TEMPLATE, "IN_APP", "EMPLOYEE", recipient,
+                    TEMPLATE,
+                    "IN_APP",
+                    "EMPLOYEE",
+                    recipient,
                     Map.of(
                             "businessNo", businessNo,
                             "event", eventCode,
@@ -68,11 +72,15 @@ public final class Phase09P002NotificationHandler implements PlatformOutboxHandl
     private void ensureTemplate(UUID tenantId) {
         if (tenantId == null) throw new IllegalArgumentException("P002 notification tenant is required");
         String lockMaterial = tenantId + "|P002_PERMISSION_EVENT";
-        jdbc.query("select pg_advisory_xact_lock(hashtextextended(cast(? as text),0))", rs -> {
-            rs.next();
-            return null;
-        }, lockMaterial);
-        jdbc.update("""
+        jdbc.query(
+                "select pg_advisory_xact_lock(hashtextextended(cast(? as text),0))",
+                rs -> {
+                    rs.next();
+                    return null;
+                },
+                lockMaterial);
+        jdbc.update(
+                """
                 insert into notification.template(
                     id,tenant_id,template_code,channel,title_template,body_template,variables_schema,enabled)
                 select gen_random_uuid(),?,'P002_PERMISSION_EVENT','IN_APP',
@@ -91,7 +99,8 @@ public final class Phase09P002NotificationHandler implements PlatformOutboxHandl
     private JsonNode parse(String value) {
         try {
             JsonNode node = mapper.readTree(value);
-            if (node == null || !node.isObject()) throw new IllegalArgumentException("P002 event payload must be an object");
+            if (node == null || !node.isObject())
+                throw new IllegalArgumentException("P002 event payload must be an object");
             return node;
         } catch (IllegalArgumentException failure) {
             throw failure;

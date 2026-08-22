@@ -39,14 +39,9 @@ class PerformanceServiceMappingTest {
 
         service.create(actor, "p011-create-1", "hash", command);
 
-        ArgumentCaptor<Phase11CreateData> payload =
-                ArgumentCaptor.forClass(Phase11CreateData.class);
-        verify(lifecycle).create(
-                eq(actor),
-                eq(Phase11Process.P011),
-                eq("p011-create-1"),
-                eq("hash"),
-                payload.capture());
+        ArgumentCaptor<Phase11CreateData> payload = ArgumentCaptor.forClass(Phase11CreateData.class);
+        verify(lifecycle)
+                .create(eq(actor), eq(Phase11Process.P011), eq("p011-create-1"), eq("hash"), payload.capture());
         assertEquals("delivery and service targets", payload.getValue().factSummary());
         assertEquals("2026-Q3", payload.getValue().periodNo());
         assertEquals(employee, payload.getValue().ownerEmployeeId());
@@ -59,29 +54,23 @@ class PerformanceServiceMappingTest {
         PerformanceService service = new PerformanceService(lifecycle);
         DatabaseSecurityContext actor = context();
         UUID cycle = UUID.randomUUID();
-        PerformanceService.ActionCommand command = new PerformanceService.ActionCommand(
-                3, "facts collected", "verified", false, null, null);
+        PerformanceService.ActionCommand command =
+                new PerformanceService.ActionCommand(3, "facts collected", "verified", false, null, null);
         when(lifecycle.act(any(), eq(Phase11Process.P011), any(), any(), any(), any(), any()))
                 .thenReturn(mock(Phase11Record.class));
 
-        service.act(
-                actor,
-                cycle,
-                "COLLECT_FACTS",
-                "p011-action-1",
-                "hash",
-                command);
+        service.act(actor, cycle, "COLLECT_FACTS", "p011-action-1", "hash", command);
 
-        ArgumentCaptor<Phase11ActionData> payload =
-                ArgumentCaptor.forClass(Phase11ActionData.class);
-        verify(lifecycle).act(
-                eq(actor),
-                eq(Phase11Process.P011),
-                eq(cycle),
-                eq("COLLECT_FACTS"),
-                eq("p011-action-1"),
-                eq("hash"),
-                payload.capture());
+        ArgumentCaptor<Phase11ActionData> payload = ArgumentCaptor.forClass(Phase11ActionData.class);
+        verify(lifecycle)
+                .act(
+                        eq(actor),
+                        eq(Phase11Process.P011),
+                        eq(cycle),
+                        eq("COLLECT_FACTS"),
+                        eq("p011-action-1"),
+                        eq("hash"),
+                        payload.capture());
         assertEquals(3, payload.getValue().expectedVersion());
         assertEquals("facts collected", payload.getValue().summary());
     }

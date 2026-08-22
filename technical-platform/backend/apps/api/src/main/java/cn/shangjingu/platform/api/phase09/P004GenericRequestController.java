@@ -25,7 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/processes/P004/generic-requests")
-public final class P004GenericRequestController {
+public class P004GenericRequestController {
     private static final String SUBMIT = "p004.request.submit";
     private static final String READ = "p004.request.read";
     private static final String ACT = "p004.request.act";
@@ -36,8 +36,10 @@ public final class P004GenericRequestController {
     private final ObjectMapper mapper;
 
     public P004GenericRequestController(
-            GenericRequestService requests, AuthorizationService authorization,
-            JdbcSecurityAuditService audit, ObjectMapper mapper) {
+            GenericRequestService requests,
+            AuthorizationService authorization,
+            JdbcSecurityAuditService audit,
+            ObjectMapper mapper) {
         this.requests = requests;
         this.authorization = authorization;
         this.audit = audit;
@@ -50,12 +52,18 @@ public final class P004GenericRequestController {
             @RequestHeader("Idempotency-Key") String idempotencyKey,
             @RequestBody GenericRequestService.CreateCommand command) {
         require(authorization.authorizeAction(principal.context(), SUBMIT));
-        require(authorization.authorizeData(principal.context(), SUBMIT, new AuthorizationTarget(
-                principal.context().tenantId(), principal.context().employeeId(), principal.context().orgId(),
-                principal.context().positionId(), principal.context().employeeId())));
+        require(authorization.authorizeData(
+                principal.context(),
+                SUBMIT,
+                new AuthorizationTarget(
+                        principal.context().tenantId(),
+                        principal.context().employeeId(),
+                        principal.context().orgId(),
+                        principal.context().positionId(),
+                        principal.context().employeeId())));
         audit.recordOperation(principal.context(), "P004_CREATE_ATTEMPT", "workflow.generic_request", null);
-        GenericRequestService.GenericRequest created = requests.create(
-                context(principal), idempotencyKey, hash(command), command);
+        GenericRequestService.GenericRequest created =
+                requests.create(context(principal), idempotencyKey, hash(command), command);
         audit.recordOperation(principal.context(), "P004_CREATED", "workflow.generic_request", created.id());
         return view(principal, created);
     }
@@ -75,7 +83,9 @@ public final class P004GenericRequestController {
     public List<GenericRequestService.GenericRequest> list(@AuthenticationPrincipal SessionPrincipal principal) {
         require(authorization.authorizeAction(principal.context(), READ));
         List<GenericRequestService.GenericRequest> visible = requests.list(context(principal)).stream()
-                .filter(request -> authorization.authorizeData(principal.context(), READ, target(request)).allowed())
+                .filter(request -> authorization
+                        .authorizeData(principal.context(), READ, target(request))
+                        .allowed())
                 .map(request -> view(principal, request))
                 .toList();
         audit.recordOperation(principal.context(), "P004_LIST", "workflow.generic_request", null);
@@ -94,33 +104,61 @@ public final class P004GenericRequestController {
         String permission = requests.isApplicantAction(current, actionCode) ? SUBMIT : ACT;
         require(authorization.authorizeAction(principal.context(), permission));
         require(authorization.authorizeData(principal.context(), permission, target(current)));
-        audit.recordOperation(principal.context(), "P004_ACTION_ATTEMPT_" + safeAction(actionCode),
-                "workflow.generic_request", id);
+        audit.recordOperation(
+                principal.context(), "P004_ACTION_ATTEMPT_" + safeAction(actionCode), "workflow.generic_request", id);
         GenericRequestService.GenericRequest result = requests.act(
-                context(principal), id, actionCode, idempotencyKey,
-                hash(Map.of("actionCode", safeAction(actionCode), "body", command)), command);
-        audit.recordOperation(principal.context(), "P004_ACTION_" + safeAction(actionCode),
-                "workflow.generic_request", id);
+                context(principal),
+                id,
+                actionCode,
+                idempotencyKey,
+                hash(Map.of("actionCode", safeAction(actionCode), "body", command)),
+                command);
+        audit.recordOperation(
+                principal.context(), "P004_ACTION_" + safeAction(actionCode), "workflow.generic_request", id);
         return view(principal, result);
     }
 
     private GenericRequestService.GenericRequest view(
             SessionPrincipal principal, GenericRequestService.GenericRequest request) {
         boolean owner = principal.context().employeeId().equals(request.ownerEmployeeId());
-        boolean businessActor = authorization.authorizeAction(principal.context(), ACT).allowed();
+        boolean businessActor =
+                authorization.authorizeAction(principal.context(), ACT).allowed();
         if (owner || businessActor) return request;
         GenericRequestService.GenericRequest metadata = request.metadataOnly();
         return new GenericRequestService.GenericRequest(
-                metadata.id(), metadata.tenantId(), metadata.businessNo(), metadata.workflowInstanceId(),
-                metadata.workflowInstanceNo(), metadata.currentNodeCode(), metadata.status(), metadata.versionNo(),
-                metadata.requestType(), metadata.subject(), null, null, metadata.businessDate(), metadata.actualAmount(),
-                metadata.actualEndAt(), metadata.ownerCenterId(), metadata.ownerEmployeeId(), metadata.priority(),
-                metadata.riskLevel(), metadata.amount(), metadata.initialSubmissionId(), metadata.initialSubmissionNo(),
-                metadata.initialFormVersion(), null, metadata.updatedAt());
+                metadata.id(),
+                metadata.tenantId(),
+                metadata.businessNo(),
+                metadata.workflowInstanceId(),
+                metadata.workflowInstanceNo(),
+                metadata.currentNodeCode(),
+                metadata.status(),
+                metadata.versionNo(),
+                metadata.requestType(),
+                metadata.subject(),
+                null,
+                null,
+                metadata.businessDate(),
+                metadata.actualAmount(),
+                metadata.actualEndAt(),
+                metadata.ownerCenterId(),
+                metadata.ownerEmployeeId(),
+                metadata.priority(),
+                metadata.riskLevel(),
+                metadata.amount(),
+                metadata.initialSubmissionId(),
+                metadata.initialSubmissionNo(),
+                metadata.initialFormVersion(),
+                null,
+                metadata.updatedAt());
     }
 
     private static AuthorizationTarget target(GenericRequestService.GenericRequest request) {
-        return new AuthorizationTarget(request.tenantId(), request.ownerEmployeeId(), request.ownerCenterId(), null,
+        return new AuthorizationTarget(
+                request.tenantId(),
+                request.ownerEmployeeId(),
+                request.ownerCenterId(),
+                null,
                 request.ownerEmployeeId());
     }
 
@@ -142,7 +180,8 @@ public final class P004GenericRequestController {
 
     private String hash(Object value) {
         try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(mapper.writeValueAsBytes(value)));
+            return HexFormat.of()
+                    .formatHex(MessageDigest.getInstance("SHA-256").digest(mapper.writeValueAsBytes(value)));
         } catch (Exception ex) {
             throw new IllegalArgumentException("P004 request cannot be hashed", ex);
         }

@@ -26,7 +26,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/phase05/sensitive-exports")
-public final class SensitiveExportController {
+public class SensitiveExportController {
     private static final String READ = "phase05.p019.read";
     private static final String WRITE = "phase05.p019.write";
     private static final String DOWNLOAD = "phase05.p019.download";
@@ -62,8 +62,7 @@ public final class SensitiveExportController {
 
     @GetMapping("/{id}")
     public SensitiveExportService.ExportRequest get(
-            @AuthenticationPrincipal SessionPrincipal principal,
-            @PathVariable UUID id) {
+            @AuthenticationPrincipal SessionPrincipal principal, @PathVariable UUID id) {
         require(authorization.authorizeAction(principal.context(), READ));
         return exports.find(context(principal), id)
                 .orElseThrow(() -> new IllegalArgumentException("sensitive export request not found"));
@@ -71,8 +70,7 @@ public final class SensitiveExportController {
 
     @GetMapping("/{id}/items")
     public List<SensitiveExportService.ExportItem> items(
-            @AuthenticationPrincipal SessionPrincipal principal,
-            @PathVariable UUID id) {
+            @AuthenticationPrincipal SessionPrincipal principal, @PathVariable UUID id) {
         require(authorization.authorizeAction(principal.context(), READ));
         return exports.items(context(principal), id);
     }
@@ -137,15 +135,14 @@ public final class SensitiveExportController {
 
     private String hash(Object value) {
         try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(mapper.writeValueAsBytes(value)));
+            return HexFormat.of()
+                    .formatHex(MessageDigest.getInstance("SHA-256").digest(mapper.writeValueAsBytes(value)));
         } catch (JsonProcessingException | NoSuchAlgorithmException ex) {
             throw new IllegalArgumentException("request cannot be hashed", ex);
         }
     }
 
-    public record VersionStateRequest(int expectedVersion, String requestedStatus) {
-    }
+    public record VersionStateRequest(int expectedVersion, String requestedStatus) {}
 
-    public record VersionRequest(int expectedVersion) {
-    }
+    public record VersionRequest(int expectedVersion) {}
 }

@@ -19,8 +19,7 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public class JdbcLeaveRepository implements LeaveService.Repository {
-    private static final Set<String> LEDGER_TYPES =
-            Set.of("RESERVE", "DEDUCT", "RELEASE", "ADJUST");
+    private static final Set<String> LEDGER_TYPES = Set.of("RESERVE", "DEDUCT", "RELEASE", "ADJUST");
 
     private final JdbcTemplate jdbc;
 
@@ -30,7 +29,8 @@ public class JdbcLeaveRepository implements LeaveService.Repository {
 
     @Override
     public Optional<UUID> workflowVersion(UUID tenantId) {
-        return jdbc.query(
+        return jdbc
+                .query(
                         """
                         select v.id
                         from workflow.wf_version v
@@ -53,7 +53,8 @@ public class JdbcLeaveRepository implements LeaveService.Repository {
 
     @Override
     public Optional<FormRef> form(UUID tenantId) {
-        return jdbc.query(
+        return jdbc
+                .query(
                         """
                         select id,version_no
                         from workflow.wf_form_definition
@@ -66,18 +67,14 @@ public class JdbcLeaveRepository implements LeaveService.Repository {
                         order by version_no desc
                         limit 1
                         """,
-                        (result, row) ->
-                                new FormRef(
-                                        result.getObject(1, UUID.class),
-                                        result.getInt(2)),
+                        (result, row) -> new FormRef(result.getObject(1, UUID.class), result.getInt(2)),
                         tenantId)
                 .stream()
                 .findFirst();
     }
 
     @Override
-    public List<UUID> permissionCandidates(
-            UUID tenantId, String permission, UUID orgId) {
+    public List<UUID> permissionCandidates(UUID tenantId, String permission, UUID orgId) {
         return jdbc.query(
                 """
                 select distinct ui.employee_id
@@ -114,14 +111,9 @@ public class JdbcLeaveRepository implements LeaveService.Repository {
     }
 
     @Override
-    public boolean hasTimeConflict(
-            UUID tenantId,
-            UUID employeeId,
-            Instant start,
-            Instant end) {
-        Boolean conflict =
-                jdbc.queryForObject(
-                        """
+    public boolean hasTimeConflict(UUID tenantId, UUID employeeId, Instant start, Instant end) {
+        Boolean conflict = jdbc.queryForObject(
+                """
                         select (
                           exists(
                             select 1
@@ -158,28 +150,27 @@ public class JdbcLeaveRepository implements LeaveService.Repository {
                           )
                         )
                         """,
-                        Boolean.class,
-                        tenantId,
-                        employeeId,
-                        timestamp(start),
-                        timestamp(end),
-                        tenantId,
-                        employeeId,
-                        employeeId,
-                        timestamp(start),
-                        timestamp(end),
-                        tenantId,
-                        employeeId,
-                        timestamp(start),
-                        timestamp(end));
+                Boolean.class,
+                tenantId,
+                employeeId,
+                timestamp(start),
+                timestamp(end),
+                tenantId,
+                employeeId,
+                employeeId,
+                timestamp(start),
+                timestamp(end),
+                tenantId,
+                employeeId,
+                timestamp(start),
+                timestamp(end));
         return Boolean.TRUE.equals(conflict);
     }
 
     @Override
     public void insert(LeaveRecord record, UUID actor) {
-        int inserted =
-                jdbc.update(
-                        """
+        int inserted = jdbc.update(
+                """
                         insert into attendance.leave_request(
                           id,tenant_id,business_no,status,version_no,
                           created_by,updated_by,source_channel,business_date,
@@ -194,41 +185,32 @@ public class JdbcLeaveRepository implements LeaveService.Repository {
                           ?,?,?,?, ?,?,?
                         )
                         """,
-                        record.id(),
-                        record.tenantId(),
-                        record.businessNo(),
-                        record.status(),
-                        actor,
-                        actor,
-                        record.subject(),
-                        record.reason(),
-                        record.ownerCenterId(),
-                        record.ownerEmployeeId(),
-                        record.attendanceType(),
-                        record.reason() == null
-                                ? "LEAVE_REQUEST"
-                                : record.reason(),
-                        record.durationHours(),
-                        timestamp(record.endAt()),
-                        record.quotaAccountId(),
-                        record.quotaAmount(),
-                        timestamp(record.startAt()),
-                        record.handoverAgentId(),
-                        record.knownImpact());
+                record.id(),
+                record.tenantId(),
+                record.businessNo(),
+                record.status(),
+                actor,
+                actor,
+                record.subject(),
+                record.reason(),
+                record.ownerCenterId(),
+                record.ownerEmployeeId(),
+                record.attendanceType(),
+                record.reason() == null ? "LEAVE_REQUEST" : record.reason(),
+                record.durationHours(),
+                timestamp(record.endAt()),
+                record.quotaAccountId(),
+                record.quotaAmount(),
+                timestamp(record.startAt()),
+                record.handoverAgentId(),
+                record.knownImpact());
         if (inserted != 1) {
-            throw new ProcessRejectedException(
-                    "P008 canonical leave request insert failed");
+            throw new ProcessRejectedException("P008 canonical leave request insert failed");
         }
     }
 
     @Override
-    public int bindAndMove(
-            UUID tenantId,
-            UUID id,
-            int version,
-            UUID workflowId,
-            String status,
-            UUID actor) {
+    public int bindAndMove(UUID tenantId, UUID id, int version, UUID workflowId, String status, UUID actor) {
         return jdbc.update(
                 """
                 update attendance.leave_request
@@ -251,13 +233,7 @@ public class JdbcLeaveRepository implements LeaveService.Repository {
     }
 
     @Override
-    public int moveStatus(
-            UUID tenantId,
-            UUID id,
-            int version,
-            String status,
-            Instant closedAt,
-            UUID actor) {
+    public int moveStatus(UUID tenantId, UUID id, int version, String status, Instant closedAt, UUID actor) {
         return jdbc.update(
                 """
                 update attendance.leave_request
@@ -323,8 +299,7 @@ public class JdbcLeaveRepository implements LeaveService.Repository {
     }
 
     @Override
-    public int markDecision(
-            UUID tenantId, UUID id, String decision, UUID actor) {
+    public int markDecision(UUID tenantId, UUID id, String decision, UUID actor) {
         return jdbc.update(
                 """
                 update attendance.leave_request
@@ -394,8 +369,7 @@ public class JdbcLeaveRepository implements LeaveService.Repository {
     }
 
     @Override
-    public int markLeaveStarted(
-            UUID tenantId, UUID id, Instant actualAt, UUID actor) {
+    public int markLeaveStarted(UUID tenantId, UUID id, Instant actualAt, UUID actor) {
         return jdbc.update(
                 """
                 update attendance.leave_request
@@ -419,8 +393,7 @@ public class JdbcLeaveRepository implements LeaveService.Repository {
     }
 
     @Override
-    public int markReturned(
-            UUID tenantId, UUID id, Instant actualAt, UUID actor) {
+    public int markReturned(UUID tenantId, UUID id, Instant actualAt, UUID actor) {
         return jdbc.update(
                 """
                 update attendance.leave_request
@@ -484,13 +457,7 @@ public class JdbcLeaveRepository implements LeaveService.Repository {
     }
 
     @Override
-    public void appendLedger(
-            UUID tenantId,
-            UUID id,
-            String type,
-            BigDecimal amount,
-            String note,
-            UUID actor) {
+    public void appendLedger(UUID tenantId, UUID id, String type, BigDecimal amount, String note, UUID actor) {
         validateLedgerEntry(type, amount);
         jdbc.queryForObject(
                 """
@@ -504,9 +471,8 @@ public class JdbcLeaveRepository implements LeaveService.Repository {
                 UUID.class,
                 tenantId,
                 id);
-        Integer next =
-                jdbc.queryForObject(
-                        """
+        Integer next = jdbc.queryForObject(
+                """
                         select coalesce(max(item_seq),0)+1
                         from attendance.leave_request_item
                         where tenant_id=?
@@ -514,12 +480,11 @@ public class JdbcLeaveRepository implements LeaveService.Repository {
                           and field_code='QUOTA_LEDGER'
                           and not is_deleted
                         """,
-                        Integer.class,
-                        tenantId,
-                        id);
-        int inserted =
-                jdbc.update(
-                        """
+                Integer.class,
+                tenantId,
+                id);
+        int inserted = jdbc.update(
+                """
                         insert into attendance.leave_request_item(
                           id,tenant_id,created_by,updated_by,master_id,
                           field_code,item_seq,item_key,item_name,item_value_text,
@@ -531,27 +496,27 @@ public class JdbcLeaveRepository implements LeaveService.Repository {
                           ?,?,?,?,?,'LEAVE_REQUEST',?,?,?
                         )
                         """,
-                        tenantId,
-                        actor,
-                        actor,
-                        id,
-                        next,
-                        type,
-                        "P008 quota " + type,
-                        note,
-                        amount,
-                        id,
-                        amount,
-                        next);
+                tenantId,
+                actor,
+                actor,
+                id,
+                next,
+                type,
+                "P008 quota " + type,
+                note,
+                amount,
+                id,
+                amount,
+                next);
         if (inserted != 1) {
-            throw new ProcessRejectedException(
-                    "P008 quota ledger append failed");
+            throw new ProcessRejectedException("P008 quota ledger append failed");
         }
     }
 
     @Override
     public Optional<LeaveRecord> find(UUID tenantId, UUID id) {
-        return jdbc.query(
+        return jdbc
+                .query(
                         select(
                                 """
                                 where r.tenant_id=?
@@ -596,41 +561,33 @@ public class JdbcLeaveRepository implements LeaveService.Repository {
                   and not i.is_deleted
                 order by i.created_at,i.item_seq,i.id
                 """,
-                (result, row) ->
-                        new LedgerEntry(
-                                result.getObject("id", UUID.class),
-                                result.getObject("master_id", UUID.class),
-                                result.getString("business_no"),
-                                result.getObject(
-                                        "owner_center_id", UUID.class),
-                                result.getObject(
-                                        "owner_employee_id", UUID.class),
-                                result.getInt("item_seq"),
-                                result.getString("item_key"),
-                                result.getBigDecimal("item_value_number"),
-                                result.getString("item_value_text"),
-                                instant(result, "created_at")),
+                (result, row) -> new LedgerEntry(
+                        result.getObject("id", UUID.class),
+                        result.getObject("master_id", UUID.class),
+                        result.getString("business_no"),
+                        result.getObject("owner_center_id", UUID.class),
+                        result.getObject("owner_employee_id", UUID.class),
+                        result.getInt("item_seq"),
+                        result.getString("item_key"),
+                        result.getBigDecimal("item_value_number"),
+                        result.getString("item_value_text"),
+                        instant(result, "created_at")),
                 tenantId);
     }
 
-    private static void validateLedgerEntry(
-            String type, BigDecimal amount) {
+    private static void validateLedgerEntry(String type, BigDecimal amount) {
         if (!LEDGER_TYPES.contains(type)) {
-            throw new ProcessRejectedException(
-                    "P008 quota ledger entry type is invalid");
+            throw new ProcessRejectedException("P008 quota ledger entry type is invalid");
         }
         if (amount == null) {
-            throw new ProcessRejectedException(
-                    "P008 quota ledger amount is required");
+            throw new ProcessRejectedException("P008 quota ledger amount is required");
         }
         if ("ADJUST".equals(type)) {
             if (amount.signum() == 0) {
-                throw new ProcessRejectedException(
-                        "P008 quota adjustment must be non-zero");
+                throw new ProcessRejectedException("P008 quota adjustment must be non-zero");
             }
         } else if (amount.signum() <= 0) {
-            throw new ProcessRejectedException(
-                    "P008 quota ledger amount must be positive");
+            throw new ProcessRejectedException("P008 quota ledger amount must be positive");
         }
     }
 
@@ -700,8 +657,7 @@ public class JdbcLeaveRepository implements LeaveService.Repository {
         return value == null ? null : Timestamp.from(value);
     }
 
-    private static Instant instant(ResultSet result, String column)
-            throws SQLException {
+    private static Instant instant(ResultSet result, String column) throws SQLException {
         Object value = result.getObject(column);
         if (value == null) {
             return null;

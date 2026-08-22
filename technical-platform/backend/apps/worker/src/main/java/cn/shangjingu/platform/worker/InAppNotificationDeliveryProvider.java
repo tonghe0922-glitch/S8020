@@ -14,8 +14,11 @@ public final class InAppNotificationDeliveryProvider implements NotificationDeli
 
     @Override
     public DeliveryResult deliver(DeliveryRequest request) {
-        if (request == null || request.messageId() == null || request.tenantId() == null
-                || request.recipientId() == null || !"IN_APP".equals(request.channel())) {
+        if (request == null
+                || request.messageId() == null
+                || request.tenantId() == null
+                || request.recipientId() == null
+                || !"IN_APP".equals(request.channel())) {
             return new DeliveryResult(false, null);
         }
         return new DeliveryResult(true, "in-app:" + request.messageId());

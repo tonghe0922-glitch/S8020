@@ -13,7 +13,13 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 /** Tenant-scoped file object, scan-state, attachment and signed-download service. */
 public final class FileObjectService {
-    public enum ScanStatus { PENDING, SCANNING, SAFE, INFECTED, FAILED }
+    public enum ScanStatus {
+        PENDING,
+        SCANNING,
+        SAFE,
+        INFECTED,
+        FAILED
+    }
 
     private final JdbcTemplate jdbc;
     private final FileObjectStorage storage;
@@ -37,15 +43,25 @@ public final class FileObjectService {
         storage.put(command.storageBucket(), objectKey, command.content(), command.contentType());
         boolean persisted = false;
         try {
-            int inserted = jdbc.update("""
+            int inserted = jdbc.update(
+                    """
                     insert into document.file_object(
                         id,tenant_id,created_by,updated_by,object_key,original_name,content_type,size_bytes,sha256,
                         storage_bucket,virus_scan_status,sensitive_level,version_no)
                     values (?,?,?,?,?,?,?,?,?,?, 'PENDING',?,?)
                     """,
-                    fileId, command.tenantId(), command.actorId(), command.actorId(), objectKey,
-                    command.originalName(), command.contentType(), (long) command.content().length, digest,
-                    command.storageBucket(), command.sensitiveLevel(), command.versionNo());
+                    fileId,
+                    command.tenantId(),
+                    command.actorId(),
+                    command.actorId(),
+                    objectKey,
+                    command.originalName(),
+                    command.contentType(),
+                    (long) command.content().length,
+                    digest,
+                    command.storageBucket(),
+                    command.sensitiveLevel(),
+                    command.versionNo());
             if (inserted != 1) throw new IllegalStateException("file metadata insert failed");
             persisted = true;
             registerRollbackCleanup(command.storageBucket(), objectKey);
@@ -57,17 +73,23 @@ public final class FileObjectService {
 
     public void transitionScan(UUID tenantId, UUID actorId, UUID fileId, ScanStatus target) {
         requireActiveTransaction();
-        if (tenantId == null || fileId == null || target == null) throw new IllegalArgumentException("scan transition fields are required");
+        if (tenantId == null || fileId == null || target == null)
+            throw new IllegalArgumentException("scan transition fields are required");
         FileObject current = lock(tenantId, fileId);
         ScanStatus from = ScanStatus.valueOf(current.virusScanStatus());
         if (!validTransition(from, target)) {
             throw new IllegalStateException("illegal file scan transition: " + from + " -> " + target);
         }
-        int updated = jdbc.update("""
+        int updated = jdbc.update(
+                """
                 update document.file_object
                 set virus_scan_status=?,updated_by=?,updated_at=now()
                 where tenant_id=? and id=? and not is_deleted
-                """, target.name(), actorId, tenantId, fileId);
+                """,
+                target.name(),
+                actorId,
+                tenantId,
+                fileId);
         if (updated != 1) throw new IllegalStateException("file scan transition conflict");
     }
 
@@ -77,14 +99,24 @@ public final class FileObjectService {
         FileObject file = lock(command.tenantId(), command.fileId());
         requireSafe(file);
         UUID linkId = UUID.randomUUID();
-        int inserted = jdbc.update("""
+        int inserted = jdbc.update(
+                """
                 insert into document.attachment_link(
                     id,tenant_id,created_by,updated_by,business_type,business_id,field_code,file_id,
                     attachment_type,sort_no,is_evidence)
                 values (?,?,?,?,?,?,?,?,?,?,?)
-                """, linkId, command.tenantId(), command.actorId(), command.actorId(), command.businessType(),
-                command.businessId(), command.fieldCode(), command.fileId(), command.attachmentType(),
-                command.sortNo(), command.evidence());
+                """,
+                linkId,
+                command.tenantId(),
+                command.actorId(),
+                command.actorId(),
+                command.businessType(),
+                command.businessId(),
+                command.fieldCode(),
+                command.fileId(),
+                command.attachmentType(),
+                command.sortNo(),
+                command.evidence());
         if (inserted != 1) throw new IllegalStateException("attachment insert failed");
         return linkId;
     }
@@ -99,29 +131,38 @@ public final class FileObjectService {
         requireSafe(file);
         downloadGuard.requireAllowed(file);
         FileObjectStorage.StoredObject object = storage.stat(file.storageBucket(), file.objectKey());
-        if (object.sizeBytes() != file.sizeBytes()) throw new IllegalStateException("stored object size does not match metadata");
+        if (object.sizeBytes() != file.sizeBytes())
+            throw new IllegalStateException("stored object size does not match metadata");
         return storage.presignGet(file.storageBucket(), file.objectKey(), ttl);
     }
 
     public FileObject find(UUID tenantId, UUID fileId) {
-        FileObject file = jdbc.query("""
+        FileObject file = jdbc.query(
+                """
                 select id,tenant_id,object_key,original_name,content_type,size_bytes,sha256,storage_bucket,
                        virus_scan_status,sensitive_level,version_no,created_at
                 from document.file_object
                 where tenant_id=? and id=? and not is_deleted
-                """, rs -> rs.next() ? map(rs) : null, tenantId, fileId);
+                """,
+                rs -> rs.next() ? map(rs) : null,
+                tenantId,
+                fileId);
         if (file == null) throw new IllegalArgumentException("file not found");
         return file;
     }
 
     private FileObject lock(UUID tenantId, UUID fileId) {
-        FileObject file = jdbc.query("""
+        FileObject file = jdbc.query(
+                """
                 select id,tenant_id,object_key,original_name,content_type,size_bytes,sha256,storage_bucket,
                        virus_scan_status,sensitive_level,version_no,created_at
                 from document.file_object
                 where tenant_id=? and id=? and not is_deleted
                 for update
-                """, rs -> rs.next() ? map(rs) : null, tenantId, fileId);
+                """,
+                rs -> rs.next() ? map(rs) : null,
+                tenantId,
+                fileId);
         if (file == null) throw new IllegalArgumentException("file not found");
         return file;
     }
@@ -129,10 +170,17 @@ public final class FileObjectService {
     private static FileObject map(java.sql.ResultSet rs) throws java.sql.SQLException {
         OffsetDateTime createdAt = rs.getObject("created_at", OffsetDateTime.class);
         return new FileObject(
-                rs.getObject("id", UUID.class), rs.getObject("tenant_id", UUID.class), rs.getString("object_key"),
-                rs.getString("original_name"), rs.getString("content_type"), rs.getLong("size_bytes"),
-                rs.getString("sha256"), rs.getString("storage_bucket"), rs.getString("virus_scan_status"),
-                rs.getString("sensitive_level"), rs.getInt("version_no"),
+                rs.getObject("id", UUID.class),
+                rs.getObject("tenant_id", UUID.class),
+                rs.getString("object_key"),
+                rs.getString("original_name"),
+                rs.getString("content_type"),
+                rs.getLong("size_bytes"),
+                rs.getString("sha256"),
+                rs.getString("storage_bucket"),
+                rs.getString("virus_scan_status"),
+                rs.getString("sensitive_level"),
+                rs.getInt("version_no"),
                 createdAt == null ? null : createdAt.toInstant());
     }
 
@@ -177,7 +225,10 @@ public final class FileObjectService {
     }
 
     private static void validateUpload(UploadCommand command) {
-        if (command == null || command.tenantId() == null || command.content() == null || command.content().length == 0) {
+        if (command == null
+                || command.tenantId() == null
+                || command.content() == null
+                || command.content().length == 0) {
             throw new IllegalArgumentException("non-empty upload and tenant are required");
         }
         requireText(command.originalName(), "originalName", 255);
@@ -192,12 +243,15 @@ public final class FileObjectService {
             throw new IllegalArgumentException("attachment tenant/file/business identity is required");
         }
         requireText(command.businessType(), "businessType", 128);
-        if (command.fieldCode() != null && command.fieldCode().length() > 128) throw new IllegalArgumentException("fieldCode too long");
-        if (command.attachmentType() != null && command.attachmentType().length() > 64) throw new IllegalArgumentException("attachmentType too long");
+        if (command.fieldCode() != null && command.fieldCode().length() > 128)
+            throw new IllegalArgumentException("fieldCode too long");
+        if (command.attachmentType() != null && command.attachmentType().length() > 64)
+            throw new IllegalArgumentException("attachmentType too long");
     }
 
     private static void requireText(String value, String name, int max) {
-        if (value == null || value.isBlank() || value.length() > max) throw new IllegalArgumentException(name + " is invalid");
+        if (value == null || value.isBlank() || value.length() > max)
+            throw new IllegalArgumentException(name + " is invalid");
     }
 
     private static void requireActiveTransaction() {
@@ -206,11 +260,38 @@ public final class FileObjectService {
         }
     }
 
-    public record UploadCommand(UUID tenantId, UUID actorId, String originalName, String contentType,
-                                String storageBucket, byte[] content, String sensitiveLevel, int versionNo) {}
-    public record AttachmentCommand(UUID tenantId, UUID actorId, String businessType, UUID businessId,
-                                    String fieldCode, UUID fileId, String attachmentType, int sortNo, boolean evidence) {}
-    public record FileObject(UUID id, UUID tenantId, String objectKey, String originalName, String contentType,
-                             long sizeBytes, String sha256, String storageBucket, String virusScanStatus,
-                             String sensitiveLevel, int versionNo, Instant createdAt) {}
+    public record UploadCommand(
+            UUID tenantId,
+            UUID actorId,
+            String originalName,
+            String contentType,
+            String storageBucket,
+            byte[] content,
+            String sensitiveLevel,
+            int versionNo) {}
+
+    public record AttachmentCommand(
+            UUID tenantId,
+            UUID actorId,
+            String businessType,
+            UUID businessId,
+            String fieldCode,
+            UUID fileId,
+            String attachmentType,
+            int sortNo,
+            boolean evidence) {}
+
+    public record FileObject(
+            UUID id,
+            UUID tenantId,
+            String objectKey,
+            String originalName,
+            String contentType,
+            long sizeBytes,
+            String sha256,
+            String storageBucket,
+            String virusScanStatus,
+            String sensitiveLevel,
+            int versionNo,
+            Instant createdAt) {}
 }

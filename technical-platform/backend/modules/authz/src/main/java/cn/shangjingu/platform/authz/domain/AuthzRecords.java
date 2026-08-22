@@ -62,12 +62,7 @@ public final class AuthzRecords {
             String remark) {}
 
     public record RoleView(
-            UUID id,
-            String roleCode,
-            String roleName,
-            String roleType,
-            String dataScopeCode,
-            boolean enabled) {}
+            UUID id, String roleCode, String roleName, String roleType, String dataScopeCode, boolean enabled) {}
 
     public record PositionRoleView(
             UUID roleId,
@@ -80,26 +75,12 @@ public final class AuthzRecords {
             String grantSource) {}
 
     public record PositionRoleSelection(
-            UUID roleId,
-            Instant effectiveStartAt,
-            Instant effectiveEndAt,
-            String grantSource) {}
+            UUID roleId, Instant effectiveStartAt, Instant effectiveEndAt, String grantSource) {}
 
     public record OrganizationView(
-            UUID id,
-            String orgCode,
-            String orgName,
-            String orgType,
-            UUID parentId,
-            String path,
-            String status) {}
+            UUID id, String orgCode, String orgName, String orgType, UUID parentId, String path, String status) {}
 
-    public record PositionView(
-            UUID id,
-            String positionCode,
-            String positionName,
-            UUID orgId,
-            String status) {}
+    public record PositionView(UUID id, String positionCode, String positionName, UUID orgId, String status) {}
 
     public record ReferenceData(
             List<OrganizationView> organizations,
@@ -107,12 +88,7 @@ public final class AuthzRecords {
             List<RoleView> roles,
             List<PermissionView> permissions) {}
 
-    public record RoleSource(
-            UUID roleId,
-            String roleCode,
-            String roleName,
-            String dataScopeCode,
-            String source) {}
+    public record RoleSource(UUID roleId, String roleCode, String roleName, String dataScopeCode, String source) {}
 
     public record PermissionFact(
             UUID roleId,
@@ -140,11 +116,7 @@ public final class AuthzRecords {
             boolean effective,
             String reason) {}
 
-    public record PreviewCommand(
-            UUID orgId,
-            UUID positionId,
-            List<UUID> directRoleIds,
-            Instant effectiveAt) {}
+    public record PreviewCommand(UUID orgId, UUID positionId, List<UUID> directRoleIds, Instant effectiveAt) {}
 
     public record PreviewResult(
             UUID orgId,

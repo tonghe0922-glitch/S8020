@@ -19,6 +19,8 @@ sjg:
       username: ${SJG_AUDIT_DB_USERNAME:sjg_audit_writer}
       password: ${SJG_AUDIT_DB_PASSWORD:}
   security:
+    audit:
+      mode: ${SJG_SECURITY_AUDIT_MODE:fail-open}
     session:
       access-ttl: ${SJG_SESSION_ACCESS_TTL:PT15M}
       refresh-ttl: ${SJG_SESSION_REFRESH_TTL:P7D}

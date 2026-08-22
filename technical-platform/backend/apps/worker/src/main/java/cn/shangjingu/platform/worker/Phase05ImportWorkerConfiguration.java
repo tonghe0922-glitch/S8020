@@ -15,11 +15,11 @@ import org.springframework.jdbc.core.JdbcTemplate;
 @Configuration
 @ConditionalOnBean(JdbcTemplate.class)
 @Import({
-        TenantTransactionRunner.class,
-        IdempotencyRegistry.class,
-        BusinessNumberService.class,
-        DataImportService.class,
-        JdbcDataImportRepository.class
+    TenantTransactionRunner.class,
+    IdempotencyRegistry.class,
+    BusinessNumberService.class,
+    DataImportService.class,
+    JdbcDataImportRepository.class
 })
 public class Phase05ImportWorkerConfiguration {
     @Bean

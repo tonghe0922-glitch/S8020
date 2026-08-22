@@ -24,16 +24,11 @@ import org.testcontainers.containers.PostgreSQLContainer;
 
 class Phase11P011DatabaseIT {
     private static final String POSTGRES_IMAGE = "postgres:16.14-alpine3.24";
-    private static final UUID TENANT =
-            UUID.fromString("00000000-0000-0000-0000-000000001111");
-    private static final UUID CENTER =
-            UUID.fromString("01000000-0000-0000-0000-000000001111");
-    private static final UUID EMPLOYEE =
-            UUID.fromString("02000000-0000-0000-0000-000000001111");
-    private static final UUID CYCLE =
-            UUID.fromString("10000000-0000-0000-0000-000000001111");
-    private static final UUID SCORE =
-            UUID.fromString("20000000-0000-0000-0000-000000001111");
+    private static final UUID TENANT = UUID.fromString("00000000-0000-0000-0000-000000001111");
+    private static final UUID CENTER = UUID.fromString("01000000-0000-0000-0000-000000001111");
+    private static final UUID EMPLOYEE = UUID.fromString("02000000-0000-0000-0000-000000001111");
+    private static final UUID CYCLE = UUID.fromString("10000000-0000-0000-0000-000000001111");
+    private static final UUID SCORE = UUID.fromString("20000000-0000-0000-0000-000000001111");
 
     private static PostgreSQLContainer<?> postgres;
     private static Path repoRoot;
@@ -66,7 +61,8 @@ class Phase11P011DatabaseIT {
     void p011PublishedGraphMatchesFrozenContract() throws Exception {
         assertEquals(
                 "S01,S02,S03,S04,S05,S06,S07,S08,S09,S10,S11,END",
-                scalarString("""
+                scalarString(
+                        """
                         select string_agg(n.node_code,',' order by n.sort_no)
                         from workflow.wf_node n
                         join workflow.wf_version v
@@ -77,8 +73,12 @@ class Phase11P011DatabaseIT {
                           and v.status='PUBLISHED'
                           and v.checksum='phase11-p011-c0-v1'
                           and not n.is_deleted and not v.is_deleted and not d.is_deleted
-                        """.formatted(TENANT)));
-        assertEquals(11L, scalarLong("""
+                        """
+                                .formatted(TENANT)));
+        assertEquals(
+                11L,
+                scalarLong(
+                        """
                 select count(*)
                 from workflow.wf_transition t
                 join workflow.wf_version v on v.tenant_id=t.tenant_id and v.id=t.version_id
@@ -86,31 +86,35 @@ class Phase11P011DatabaseIT {
                 where d.tenant_id='%s' and d.process_code='P011'
                   and v.status='PUBLISHED' and v.checksum='phase11-p011-c0-v1'
                   and not t.is_deleted and not v.is_deleted and not d.is_deleted
-                """.formatted(TENANT)));
+                """
+                                .formatted(TENANT)));
     }
 
     @Test
     void scoreFactsAreIndependentAndImmutable() throws Exception {
-        assertEquals(1L, scalarLong(
-                "select count(*) from performance.performance_score_entry where id='" + SCORE + "'"));
+        assertEquals(
+                1L, scalarLong("select count(*) from performance.performance_score_entry where id='" + SCORE + "'"));
         SQLException update = assertSqlRejected(
                 "update performance.performance_score_entry set score_1000=999 where id='" + SCORE + "'");
         assertTrue(message(update).contains("P011 performance score facts are append-only"));
-        SQLException delete = assertSqlRejected(
-                "delete from performance.performance_score_entry where id='" + SCORE + "'");
+        SQLException delete =
+                assertSqlRejected("delete from performance.performance_score_entry where id='" + SCORE + "'");
         assertTrue(message(delete).contains("P011 performance score facts are append-only"));
-        assertEquals(800L, scalarLong(
-                "select employee_score_1000 from performance.performance_cycle where id='" + CYCLE + "'"));
+        assertEquals(
+                800L,
+                scalarLong("select employee_score_1000 from performance.performance_cycle where id='" + CYCLE + "'"));
     }
 
     @Test
     void duplicateScoreTypeAndOutOfRangeScoresFailClosed() {
-        SQLException duplicate = assertSqlRejected("""
+        SQLException duplicate = assertSqlRejected(
+                """
                 insert into performance.performance_score_entry(
                   id,tenant_id,cycle_id,score_type,score_1000,source_fact_key,
                   evidence_summary,submitted_by)
                 values(gen_random_uuid(),'%s','%s','EMPLOYEE',700,'duplicate','duplicate','%s')
-                """.formatted(TENANT, CYCLE, EMPLOYEE));
+                """
+                        .formatted(TENANT, CYCLE, EMPLOYEE));
         assertTrue(message(duplicate).contains("uq_performance_score_entry_type"));
         SQLException range = assertSqlRejected(
                 "update performance.performance_cycle set supervisor_score_1000=1001 where id='" + CYCLE + "'");
@@ -119,13 +123,16 @@ class Phase11P011DatabaseIT {
 
     @Test
     void p011MigrationAndRlsAreInstalled() throws Exception {
-        assertEquals(1L, scalarLong(
-                "select count(*) from flyway_schema_history where success and version='122'"));
-        assertTrue(scalarBoolean("""
+        assertEquals(1L, scalarLong("select count(*) from flyway_schema_history where success and version='122'"));
+        assertTrue(
+                scalarBoolean(
+                        """
                 select exists(select 1 from pg_trigger
                 where tgname='trg_performance_score_immutable' and not tgisinternal)
                 """));
-        assertTrue(scalarBoolean("""
+        assertTrue(
+                scalarBoolean(
+                        """
                 select exists(select 1 from pg_policies
                 where schemaname='performance'
                   and tablename='performance_score_entry'
@@ -134,16 +141,21 @@ class Phase11P011DatabaseIT {
     }
 
     private static void seedFacts() throws SQLException {
-        execute("""
+        execute(
+                """
                 insert into org.organization(id,tenant_id,org_code,org_name,org_type,status)
                 values('%s','%s','PHASE11-P011-CENTER','PHASE-11 P011 Center','CENTER','ACTIVE')
-                """.formatted(CENTER, TENANT));
-        execute("""
+                """
+                        .formatted(CENTER, TENANT));
+        execute(
+                """
                 insert into org.employee(
                   id,tenant_id,employee_no,person_name,employment_status,hire_date,primary_org_id)
                 values('%s','%s','PHASE11-P011-EMPLOYEE','P011 Employee','ACTIVE',date '2026-01-01','%s')
-                """.formatted(EMPLOYEE, TENANT, CENTER));
-        execute("""
+                """
+                        .formatted(EMPLOYEE, TENANT, CENTER));
+        execute(
+                """
                 insert into performance.performance_cycle(
                   id,tenant_id,business_no,status,current_node_code,version_no,
                   subject,owner_center_id,owner_employee_id,content_version,
@@ -152,13 +164,16 @@ class Phase11P011DatabaseIT {
                 values('%s','%s','P011-DB-TEST','员工自评/主管评价','S05',1,
                   'P011 score source test','%s','%s','V1','P011_PERFORMANCE',
                   timestamptz '2026-07-01 00:00:00+00','independent scores','2026-Q3',800)
-                """.formatted(CYCLE, TENANT, CENTER, EMPLOYEE));
-        execute("""
+                """
+                        .formatted(CYCLE, TENANT, CENTER, EMPLOYEE));
+        execute(
+                """
                 insert into performance.performance_score_entry(
                   id,tenant_id,cycle_id,score_type,score_1000,source_fact_key,
                   evidence_summary,submitted_by)
                 values('%s','%s','%s','EMPLOYEE',800,'%s:EMPLOYEE','employee evidence','%s')
-                """.formatted(SCORE, TENANT, CYCLE, CYCLE, EMPLOYEE));
+                """
+                        .formatted(SCORE, TENANT, CYCLE, CYCLE, EMPLOYEE));
     }
 
     private static SQLException assertSqlRejected(String sql) {
@@ -172,9 +187,7 @@ class Phase11P011DatabaseIT {
 
     private static String message(SQLException error) {
         StringBuilder result = new StringBuilder();
-        for (SQLException current = error;
-                current != null;
-                current = current.getNextException()) {
+        for (SQLException current = error; current != null; current = current.getNextException()) {
             if (current.getMessage() != null) {
                 result.append(current.getMessage()).append(' ');
             }
@@ -216,16 +229,14 @@ class Phase11P011DatabaseIT {
         }
     }
 
-    private static void migrate(
-            String database, String generatedFolder, String overlayFolder) {
+    private static void migrate(String database, String generatedFolder, String overlayFolder) {
         List<String> locations = new ArrayList<>();
-        locations.add("filesystem:" + repoRoot
-                .resolve("technical-platform/database/flyway")
-                .resolve(generatedFolder));
+        locations.add("filesystem:"
+                + repoRoot.resolve("technical-platform/database/flyway").resolve(generatedFolder));
         if (overlayFolder != null) {
-            locations.add("filesystem:" + repoRoot
-                    .resolve("technical-platform/database/flyway-overlays")
-                    .resolve(overlayFolder));
+            locations.add("filesystem:"
+                    + repoRoot.resolve("technical-platform/database/flyway-overlays")
+                            .resolve(overlayFolder));
         }
         Flyway flyway = Flyway.configure()
                 .dataSource(jdbcUrl(database), postgres.getUsername(), postgres.getPassword())
@@ -241,8 +252,7 @@ class Phase11P011DatabaseIT {
     }
 
     private static Connection admin(String database) throws SQLException {
-        return DriverManager.getConnection(
-                jdbcUrl(database), postgres.getUsername(), postgres.getPassword());
+        return DriverManager.getConnection(jdbcUrl(database), postgres.getUsername(), postgres.getPassword());
     }
 
     private static String jdbcUrl(String database) {
@@ -254,9 +264,7 @@ class Phase11P011DatabaseIT {
     }
 
     private static Path findRepoRoot() {
-        Path current = Path.of(System.getProperty("user.dir"))
-                .toAbsolutePath()
-                .normalize();
+        Path current = Path.of(System.getProperty("user.dir")).toAbsolutePath().normalize();
         while (current != null) {
             if (Files.isRegularFile(current.resolve("AGENT.md"))
                     && Files.isDirectory(current.resolve("Knowledge Base"))

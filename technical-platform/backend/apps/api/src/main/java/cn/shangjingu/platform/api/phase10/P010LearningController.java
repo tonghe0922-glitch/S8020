@@ -25,7 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/processes/P010")
-public final class P010LearningController {
+public class P010LearningController {
     public static final String READ = "p010.learning.read";
     public static final String MANAGE = "p010.learning.manage";
     public static final String COMPLETE = "p010.learning.complete";
@@ -55,23 +55,17 @@ public final class P010LearningController {
             @RequestHeader("Idempotency-Key") String key,
             @RequestBody LearningService.CreateCommand command) {
         require(authorization.authorizeAction(principal.context(), MANAGE));
-        require(
-                authorization.authorizeData(
-                        principal.context(),
-                        MANAGE,
-                        new AuthorizationTarget(
-                                principal.context().tenantId(),
-                                command.ownerEmployeeId(),
-                                command.ownerCenterId(),
-                                principal.context().positionId(),
-                                command.ownerEmployeeId())));
-        audit.recordOperation(
+        require(authorization.authorizeData(
                 principal.context(),
-                "P010_CREATE_ATTEMPT",
-                "learning.learning_assignment",
-                null);
-        LearningService.Aggregate result =
-                learning.create(context(principal), key, hash(command), command);
+                MANAGE,
+                new AuthorizationTarget(
+                        principal.context().tenantId(),
+                        command.ownerEmployeeId(),
+                        command.ownerCenterId(),
+                        principal.context().positionId(),
+                        command.ownerEmployeeId())));
+        audit.recordOperation(principal.context(), "P010_CREATE_ATTEMPT", "learning.learning_assignment", null);
+        LearningService.Aggregate result = learning.create(context(principal), key, hash(command), command);
         audit.recordOperation(
                 principal.context(),
                 "P010_CREATED",
@@ -81,8 +75,7 @@ public final class P010LearningController {
     }
 
     @GetMapping("/assignments")
-    public List<LearningService.Aggregate> list(
-            @AuthenticationPrincipal SessionPrincipal principal) {
+    public List<LearningService.Aggregate> list(@AuthenticationPrincipal SessionPrincipal principal) {
         boolean read = allowed(principal, READ);
         boolean manage = allowed(principal, MANAGE);
         boolean certify = allowed(principal, CERTIFY);
@@ -90,31 +83,16 @@ public final class P010LearningController {
         if (!read && !manage && !certify && !monitor) {
             throw denied("no P010 read surface");
         }
-        List<LearningService.Aggregate> result =
-                learning.list(context(principal)).stream()
-                        .map(
-                                assignment ->
-                                        project(
-                                                principal,
-                                                assignment,
-                                                read,
-                                                manage,
-                                                certify,
-                                                monitor))
-                        .filter(java.util.Objects::nonNull)
-                        .toList();
-        audit.recordOperation(
-                principal.context(),
-                "P010_LIST",
-                "learning.learning_assignment",
-                null);
+        List<LearningService.Aggregate> result = learning.list(context(principal)).stream()
+                .map(assignment -> project(principal, assignment, read, manage, certify, monitor))
+                .filter(java.util.Objects::nonNull)
+                .toList();
+        audit.recordOperation(principal.context(), "P010_LIST", "learning.learning_assignment", null);
         return result;
     }
 
     @GetMapping("/assignments/{id}")
-    public LearningService.Aggregate get(
-            @AuthenticationPrincipal SessionPrincipal principal,
-            @PathVariable UUID id) {
+    public LearningService.Aggregate get(@AuthenticationPrincipal SessionPrincipal principal, @PathVariable UUID id) {
         boolean read = allowed(principal, READ);
         boolean manage = allowed(principal, MANAGE);
         boolean certify = allowed(principal, CERTIFY);
@@ -122,20 +100,13 @@ public final class P010LearningController {
         if (!read && !manage && !certify && !monitor) {
             throw denied("no P010 read surface");
         }
-        LearningService.Aggregate assignment =
-                learning.find(context(principal), id)
-                        .orElseThrow(
-                                () -> new IllegalArgumentException("P010 assignment not found"));
-        LearningService.Aggregate projected =
-                project(principal, assignment, read, manage, certify, monitor);
+        LearningService.Aggregate assignment = learning.find(context(principal), id)
+                .orElseThrow(() -> new IllegalArgumentException("P010 assignment not found"));
+        LearningService.Aggregate projected = project(principal, assignment, read, manage, certify, monitor);
         if (projected == null) {
             throw denied("P010 data scope denied");
         }
-        audit.recordOperation(
-                principal.context(),
-                "P010_READ",
-                "learning.learning_assignment",
-                id);
+        audit.recordOperation(principal.context(), "P010_READ", "learning.learning_assignment", id);
         return projected;
     }
 
@@ -147,18 +118,9 @@ public final class P010LearningController {
             @RequestBody LearningService.ProgressCommand command) {
         require(authorization.authorizeAction(principal.context(), COMPLETE));
         owned(principal, id, COMPLETE);
-        audit.recordOperation(
-                principal.context(),
-                "P010_PROGRESS_ATTEMPT",
-                "learning.learning_assignment",
-                id);
-        LearningService.Aggregate result =
-                learning.progress(context(principal), id, key, hash(command), command);
-        audit.recordOperation(
-                principal.context(),
-                "P010_PROGRESS",
-                "learning.learning_assignment",
-                id);
+        audit.recordOperation(principal.context(), "P010_PROGRESS_ATTEMPT", "learning.learning_assignment", id);
+        LearningService.Aggregate result = learning.progress(context(principal), id, key, hash(command), command);
+        audit.recordOperation(principal.context(), "P010_PROGRESS", "learning.learning_assignment", id);
         return result;
     }
 
@@ -170,18 +132,9 @@ public final class P010LearningController {
             @RequestBody LearningService.ExamCommand command) {
         require(authorization.authorizeAction(principal.context(), EXAM));
         owned(principal, id, EXAM);
-        audit.recordOperation(
-                principal.context(),
-                "P010_EXAM_ATTEMPT",
-                "learning.learning_assignment",
-                id);
-        LearningService.Aggregate result =
-                learning.exam(context(principal), id, key, hash(command), command);
-        audit.recordOperation(
-                principal.context(),
-                "P010_EXAM",
-                "learning.learning_assignment",
-                id);
+        audit.recordOperation(principal.context(), "P010_EXAM_ATTEMPT", "learning.learning_assignment", id);
+        LearningService.Aggregate result = learning.exam(context(principal), id, key, hash(command), command);
+        audit.recordOperation(principal.context(), "P010_EXAM", "learning.learning_assignment", id);
         return result;
     }
 
@@ -193,18 +146,9 @@ public final class P010LearningController {
             @RequestBody LearningService.PracticalCommand command) {
         require(authorization.authorizeAction(principal.context(), COMPLETE));
         owned(principal, id, COMPLETE);
-        audit.recordOperation(
-                principal.context(),
-                "P010_PRACTICAL_ATTEMPT",
-                "learning.learning_assignment",
-                id);
-        LearningService.Aggregate result =
-                learning.practical(context(principal), id, key, hash(command), command);
-        audit.recordOperation(
-                principal.context(),
-                "P010_PRACTICAL",
-                "learning.learning_assignment",
-                id);
+        audit.recordOperation(principal.context(), "P010_PRACTICAL_ATTEMPT", "learning.learning_assignment", id);
+        LearningService.Aggregate result = learning.practical(context(principal), id, key, hash(command), command);
+        audit.recordOperation(principal.context(), "P010_PRACTICAL", "learning.learning_assignment", id);
         return result;
     }
 
@@ -216,50 +160,24 @@ public final class P010LearningController {
             @RequestHeader("Idempotency-Key") String key,
             @RequestBody LearningService.ActionCommand command) {
         String action = safe(actionCode);
-        String permission =
-                action.equals("CERTIFY") || action.equals("RETURN_FOR_TRAINING")
-                        ? CERTIFY
-                        : MANAGE;
+        String permission = action.equals("CERTIFY") || action.equals("RETURN_FOR_TRAINING") ? CERTIFY : MANAGE;
         require(authorization.authorizeAction(principal.context(), permission));
-        LearningService.Aggregate assignment =
-                learning.find(context(principal), id)
-                        .orElseThrow(
-                                () -> new IllegalArgumentException("P010 assignment not found"));
-        require(
-                authorization.authorizeData(
-                        principal.context(),
-                        permission,
-                        target(principal, assignment.record())));
-        audit.recordOperation(
-                principal.context(),
-                "P010_ACTION_ATTEMPT_" + action,
-                "learning.learning_assignment",
-                id);
-        LearningService.Aggregate result =
-                learning.action(
-                        context(principal), id, action, key, hash(command), command);
-        audit.recordOperation(
-                principal.context(),
-                "P010_ACTION_" + action,
-                "learning.learning_assignment",
-                id);
+        LearningService.Aggregate assignment = learning.find(context(principal), id)
+                .orElseThrow(() -> new IllegalArgumentException("P010 assignment not found"));
+        require(authorization.authorizeData(principal.context(), permission, target(principal, assignment.record())));
+        audit.recordOperation(principal.context(), "P010_ACTION_ATTEMPT_" + action, "learning.learning_assignment", id);
+        LearningService.Aggregate result = learning.action(context(principal), id, action, key, hash(command), command);
+        audit.recordOperation(principal.context(), "P010_ACTION_" + action, "learning.learning_assignment", id);
         return result;
     }
 
-    private LearningService.Aggregate owned(
-            SessionPrincipal principal, UUID id, String permission) {
-        LearningService.Aggregate assignment =
-                learning.find(context(principal), id)
-                        .orElseThrow(
-                                () -> new IllegalArgumentException("P010 assignment not found"));
+    private LearningService.Aggregate owned(SessionPrincipal principal, UUID id, String permission) {
+        LearningService.Aggregate assignment = learning.find(context(principal), id)
+                .orElseThrow(() -> new IllegalArgumentException("P010 assignment not found"));
         if (!principal.context().employeeId().equals(assignment.record().ownerEmployeeId())) {
             throw denied("employee operation is self-only");
         }
-        require(
-                authorization.authorizeData(
-                        principal.context(),
-                        permission,
-                        target(principal, assignment.record())));
+        require(authorization.authorizeData(principal.context(), permission, target(principal, assignment.record())));
         return assignment;
     }
 
@@ -272,27 +190,34 @@ public final class P010LearningController {
             boolean monitor) {
         AuthorizationTarget target = target(principal, assignment.record());
         if (manage
-                && authorization.authorizeData(principal.context(), MANAGE, target).allowed()) {
+                && authorization
+                        .authorizeData(principal.context(), MANAGE, target)
+                        .allowed()) {
             return assignment;
         }
         if (certify
-                && authorization.authorizeData(principal.context(), CERTIFY, target).allowed()) {
+                && authorization
+                        .authorizeData(principal.context(), CERTIFY, target)
+                        .allowed()) {
             return assignment;
         }
         if (read
                 && principal.context().employeeId().equals(assignment.record().ownerEmployeeId())
-                && authorization.authorizeData(principal.context(), READ, target).allowed()) {
+                && authorization
+                        .authorizeData(principal.context(), READ, target)
+                        .allowed()) {
             return assignment;
         }
         if (monitor
-                && authorization.authorizeData(principal.context(), MONITOR, target).allowed()) {
+                && authorization
+                        .authorizeData(principal.context(), MONITOR, target)
+                        .allowed()) {
             return assignment.metadataOnly();
         }
         return null;
     }
 
-    private static AuthorizationTarget target(
-            SessionPrincipal principal, LearningService.LearningRecord record) {
+    private static AuthorizationTarget target(SessionPrincipal principal, LearningService.LearningRecord record) {
         return new AuthorizationTarget(
                 record.tenantId(),
                 record.ownerEmployeeId(),
@@ -338,9 +263,7 @@ public final class P010LearningController {
     private String hash(Object value) {
         try {
             return HexFormat.of()
-                    .formatHex(
-                            MessageDigest.getInstance("SHA-256")
-                                    .digest(mapper.writeValueAsBytes(value)));
+                    .formatHex(MessageDigest.getInstance("SHA-256").digest(mapper.writeValueAsBytes(value)));
         } catch (Exception exception) {
             throw new IllegalArgumentException("P010 request cannot be hashed", exception);
         }

@@ -20,16 +20,13 @@ public class GuardedShiftChangeRepository implements ShiftChangeService.Reposito
     private final JdbcTemplate jdbc;
     private final P007ShiftChangeInsertWriter insertWriter;
 
-    public GuardedShiftChangeRepository(
-            JdbcShiftChangeRepository delegate, JdbcTemplate jdbc) {
+    public GuardedShiftChangeRepository(JdbcShiftChangeRepository delegate, JdbcTemplate jdbc) {
         this(delegate, jdbc, new P007ShiftChangeInsertWriter(jdbc));
     }
 
     @Autowired
     public GuardedShiftChangeRepository(
-            JdbcShiftChangeRepository delegate,
-            JdbcTemplate jdbc,
-            P007ShiftChangeInsertWriter insertWriter) {
+            JdbcShiftChangeRepository delegate, JdbcTemplate jdbc, P007ShiftChangeInsertWriter insertWriter) {
         this.delegate = delegate;
         this.jdbc = jdbc;
         this.insertWriter = insertWriter;
@@ -46,30 +43,22 @@ public class GuardedShiftChangeRepository implements ShiftChangeService.Reposito
     }
 
     @Override
-    public List<UUID> permissionCandidates(
-            UUID tenantId, String permission, UUID orgId) {
+    public List<UUID> permissionCandidates(UUID tenantId, String permission, UUID orgId) {
         return delegate.permissionCandidates(tenantId, permission, orgId);
     }
 
     @Override
-    public boolean isActiveEmployeeInOrg(
-            UUID tenantId, UUID orgId, UUID employeeId) {
+    public boolean isActiveEmployeeInOrg(UUID tenantId, UUID orgId, UUID employeeId) {
         return delegate.isActiveEmployeeInOrg(tenantId, orgId, employeeId);
     }
 
     @Override
-    public boolean hasOverlappingShift(
-            UUID tenantId,
-            UUID employeeId,
-            Instant start,
-            Instant end,
-            UUID excludeId) {
+    public boolean hasOverlappingShift(UUID tenantId, UUID employeeId, Instant start, Instant end, UUID excludeId) {
         if (delegate.hasOverlappingShift(tenantId, employeeId, start, end, excludeId)) {
             return true;
         }
-        Boolean conflict =
-                jdbc.queryForObject(
-                        """
+        Boolean conflict = jdbc.queryForObject(
+                """
                         select (
                           exists(select 1 from attendance.leave_request r
                             where r.tenant_id=? and r.owner_employee_id=?
@@ -83,21 +72,20 @@ public class GuardedShiftChangeRepository implements ShiftChangeService.Reposito
                                   && tstzrange(?,?,'[)'))
                         )
                         """,
-                        Boolean.class,
-                        tenantId,
-                        employeeId,
-                        timestamp(start),
-                        timestamp(end),
-                        tenantId,
-                        employeeId,
-                        timestamp(start),
-                        timestamp(end));
+                Boolean.class,
+                tenantId,
+                employeeId,
+                timestamp(start),
+                timestamp(end),
+                tenantId,
+                employeeId,
+                timestamp(start),
+                timestamp(end));
         return Boolean.TRUE.equals(conflict);
     }
 
     @Override
-    public boolean hasAttendanceConflict(
-            UUID tenantId, UUID employeeId, Instant start, Instant end) {
+    public boolean hasAttendanceConflict(UUID tenantId, UUID employeeId, Instant start, Instant end) {
         return delegate.hasAttendanceConflict(tenantId, employeeId, start, end);
     }
 
@@ -107,34 +95,18 @@ public class GuardedShiftChangeRepository implements ShiftChangeService.Reposito
     }
 
     @Override
-    public int bindAndMove(
-            UUID tenantId,
-            UUID id,
-            int version,
-            UUID workflowId,
-            String status,
-            UUID actor) {
-        return required(
-                delegate.bindAndMove(tenantId, id, version, workflowId, status, actor),
-                "workflow binding");
+    public int bindAndMove(UUID tenantId, UUID id, int version, UUID workflowId, String status, UUID actor) {
+        return required(delegate.bindAndMove(tenantId, id, version, workflowId, status, actor), "workflow binding");
     }
 
     @Override
-    public int moveStatus(
-            UUID tenantId,
-            UUID id,
-            int version,
-            String status,
-            Instant closedAt,
-            UUID actor) {
+    public int moveStatus(UUID tenantId, UUID id, int version, String status, Instant closedAt, UUID actor) {
         return required(
-                delegate.moveStatus(tenantId, id, version, status, closedAt, actor),
-                "workflow projection transition");
+                delegate.moveStatus(tenantId, id, version, status, closedAt, actor), "workflow projection transition");
     }
 
     @Override
-    public int markValidated(
-            UUID tenantId, UUID id, BigDecimal continuousHours, UUID actor) {
+    public int markValidated(UUID tenantId, UUID id, BigDecimal continuousHours, UUID actor) {
         return required(
                 delegate.markValidated(tenantId, id, continuousHours, actor),
                 "qualification/continuous-work validation fact");
@@ -147,16 +119,12 @@ public class GuardedShiftChangeRepository implements ShiftChangeService.Reposito
 
     @Override
     public int markConfirmed(UUID tenantId, UUID id, UUID actor) {
-        return required(
-                delegate.markConfirmed(tenantId, id, actor), "employee confirmation fact");
+        return required(delegate.markConfirmed(tenantId, id, actor), "employee confirmation fact");
     }
 
     @Override
-    public int setReplacement(
-            UUID tenantId, UUID id, UUID replacement, UUID actor) {
-        return required(
-                delegate.setReplacement(tenantId, id, replacement, actor),
-                "shift-change request fact");
+    public int setReplacement(UUID tenantId, UUID id, UUID replacement, UUID actor) {
+        return required(delegate.setReplacement(tenantId, id, replacement, actor), "shift-change request fact");
     }
 
     @Override
@@ -166,9 +134,7 @@ public class GuardedShiftChangeRepository implements ShiftChangeService.Reposito
 
     @Override
     public int markDependencies(UUID tenantId, UUID id, UUID actor) {
-        return required(
-                delegate.markDependencies(tenantId, id, actor),
-                "attendance/catering/shuttle linkage fact");
+        return required(delegate.markDependencies(tenantId, id, actor), "attendance/catering/shuttle linkage fact");
     }
 
     @Override

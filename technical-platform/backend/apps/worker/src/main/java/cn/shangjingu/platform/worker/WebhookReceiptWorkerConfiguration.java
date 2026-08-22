@@ -8,11 +8,18 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcTemplate;
 
-@Configuration(proxyBeanMethods=false)
+@Configuration(proxyBeanMethods = false)
 @ConditionalOnNotWebApplication
 @ConditionalOnBean(JdbcTemplate.class)
-@ConditionalOnProperty(prefix="platform.outbox",name="enabled",havingValue="true")
+@ConditionalOnProperty(prefix = "platform.outbox", name = "enabled", havingValue = "true")
 public class WebhookReceiptWorkerConfiguration {
-    @Bean WebhookProcessingService webhookProcessingService(JdbcTemplate jdbc){return new WebhookProcessingService(jdbc);}
-    @Bean WebhookReceiptHandler webhookReceiptHandler(WebhookProcessingService processing){return new WebhookReceiptHandler(processing);}
+    @Bean
+    WebhookProcessingService webhookProcessingService(JdbcTemplate jdbc) {
+        return new WebhookProcessingService(jdbc);
+    }
+
+    @Bean
+    WebhookReceiptHandler webhookReceiptHandler(WebhookProcessingService processing) {
+        return new WebhookReceiptHandler(processing);
+    }
 }

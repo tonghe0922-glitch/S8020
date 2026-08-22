@@ -32,18 +32,53 @@ public record PointLedgerView(
 
     public PointLedgerView metadataOnly() {
         return new PointLedgerView(
-                id, tenantId, businessNo, workflowInstanceId, workflowInstanceNo,
-                currentNodeCode, status, versionNo, subject, priority, riskLevel,
-                null, null, businessDate, null, null, null, null, null, null,
+                id,
+                tenantId,
+                businessNo,
+                workflowInstanceId,
+                workflowInstanceNo,
+                currentNodeCode,
+                status,
+                versionNo,
+                subject,
+                priority,
+                riskLevel,
+                null,
+                null,
+                businessDate,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
                 JsonNodeFactory.instance.objectNode());
     }
 
     public Phase11Record workflowRecord() {
         return new Phase11Record(
-                id, tenantId, Phase11Process.P015.code(), businessNo,
-                workflowInstanceId, workflowInstanceNo, currentNodeCode, status, versionNo,
-                subject, null, priority, riskLevel, ownerCenterId, ownerEmployeeId,
-                businessDate, factOccurredAt, null, null, null, null, null,
+                id,
+                tenantId,
+                Phase11Process.P015.code(),
+                businessNo,
+                workflowInstanceId,
+                workflowInstanceNo,
+                currentNodeCode,
+                status,
+                versionNo,
+                subject,
+                null,
+                priority,
+                riskLevel,
+                ownerCenterId,
+                ownerEmployeeId,
+                businessDate,
+                factOccurredAt,
+                null,
+                null,
+                null,
+                null,
+                null,
                 details == null ? JsonNodeFactory.instance.objectNode() : details);
     }
 }

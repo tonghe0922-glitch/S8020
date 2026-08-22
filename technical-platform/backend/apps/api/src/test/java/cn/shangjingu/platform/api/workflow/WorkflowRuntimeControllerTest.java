@@ -48,11 +48,20 @@ class WorkflowRuntimeControllerTest {
     private static final UUID OTHER_TASK = UUID.fromString("00000000-0000-0000-0000-000000000713");
     private static final UUID FORM = UUID.fromString("00000000-0000-0000-0000-000000000714");
 
-    @Mock WorkflowRuntimeService runtime;
-    @Mock WorkflowTaskAssignmentService assignments;
-    @Mock WorkflowFormService forms;
-    @Mock AuthorizationService authorization;
-    @Mock JdbcSecurityAuditService audit;
+    @Mock
+    WorkflowRuntimeService runtime;
+
+    @Mock
+    WorkflowTaskAssignmentService assignments;
+
+    @Mock
+    WorkflowFormService forms;
+
+    @Mock
+    AuthorizationService authorization;
+
+    @Mock
+    JdbcSecurityAuditService audit;
 
     private final ObjectMapper mapper = new ObjectMapper();
     private WorkflowRuntimeController controller;
@@ -61,9 +70,17 @@ class WorkflowRuntimeControllerTest {
     @BeforeEach
     void setUp() {
         controller = new WorkflowRuntimeController(runtime, assignments, forms, authorization, audit);
-        principal = new SessionPrincipal("opaque-test-token", new SessionContext(
-                TENANT, USER, IDENTITY, EMPLOYEE, APPOINTMENT, ORG, POSITION,
-                Instant.parse("2026-08-08T08:00:00Z")));
+        principal = new SessionPrincipal(
+                "opaque-test-token",
+                new SessionContext(
+                        TENANT,
+                        USER,
+                        IDENTITY,
+                        EMPLOYEE,
+                        APPOINTMENT,
+                        ORG,
+                        POSITION,
+                        Instant.parse("2026-08-08T08:00:00Z")));
     }
 
     @Test
@@ -76,7 +93,8 @@ class WorkflowRuntimeControllerTest {
         WorkflowRuntimeService.Result actual = controller.start(
                 principal,
                 "idem-start-701",
-                mapper.readTree("""
+                mapper.readTree(
+                        """
                         {
                           "versionId":"00000000-0000-0000-0000-000000000709",
                           "businessObjectType":"TEST_OBJECT",
@@ -102,10 +120,13 @@ class WorkflowRuntimeControllerTest {
 
     @Test
     void forgedAuthorityAndTargetStateFieldsAreRejectedBeforeAnyServiceMutation() throws Exception {
-        WorkflowException forged = assertThrows(WorkflowException.class, () -> controller.start(
-                principal,
-                "idem-forged-701",
-                mapper.readTree("""
+        WorkflowException forged = assertThrows(
+                WorkflowException.class,
+                () -> controller.start(
+                        principal,
+                        "idem-forged-701",
+                        mapper.readTree(
+                                """
                         {
                           "versionId":"00000000-0000-0000-0000-000000000709",
                           "businessObjectType":"TEST_OBJECT",
@@ -116,11 +137,14 @@ class WorkflowRuntimeControllerTest {
                         """)));
         assertEquals(WorkflowException.Code.INVALID_ARGUMENT, forged.code());
 
-        WorkflowException target = assertThrows(WorkflowException.class, () -> controller.act(
-                principal,
-                INSTANCE,
-                "idem-target-701",
-                mapper.readTree("""
+        WorkflowException target = assertThrows(
+                WorkflowException.class,
+                () -> controller.act(
+                        principal,
+                        INSTANCE,
+                        "idem-target-701",
+                        mapper.readTree(
+                                """
                         {
                           "taskId":"00000000-0000-0000-0000-000000000712",
                           "expectedNodeCode":"APPROVAL",
@@ -145,7 +169,8 @@ class WorkflowRuntimeControllerTest {
                 principal,
                 INSTANCE,
                 "idem-action-701",
-                mapper.readTree("""
+                mapper.readTree(
+                        """
                         {
                           "taskId":"00000000-0000-0000-0000-000000000712",
                           "expectedNodeCode":"APPROVAL",
@@ -167,7 +192,8 @@ class WorkflowRuntimeControllerTest {
         assertEquals("APPROVE", command.getValue().actionCode());
 
         ArgumentCaptor<AuthorizationTarget> target = ArgumentCaptor.forClass(AuthorizationTarget.class);
-        verify(authorization).authorizeData(eq(principal.context()), eq(WorkflowRuntimeController.PERMISSION_ACT), target.capture());
+        verify(authorization)
+                .authorizeData(eq(principal.context()), eq(WorkflowRuntimeController.PERMISSION_ACT), target.capture());
         assertEquals(EMPLOYEE, target.getValue().employeeId());
         assertEquals(INITIATOR, target.getValue().ownerEmployeeId());
         assertNull(target.getValue().orgId());
@@ -180,15 +206,17 @@ class WorkflowRuntimeControllerTest {
         allowAction(WorkflowRuntimeController.PERMISSION_CLAIM);
         allowData(WorkflowRuntimeController.PERMISSION_CLAIM);
         when(runtime.get(TENANT, INSTANCE)).thenReturn(currentResult(TASK, null));
-        WorkflowTaskAssignmentService.ClaimResult expected = new WorkflowTaskAssignmentService.ClaimResult(
-                TASK, INSTANCE, EMPLOYEE, List.of(EMPLOYEE), false);
+        WorkflowTaskAssignmentService.ClaimResult expected =
+                new WorkflowTaskAssignmentService.ClaimResult(TASK, INSTANCE, EMPLOYEE, List.of(EMPLOYEE), false);
         when(assignments.claim(any())).thenReturn(expected);
 
         WorkflowTaskAssignmentService.ClaimResult actual = controller.claim(principal, INSTANCE, TASK);
         assertSame(expected, actual);
 
         ArgumentCaptor<AuthorizationTarget> target = ArgumentCaptor.forClass(AuthorizationTarget.class);
-        verify(authorization).authorizeData(eq(principal.context()), eq(WorkflowRuntimeController.PERMISSION_CLAIM), target.capture());
+        verify(authorization)
+                .authorizeData(
+                        eq(principal.context()), eq(WorkflowRuntimeController.PERMISSION_CLAIM), target.capture());
         assertEquals(EMPLOYEE, target.getValue().employeeId());
         assertEquals(ORG, target.getValue().orgId());
         assertEquals(POSITION, target.getValue().positionId());
@@ -202,9 +230,8 @@ class WorkflowRuntimeControllerTest {
         allowData(WorkflowRuntimeController.PERMISSION_CLAIM);
         when(runtime.get(TENANT, INSTANCE)).thenReturn(currentResult(OTHER_TASK, null));
 
-        WorkflowException error = assertThrows(
-                WorkflowException.class,
-                () -> controller.claim(principal, INSTANCE, TASK));
+        WorkflowException error =
+                assertThrows(WorkflowException.class, () -> controller.claim(principal, INSTANCE, TASK));
 
         assertEquals(WorkflowException.Code.STALE_VERSION, error.code());
         verifyNoInteractions(assignments, audit);
@@ -221,7 +248,8 @@ class WorkflowRuntimeControllerTest {
         controller.submitForm(
                 principal,
                 "idem-form-701",
-                mapper.readTree("""
+                mapper.readTree(
+                        """
                         {
                           "instanceId":"00000000-0000-0000-0000-000000000711",
                           "taskId":"00000000-0000-0000-0000-000000000712",
@@ -241,7 +269,8 @@ class WorkflowRuntimeControllerTest {
         assertEquals(TASK, command.getValue().taskId());
         assertEquals(FORM, command.getValue().formDefinitionId());
         assertEquals(3, command.getValue().expectedFormVersion());
-        verify(audit).recordOperation(principal.context(), "WORKFLOW_FORM_SUBMIT_ATTEMPT", "workflow.wf_instance", INSTANCE);
+        verify(audit)
+                .recordOperation(principal.context(), "WORKFLOW_FORM_SUBMIT_ATTEMPT", "workflow.wf_instance", INSTANCE);
     }
 
     @Test
@@ -250,10 +279,13 @@ class WorkflowRuntimeControllerTest {
         allowData(WorkflowRuntimeController.PERMISSION_FORM_SUBMIT);
         when(runtime.get(TENANT, INSTANCE)).thenReturn(currentResult(TASK, null));
 
-        WorkflowException error = assertThrows(WorkflowException.class, () -> controller.submitForm(
-                principal,
-                "idem-form-unclaimed-701",
-                mapper.readTree("""
+        WorkflowException error = assertThrows(
+                WorkflowException.class,
+                () -> controller.submitForm(
+                        principal,
+                        "idem-form-unclaimed-701",
+                        mapper.readTree(
+                                """
                         {
                           "instanceId":"00000000-0000-0000-0000-000000000711",
                           "taskId":"00000000-0000-0000-0000-000000000712",
@@ -279,13 +311,41 @@ class WorkflowRuntimeControllerTest {
 
     private WorkflowRuntimeService.Result currentResult(UUID taskId, UUID assigneeId) {
         WorkflowRuntimeService.Instance instance = new WorkflowRuntimeService.Instance(
-                INSTANCE, TENANT, "WFI-C7", DEFINITION, VERSION, "P001", "TEST_OBJECT", null, "OBJ-701",
-                "C7 runtime", INITIATOR, "APPROVAL", WorkflowRuntimeService.RUNNING, "NORMAL",
-                Instant.parse("2026-08-08T08:00:00Z"), null, null, mapper.createObjectNode());
-        WorkflowRuntimeService.Task task = taskId == null ? null : new WorkflowRuntimeService.Task(
-                taskId, TENANT, INSTANCE, "WFT-C7", "APPROVAL", "APPROVAL", assigneeId,
-                mapper.createObjectNode(), WorkflowRuntimeService.PENDING,
-                Instant.parse("2026-08-08T08:01:00Z"), null, null, null, null);
+                INSTANCE,
+                TENANT,
+                "WFI-C7",
+                DEFINITION,
+                VERSION,
+                "P001",
+                "TEST_OBJECT",
+                null,
+                "OBJ-701",
+                "C7 runtime",
+                INITIATOR,
+                "APPROVAL",
+                WorkflowRuntimeService.RUNNING,
+                "NORMAL",
+                Instant.parse("2026-08-08T08:00:00Z"),
+                null,
+                null,
+                mapper.createObjectNode());
+        WorkflowRuntimeService.Task task = taskId == null
+                ? null
+                : new WorkflowRuntimeService.Task(
+                        taskId,
+                        TENANT,
+                        INSTANCE,
+                        "WFT-C7",
+                        "APPROVAL",
+                        "APPROVAL",
+                        assigneeId,
+                        mapper.createObjectNode(),
+                        WorkflowRuntimeService.PENDING,
+                        Instant.parse("2026-08-08T08:01:00Z"),
+                        null,
+                        null,
+                        null,
+                        null);
         return new WorkflowRuntimeService.Result(instance, task, null, false);
     }
 }
