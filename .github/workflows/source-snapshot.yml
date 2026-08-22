@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - feat/org-architecture-closed-loop
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: read
