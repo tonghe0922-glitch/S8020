@@ -65,9 +65,8 @@ class OpaqueAccessTokenFilterTraceTest {
         });
 
         assertEquals(503, response.getStatus());
-        assertTrue(
-                MediaType.APPLICATION_PROBLEM_JSON.isCompatibleWith(
-                        MediaType.parseMediaType(response.getContentType())));
+        assertTrue(MediaType.APPLICATION_PROBLEM_JSON.isCompatibleWith(
+                MediaType.parseMediaType(response.getContentType())));
         assertEquals(
                 "session_store_unavailable",
                 new ObjectMapper()
