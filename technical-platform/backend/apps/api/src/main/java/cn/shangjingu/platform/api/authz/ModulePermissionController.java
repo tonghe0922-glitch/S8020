@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/authz/modules/{moduleId}/permissions")
-public final class ModulePermissionController {
+public class ModulePermissionController {
     private final AuthzConfigurationService service;
     private final AuthzApiSupport support;
 
@@ -27,9 +27,7 @@ public final class ModulePermissionController {
     }
 
     @GetMapping
-    public List<PermissionView> list(
-            @AuthenticationPrincipal SessionPrincipal principal,
-            @PathVariable UUID moduleId) {
+    public List<PermissionView> list(@AuthenticationPrincipal SessionPrincipal principal, @PathVariable UUID moduleId) {
         support.requireRead(principal);
         List<PermissionView> result = service.modulePermissions(support.context(principal), moduleId);
         support.auditRead(principal, "AUTHZ_MODULE_PERMISSION_LIST", "iam.module_permission", moduleId);
@@ -43,8 +41,8 @@ public final class ModulePermissionController {
             @RequestHeader("X-Step-Up-Ticket") String stepUpTicket,
             @RequestBody List<PermissionSelection> selections) {
         support.requireWrite(principal, AuthzApiSupport.MODULE_MANAGE, stepUpTicket);
-        Mutation<List<PermissionView>> mutation = service.replaceModulePermissions(
-                support.context(principal), moduleId, selections);
+        Mutation<List<PermissionView>> mutation =
+                service.replaceModulePermissions(support.context(principal), moduleId, selections);
         support.auditMutation(
                 principal, "AUTHZ_MODULE_PERMISSIONS_REPLACED", "iam.module_permission", moduleId, mutation);
         return mutation.after();

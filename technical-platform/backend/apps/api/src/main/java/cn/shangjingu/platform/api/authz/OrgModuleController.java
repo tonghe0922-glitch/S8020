@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/authz/orgs/{orgId}/modules")
-public final class OrgModuleController {
+public class OrgModuleController {
     private final AuthzConfigurationService service;
     private final AuthzApiSupport support;
 
@@ -27,9 +27,7 @@ public final class OrgModuleController {
     }
 
     @GetMapping
-    public List<OrgModuleView> list(
-            @AuthenticationPrincipal SessionPrincipal principal,
-            @PathVariable UUID orgId) {
+    public List<OrgModuleView> list(@AuthenticationPrincipal SessionPrincipal principal, @PathVariable UUID orgId) {
         support.requireRead(principal);
         List<OrgModuleView> result = service.orgModules(support.context(principal), orgId);
         support.auditRead(principal, "AUTHZ_ORG_MODULE_LIST", "iam.org_module", orgId);
@@ -43,10 +41,9 @@ public final class OrgModuleController {
             @RequestHeader("X-Step-Up-Ticket") String stepUpTicket,
             @RequestBody List<OrgModuleSelection> selections) {
         support.requireWrite(principal, AuthzApiSupport.ORG_MODULE_MANAGE, stepUpTicket);
-        Mutation<List<OrgModuleView>> mutation = service.replaceOrgModules(
-                support.context(principal), orgId, selections);
-        support.auditMutation(
-                principal, "AUTHZ_ORG_MODULES_REPLACED", "iam.org_module", orgId, mutation);
+        Mutation<List<OrgModuleView>> mutation =
+                service.replaceOrgModules(support.context(principal), orgId, selections);
+        support.auditMutation(principal, "AUTHZ_ORG_MODULES_REPLACED", "iam.org_module", orgId, mutation);
         return mutation.after();
     }
 }

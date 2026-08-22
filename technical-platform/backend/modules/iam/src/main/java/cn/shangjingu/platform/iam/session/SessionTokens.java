@@ -7,5 +7,4 @@ public record SessionTokens(
         String refreshToken,
         Instant accessExpiresAt,
         Instant refreshExpiresAt,
-        SessionContext context) {
-}
+        SessionContext context) {}

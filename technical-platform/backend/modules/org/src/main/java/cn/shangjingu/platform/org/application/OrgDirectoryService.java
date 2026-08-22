@@ -11,7 +11,7 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 
 @Service
-public final class OrgDirectoryService {
+public class OrgDirectoryService {
     private final OrgDirectoryPort directory;
 
     public OrgDirectoryService(OrgDirectoryPort directory) {

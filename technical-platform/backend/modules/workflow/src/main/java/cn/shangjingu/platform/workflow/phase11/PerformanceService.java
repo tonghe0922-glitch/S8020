@@ -10,7 +10,7 @@ import org.springframework.stereotype.Service;
 
 /** P011 application service. Employee, supervisor, authoritative and calibrated scores stay independent. */
 @Service
-public final class PerformanceService {
+public class PerformanceService {
     private static final Phase11Process PROCESS = Phase11Process.P011;
     private final Phase11LifecycleService lifecycle;
 
@@ -19,10 +19,7 @@ public final class PerformanceService {
     }
 
     public Phase11Record create(
-            DatabaseSecurityContext actor,
-            String idempotencyKey,
-            String requestHash,
-            CreateCommand command) {
+            DatabaseSecurityContext actor, String idempotencyKey, String requestHash, CreateCommand command) {
         return lifecycle.create(
                 actor,
                 PROCESS,
@@ -49,14 +46,7 @@ public final class PerformanceService {
             String idempotencyKey,
             String requestHash,
             ActionCommand command) {
-        return lifecycle.act(
-                actor,
-                PROCESS,
-                cycleId,
-                actionCode,
-                idempotencyKey,
-                requestHash,
-                command.toInternal());
+        return lifecycle.act(actor, PROCESS, cycleId, actionCode, idempotencyKey, requestHash, command.toInternal());
     }
 
     public Phase11Record submitScore(
@@ -77,8 +67,7 @@ public final class PerformanceService {
                 requestHash);
     }
 
-    public Optional<Phase11Record> find(
-            DatabaseSecurityContext actor, UUID cycleId) {
+    public Optional<Phase11Record> find(DatabaseSecurityContext actor, UUID cycleId) {
         return lifecycle.find(actor, PROCESS, cycleId);
     }
 
@@ -99,8 +88,7 @@ public final class PerformanceService {
             String contentVersion,
             String periodNo) {}
 
-    public record ScoreCommand(
-            int expectedVersion, long score1000, String evidenceSummary) {}
+    public record ScoreCommand(int expectedVersion, long score1000, String evidenceSummary) {}
 
     public record ActionCommand(
             int expectedVersion,
@@ -111,13 +99,7 @@ public final class PerformanceService {
             String decision) {
         Phase11ActionData toInternal() {
             return new Phase11ActionData(
-                    expectedVersion,
-                    summary,
-                    reason,
-                    null,
-                    appealRequested,
-                    appealReason,
-                    decision);
+                    expectedVersion, summary, reason, null, appealRequested, appealReason, decision);
         }
     }
 }

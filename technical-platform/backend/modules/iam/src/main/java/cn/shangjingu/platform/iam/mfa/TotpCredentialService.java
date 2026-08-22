@@ -19,7 +19,7 @@ import javax.crypto.spec.SecretKeySpec;
 import org.springframework.stereotype.Service;
 
 @Service
-public final class TotpCredentialService {
+public class TotpCredentialService {
     private static final Duration IDEMPOTENCY_TTL = Duration.ofHours(24);
     private static final long STEP_SECONDS = 30L;
     private static final String ENROLL_RESOURCE = "iam.mfa_credential";
@@ -45,7 +45,8 @@ public final class TotpCredentialService {
 
     public MfaStatus status(DatabaseSecurityContext actor) {
         requireActor(actor);
-        return transactions.required(actor, () -> repository.findByUser(actor.tenantId(), actor.userId())
+        return transactions.required(actor, () -> repository
+                .findByUser(actor.tenantId(), actor.userId())
                 .map(c -> new MfaStatus(true, c.status(), c.versionNo(), c.confirmedAt(), c.disabledAt()))
                 .orElseGet(() -> new MfaStatus(false, "NONE", 0, null, null)));
     }
@@ -75,7 +76,8 @@ public final class TotpCredentialService {
                     proposedId,
                     IDEMPOTENCY_TTL);
             if (claim.existing()) {
-                Credential existing = repository.findById(actor.tenantId(), claim.resourceId())
+                Credential existing = repository
+                        .findById(actor.tenantId(), claim.resourceId())
                         .orElseThrow(() -> rejected(Reason.NOT_FOUND, "idempotent MFA credential no longer exists"));
                 if ("DISABLED".equals(existing.status())) {
                     throw rejected(Reason.CONFLICT, "MFA credential is disabled");
@@ -91,14 +93,16 @@ public final class TotpCredentialService {
             if (current.isPresent()) {
                 Credential restartable = current.get();
                 if (repository.reset(
-                        actor.tenantId(),
-                        restartable.id(),
-                        restartable.versionNo(),
-                        secretCipher,
-                        employeeActorId) != 1) {
+                                actor.tenantId(),
+                                restartable.id(),
+                                restartable.versionNo(),
+                                secretCipher,
+                                employeeActorId)
+                        != 1) {
                     throw rejected(Reason.CONFLICT, "MFA concurrent update conflict");
                 }
-                Credential reset = repository.findById(actor.tenantId(), restartable.id())
+                Credential reset = repository
+                        .findById(actor.tenantId(), restartable.id())
                         .orElseThrow(() -> rejected(Reason.NOT_FOUND, "MFA credential reset failed"));
                 return enrollment(reset, issuer, accountName);
             }
@@ -130,7 +134,8 @@ public final class TotpCredentialService {
             String code) {
         requireMutationActor(actor);
         return transactions.required(actor, () -> {
-            Credential current = repository.findByUser(actor.tenantId(), actor.userId())
+            Credential current = repository
+                    .findByUser(actor.tenantId(), actor.userId())
                     .orElseThrow(() -> rejected(Reason.NOT_FOUND, "MFA enrollment not found"));
             IdempotencyClaim claim = idempotency.claim(
                     actor.tenantId(),
@@ -141,7 +146,8 @@ public final class TotpCredentialService {
                     current.id(),
                     IDEMPOTENCY_TTL);
             if (claim.existing()) {
-                Credential existing = repository.findById(actor.tenantId(), claim.resourceId())
+                Credential existing = repository
+                        .findById(actor.tenantId(), claim.resourceId())
                         .orElseThrow(() -> rejected(Reason.NOT_FOUND, "idempotent MFA credential no longer exists"));
                 if (!"ACTIVE".equals(existing.status())) {
                     throw rejected(Reason.CONFLICT, "idempotent MFA confirmation has no active result");
@@ -153,16 +159,14 @@ public final class TotpCredentialService {
     }
 
     private Credential confirmCurrent(DatabaseSecurityContext actor, int expectedVersion, String code) {
-        Credential current = repository.findByUser(actor.tenantId(), actor.userId())
+        Credential current = repository
+                .findByUser(actor.tenantId(), actor.userId())
                 .orElseThrow(() -> rejected(Reason.NOT_FOUND, "MFA enrollment not found"));
         return confirmCurrent(actor, current, expectedVersion, code);
     }
 
     private Credential confirmCurrent(
-            DatabaseSecurityContext actor,
-            Credential current,
-            int expectedVersion,
-            String code) {
+            DatabaseSecurityContext actor, Credential current, int expectedVersion, String code) {
         if (!"PENDING".equals(current.status())) {
             throw rejected(Reason.CONFLICT, "MFA enrollment is not pending");
         }
@@ -177,7 +181,8 @@ public final class TotpCredentialService {
             throw rejected(Reason.CONFLICT, "MFA concurrent update conflict");
         }
         repository.setAccountMfaLevel(actor.tenantId(), actor.userId(), (short) 1, employeeActorId);
-        return repository.findById(actor.tenantId(), current.id())
+        return repository
+                .findById(actor.tenantId(), current.id())
                 .orElseThrow(() -> rejected(Reason.NOT_FOUND, "MFA credential not found after activation"));
     }
 
@@ -197,7 +202,8 @@ public final class TotpCredentialService {
             String code) {
         requireMutationActor(actor);
         transactions.required(actor, () -> {
-            Credential current = repository.findByUser(actor.tenantId(), actor.userId())
+            Credential current = repository
+                    .findByUser(actor.tenantId(), actor.userId())
                     .orElseThrow(() -> rejected(Reason.NOT_FOUND, "active MFA credential not found"));
             IdempotencyClaim claim = idempotency.claim(
                     actor.tenantId(),
@@ -208,7 +214,8 @@ public final class TotpCredentialService {
                     current.id(),
                     IDEMPOTENCY_TTL);
             if (claim.existing()) {
-                Credential existing = repository.findById(actor.tenantId(), claim.resourceId())
+                Credential existing = repository
+                        .findById(actor.tenantId(), claim.resourceId())
                         .orElseThrow(() -> rejected(Reason.NOT_FOUND, "idempotent MFA credential no longer exists"));
                 if (!"DISABLED".equals(existing.status())) {
                     throw rejected(Reason.CONFLICT, "idempotent MFA disable has no disabled result");
@@ -221,16 +228,13 @@ public final class TotpCredentialService {
     }
 
     private void disableCurrent(DatabaseSecurityContext actor, int expectedVersion, String code) {
-        Credential current = repository.findByUser(actor.tenantId(), actor.userId())
+        Credential current = repository
+                .findByUser(actor.tenantId(), actor.userId())
                 .orElseThrow(() -> rejected(Reason.NOT_FOUND, "active MFA credential not found"));
         disableCurrent(actor, current, expectedVersion, code);
     }
 
-    private void disableCurrent(
-            DatabaseSecurityContext actor,
-            Credential current,
-            int expectedVersion,
-            String code) {
+    private void disableCurrent(DatabaseSecurityContext actor, Credential current, int expectedVersion, String code) {
         if (!"ACTIVE".equals(current.status())) {
             throw rejected(Reason.CONFLICT, "MFA credential is not active");
         }
@@ -255,7 +259,8 @@ public final class TotpCredentialService {
             return false;
         }
         DatabaseSecurityContext actor = new DatabaseSecurityContext(tenantId, userId, null, null, null, null, null);
-        return transactions.required(actor, () -> repository.findByUser(tenantId, userId)
+        return transactions.required(actor, () -> repository
+                .findByUser(tenantId, userId)
                 .filter(c -> "ACTIVE".equals(c.status()))
                 .map(c -> verify(cipher.decrypt(c.secretCipher()), assertion, Instant.now()))
                 .orElse(false));
@@ -267,14 +272,9 @@ public final class TotpCredentialService {
 
     private Enrollment enrollment(Credential credential, String issuer, String accountName) {
         String secret = base32(cipher.decrypt(credential.secretCipher()));
-        String uri = "otpauth://totp/" + url(issuer) + ":" + url(accountName)
-                + "?secret=" + secret + "&issuer=" + url(issuer) + "&algorithm=SHA1&digits=6&period=30";
-        return new Enrollment(
-                credential.id(),
-                credential.versionNo(),
-                secret,
-                uri,
-                credential.status());
+        String uri = "otpauth://totp/" + url(issuer) + ":" + url(accountName) + "?secret=" + secret + "&issuer="
+                + url(issuer) + "&algorithm=SHA1&digits=6&period=30";
+        return new Enrollment(credential.id(), credential.versionNo(), secret, uri, credential.status());
     }
 
     static boolean verify(byte[] secret, String code, Instant instant) {
@@ -352,11 +352,17 @@ public final class TotpCredentialService {
 
     public interface Repository {
         Optional<Credential> findById(UUID tenantId, UUID id);
+
         Optional<Credential> findByUser(UUID tenantId, UUID userId);
+
         void insert(Credential credential, UUID actorId);
+
         int reset(UUID tenantId, UUID id, int expectedVersion, byte[] secretCipher, UUID actorId);
+
         int activate(UUID tenantId, UUID id, int expectedVersion, UUID actorId);
+
         int disable(UUID tenantId, UUID id, int expectedVersion, UUID actorId);
+
         void setAccountMfaLevel(UUID tenantId, UUID userId, short level, UUID actorId);
     }
 
@@ -369,22 +375,10 @@ public final class TotpCredentialService {
             String status,
             int versionNo,
             Instant confirmedAt,
-            Instant disabledAt) {
-    }
+            Instant disabledAt) {}
 
-    public record Enrollment(
-            UUID credentialId,
-            int versionNo,
-            String secret,
-            String otpauthUri,
-            String status) {
-    }
+    public record Enrollment(UUID credentialId, int versionNo, String secret, String otpauthUri, String status) {}
 
     public record MfaStatus(
-            boolean configured,
-            String status,
-            int versionNo,
-            Instant confirmedAt,
-            Instant disabledAt) {
-    }
+            boolean configured, String status, int versionNo, Instant confirmedAt, Instant disabledAt) {}
 }

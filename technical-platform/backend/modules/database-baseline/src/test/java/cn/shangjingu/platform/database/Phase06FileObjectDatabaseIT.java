@@ -54,7 +54,8 @@ class Phase06FileObjectDatabaseIT {
                 .withPassword("phase06-file-bootstrap-" + UUID.randomUUID());
         postgres.start();
         migrate("postgres", "cluster", null);
-        try (Connection connection = admin("postgres"); Statement statement = connection.createStatement()) {
+        try (Connection connection = admin("postgres");
+                Statement statement = connection.createStatement()) {
             statement.execute("ALTER ROLE sjg_api_runtime PASSWORD '" + API_PASSWORD + "'");
             statement.execute("CREATE DATABASE sjg_oms");
         }
@@ -62,7 +63,8 @@ class Phase06FileObjectDatabaseIT {
         execute("insert into core.tenant(id,tenant_code,tenant_name,status,timezone) values ('" + TENANT_B
                 + "','PHASE06_FILE_B','PHASE-06 File Tenant B','ACTIVE','Asia/Shanghai')");
 
-        DriverManagerDataSource dataSource = new DriverManagerDataSource(jdbcUrl("sjg_oms"), "sjg_api_runtime", API_PASSWORD);
+        DriverManagerDataSource dataSource =
+                new DriverManagerDataSource(jdbcUrl("sjg_oms"), "sjg_api_runtime", API_PASSWORD);
         apiJdbc = new JdbcTemplate(dataSource);
         transactions = new TenantTransactionRunner(apiJdbc, new DataSourceTransactionManager(dataSource));
         storage = new RecordingStorage();
@@ -79,76 +81,125 @@ class Phase06FileObjectDatabaseIT {
     @Test
     void fileMetadataOverlayRlsSafeBindingAndSignedDownloadAreEnforced() throws Exception {
         byte[] bytes = "phase06-file-evidence".getBytes(StandardCharsets.UTF_8);
-        UUID fileId = transactions.required(TENANT_A, () -> service.upload(new FileObjectService.UploadCommand(
-                TENANT_A, null, "evidence.txt", "text/plain", "phase06-files", bytes, "P1_INTERNAL", 2)));
+        UUID fileId = transactions.required(
+                TENANT_A,
+                () -> service.upload(new FileObjectService.UploadCommand(
+                        TENANT_A, null, "evidence.txt", "text/plain", "phase06-files", bytes, "P1_INTERNAL", 2)));
 
-        assertEquals("P1_INTERNAL", scalarString("select sensitive_level from document.file_object where id='" + fileId + "'"));
+        assertEquals(
+                "P1_INTERNAL",
+                scalarString("select sensitive_level from document.file_object where id='" + fileId + "'"));
         assertEquals(2L, scalarLong("select version_no from document.file_object where id='" + fileId + "'"));
-        assertEquals("PENDING", scalarString("select virus_scan_status from document.file_object where id='" + fileId + "'"));
-        assertEquals(FileObjectService.sha256(bytes), scalarString("select sha256 from document.file_object where id='" + fileId + "'"));
+        assertEquals(
+                "PENDING",
+                scalarString("select virus_scan_status from document.file_object where id='" + fileId + "'"));
+        assertEquals(
+                FileObjectService.sha256(bytes),
+                scalarString("select sha256 from document.file_object where id='" + fileId + "'"));
 
         UUID businessId = UUID.randomUUID();
-        assertThrows(IllegalStateException.class, () -> transactions.required(TENANT_A, () -> service.bindAttachment(
-                attachment(fileId, businessId))));
-        assertThrows(IllegalStateException.class, () -> transactions.required(TENANT_A,
-                () -> service.presignDownload(TENANT_A, fileId, Duration.ofSeconds(30))));
+        assertThrows(
+                IllegalStateException.class,
+                () -> transactions.required(TENANT_A, () -> service.bindAttachment(attachment(fileId, businessId))));
+        assertThrows(
+                IllegalStateException.class,
+                () -> transactions.required(
+                        TENANT_A, () -> service.presignDownload(TENANT_A, fileId, Duration.ofSeconds(30))));
 
-        transactions.required(TENANT_A, () -> { service.transitionScan(TENANT_A, null, fileId, FileObjectService.ScanStatus.SCANNING); return null; });
-        transactions.required(TENANT_A, () -> { service.transitionScan(TENANT_A, null, fileId, FileObjectService.ScanStatus.SAFE); return null; });
+        transactions.required(TENANT_A, () -> {
+            service.transitionScan(TENANT_A, null, fileId, FileObjectService.ScanStatus.SCANNING);
+            return null;
+        });
+        transactions.required(TENANT_A, () -> {
+            service.transitionScan(TENANT_A, null, fileId, FileObjectService.ScanStatus.SAFE);
+            return null;
+        });
         UUID linkId = transactions.required(TENANT_A, () -> service.bindAttachment(attachment(fileId, businessId)));
-        assertEquals(1L, scalarLong("select count(*) from document.attachment_link where id='" + linkId + "' and is_evidence"));
+        assertEquals(
+                1L,
+                scalarLong("select count(*) from document.attachment_link where id='" + linkId + "' and is_evidence"));
 
-        String signed = transactions.required(TENANT_A, () -> service.presignDownload(TENANT_A, fileId, Duration.ofSeconds(30)));
+        String signed = transactions.required(
+                TENANT_A, () -> service.presignDownload(TENANT_A, fileId, Duration.ofSeconds(30)));
         assertTrue(signed.startsWith("https://signed.invalid/"));
         assertEquals(1, guardCalls.get(), "download must cross explicit authorization/Step-Up guard boundary");
 
-        long otherTenantVisibility = transactions.required(TENANT_B, () -> apiJdbc.queryForObject(
-                "select count(*) from document.file_object where id=?", Long.class, fileId));
+        long otherTenantVisibility = transactions.required(
+                TENANT_B,
+                () -> apiJdbc.queryForObject(
+                        "select count(*) from document.file_object where id=?", Long.class, fileId));
         assertEquals(0L, otherTenantVisibility, "RLS must hide another tenant's file metadata");
     }
 
     @Test
     void infectedFileCannotBindOrDownload() {
-        UUID fileId = transactions.required(TENANT_A, () -> service.upload(new FileObjectService.UploadCommand(
-                TENANT_A, null, "infected.bin", "application/octet-stream", "phase06-files",
-                new byte[]{1,2,3}, "P1_INTERNAL", 1)));
-        transactions.required(TENANT_A, () -> { service.transitionScan(TENANT_A, null, fileId, FileObjectService.ScanStatus.SCANNING); return null; });
-        transactions.required(TENANT_A, () -> { service.transitionScan(TENANT_A, null, fileId, FileObjectService.ScanStatus.INFECTED); return null; });
-        assertThrows(IllegalStateException.class, () -> transactions.required(TENANT_A,
-                () -> service.bindAttachment(attachment(fileId, UUID.randomUUID()))));
-        assertThrows(IllegalStateException.class, () -> transactions.required(TENANT_A,
-                () -> service.presignDownload(TENANT_A, fileId, Duration.ofSeconds(30))));
+        UUID fileId = transactions.required(
+                TENANT_A,
+                () -> service.upload(new FileObjectService.UploadCommand(
+                        TENANT_A,
+                        null,
+                        "infected.bin",
+                        "application/octet-stream",
+                        "phase06-files",
+                        new byte[] {1, 2, 3},
+                        "P1_INTERNAL",
+                        1)));
+        transactions.required(TENANT_A, () -> {
+            service.transitionScan(TENANT_A, null, fileId, FileObjectService.ScanStatus.SCANNING);
+            return null;
+        });
+        transactions.required(TENANT_A, () -> {
+            service.transitionScan(TENANT_A, null, fileId, FileObjectService.ScanStatus.INFECTED);
+            return null;
+        });
+        assertThrows(
+                IllegalStateException.class,
+                () -> transactions.required(
+                        TENANT_A, () -> service.bindAttachment(attachment(fileId, UUID.randomUUID()))));
+        assertThrows(
+                IllegalStateException.class,
+                () -> transactions.required(
+                        TENANT_A, () -> service.presignDownload(TENANT_A, fileId, Duration.ofSeconds(30))));
     }
 
     private static FileObjectService.AttachmentCommand attachment(UUID fileId, UUID businessId) {
-        return new FileObjectService.AttachmentCommand(TENANT_A, null, "PHASE06_TEST", businessId,
-                "evidence", fileId, "EVIDENCE", 0, true);
+        return new FileObjectService.AttachmentCommand(
+                TENANT_A, null, "PHASE06_TEST", businessId, "evidence", fileId, "EVIDENCE", 0, true);
     }
 
     private static long scalarLong(String sql) throws SQLException {
-        try (Connection connection = admin("sjg_oms"); Statement statement = connection.createStatement();
-             ResultSet result = statement.executeQuery(sql)) {
-            assertTrue(result.next()); return result.getLong(1);
+        try (Connection connection = admin("sjg_oms");
+                Statement statement = connection.createStatement();
+                ResultSet result = statement.executeQuery(sql)) {
+            assertTrue(result.next());
+            return result.getLong(1);
         }
     }
 
     private static String scalarString(String sql) throws SQLException {
-        try (Connection connection = admin("sjg_oms"); Statement statement = connection.createStatement();
-             ResultSet result = statement.executeQuery(sql)) {
-            assertTrue(result.next()); return result.getString(1);
+        try (Connection connection = admin("sjg_oms");
+                Statement statement = connection.createStatement();
+                ResultSet result = statement.executeQuery(sql)) {
+            assertTrue(result.next());
+            return result.getString(1);
         }
     }
 
     private static void execute(String sql) throws SQLException {
-        try (Connection connection = admin("sjg_oms"); Statement statement = connection.createStatement()) {
+        try (Connection connection = admin("sjg_oms");
+                Statement statement = connection.createStatement()) {
             statement.execute(sql);
         }
     }
 
     private static void migrate(String database, String generatedFolder, String overlayFolder) {
         List<String> locations = new ArrayList<>();
-        locations.add("filesystem:" + repoRoot.resolve("technical-platform/database/flyway").resolve(generatedFolder));
-        if (overlayFolder != null) locations.add("filesystem:" + repoRoot.resolve("technical-platform/database/flyway-overlays").resolve(overlayFolder));
+        locations.add("filesystem:"
+                + repoRoot.resolve("technical-platform/database/flyway").resolve(generatedFolder));
+        if (overlayFolder != null)
+            locations.add("filesystem:"
+                    + repoRoot.resolve("technical-platform/database/flyway-overlays")
+                            .resolve(overlayFolder));
         Flyway flyway = Flyway.configure()
                 .dataSource(jdbcUrl(database), postgres.getUsername(), postgres.getPassword())
                 .locations(locations.toArray(String[]::new))
@@ -156,7 +207,8 @@ class Phase06FileObjectDatabaseIT {
                         "sjg_tenant_id", TENANT_A.toString(),
                         "sjg_tenant_code", "PHASE06_FILE_A",
                         "sjg_tenant_name", "PHASE-06 File Tenant A"))
-                .cleanDisabled(true).load();
+                .cleanDisabled(true)
+                .load();
         assertTrue(flyway.migrate().success);
         flyway.validate();
     }
@@ -176,7 +228,8 @@ class Phase06FileObjectDatabaseIT {
     private static Path findRepoRoot() {
         Path current = Path.of(System.getProperty("user.dir")).toAbsolutePath().normalize();
         while (current != null) {
-            if (Files.isRegularFile(current.resolve("AGENT.md")) && Files.isDirectory(current.resolve("Knowledge Base"))
+            if (Files.isRegularFile(current.resolve("AGENT.md"))
+                    && Files.isDirectory(current.resolve("Knowledge Base"))
                     && Files.isRegularFile(current.resolve("pom.xml"))) return current;
             current = current.getParent();
         }
@@ -190,20 +243,33 @@ class Phase06FileObjectDatabaseIT {
     private static final class RecordingStorage implements FileObjectStorage {
         private final Map<String, byte[]> objects = new LinkedHashMap<>();
         private final Map<String, String> contentTypes = new LinkedHashMap<>();
-        private String key(String bucket, String objectKey) { return bucket + "/" + objectKey; }
-        @Override public void put(String bucket, String objectKey, byte[] content, String contentType) {
-            objects.put(key(bucket, objectKey), content.clone()); contentTypes.put(key(bucket, objectKey), contentType);
+
+        private String key(String bucket, String objectKey) {
+            return bucket + "/" + objectKey;
         }
-        @Override public StoredObject stat(String bucket, String objectKey) {
+
+        @Override
+        public void put(String bucket, String objectKey, byte[] content, String contentType) {
+            objects.put(key(bucket, objectKey), content.clone());
+            contentTypes.put(key(bucket, objectKey), contentType);
+        }
+
+        @Override
+        public StoredObject stat(String bucket, String objectKey) {
             byte[] value = objects.get(key(bucket, objectKey));
             if (value == null) throw new IllegalStateException("missing test object");
             return new StoredObject(value.length, contentTypes.get(key(bucket, objectKey)));
         }
-        @Override public String presignGet(String bucket, String objectKey, Duration ttl) {
+
+        @Override
+        public String presignGet(String bucket, String objectKey, Duration ttl) {
             return "https://signed.invalid/" + objectKey + "?ttl=" + ttl.toSeconds();
         }
-        @Override public void remove(String bucket, String objectKey) {
-            objects.remove(key(bucket, objectKey)); contentTypes.remove(key(bucket, objectKey));
+
+        @Override
+        public void remove(String bucket, String objectKey) {
+            objects.remove(key(bucket, objectKey));
+            contentTypes.remove(key(bucket, objectKey));
         }
     }
 }

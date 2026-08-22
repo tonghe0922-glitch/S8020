@@ -21,18 +21,29 @@ class PointLedgerServiceTest {
     void p015GraphMatchesFrozenTenStepContract() {
         Phase11Process process = Phase11Process.P015;
         assertEquals("CTR-P015-F01", process.initialFormCode());
-        assertEquals(List.of(
-                "REGISTER_EVENT", "VALIDATE_SOURCE", "CHECK_DUPLICATE", "MATCH_RULE_VERSION",
-                "CALCULATE_POINTS", "CLASSIFY_RISK", "POST_OR_REVIEW", "NOTIFY_EMPLOYEE",
-                "ADJUST_OR_REVERSE", "RECALCULATE_BALANCE"),
+        assertEquals(
+                List.of(
+                        "REGISTER_EVENT",
+                        "VALIDATE_SOURCE",
+                        "CHECK_DUPLICATE",
+                        "MATCH_RULE_VERSION",
+                        "CALCULATE_POINTS",
+                        "CLASSIFY_RISK",
+                        "POST_OR_REVIEW",
+                        "NOTIFY_EMPLOYEE",
+                        "ADJUST_OR_REVERSE",
+                        "RECALCULATE_BALANCE"),
                 process.steps().stream().map(Phase11Process.Step::action).toList());
-        assertEquals("S05", process.requireTransition("S04", "MATCH_RULE_VERSION").targetNode());
-        assertEquals("END", process.requireTransition("S10", "RECALCULATE_BALANCE").targetNode());
+        assertEquals(
+                "S05", process.requireTransition("S04", "MATCH_RULE_VERSION").targetNode());
+        assertEquals(
+                "END", process.requireTransition("S10", "RECALCULATE_BALANCE").targetNode());
     }
 
     @Test
     void createRequiresSourceEvidenceAndNeverAcceptsClientFinalPoints() {
-        PointLedgerService.CreateCommand valid = command(JsonNodeFactory.instance.objectNode().put("reference", "SRC-1"));
+        PointLedgerService.CreateCommand valid =
+                command(JsonNodeFactory.instance.objectNode().put("reference", "SRC-1"));
         assertDoesNotThrow(() -> PointLedgerService.validateCreate(valid));
         PointLedgerService.CreateCommand invalid = command(JsonNodeFactory.instance.objectNode());
         assertThrows(ProcessRejectedException.class, () -> PointLedgerService.validateCreate(invalid));
@@ -46,9 +57,22 @@ class PointLedgerServiceTest {
 
     private static PointLedgerService.CreateCommand command(com.fasterxml.jackson.databind.JsonNode evidence) {
         return new PointLedgerService.CreateCommand(
-                "growth event", "source-backed event", "NORMAL", "NORMAL", CENTER, EMPLOYEE,
-                LocalDate.of(2026, 8, 16), Instant.parse("2026-08-16T00:00:00Z"),
-                "verified event", "P015-SOURCE-1", "INTERNAL", "GROWTH", "RULE-ATTENDANCE",
-                evidence, "EMPLOYEE", "P015-CONTENT-V1", "2026-Q3");
+                "growth event",
+                "source-backed event",
+                "NORMAL",
+                "NORMAL",
+                CENTER,
+                EMPLOYEE,
+                LocalDate.of(2026, 8, 16),
+                Instant.parse("2026-08-16T00:00:00Z"),
+                "verified event",
+                "P015-SOURCE-1",
+                "INTERNAL",
+                "GROWTH",
+                "RULE-ATTENDANCE",
+                evidence,
+                "EMPLOYEE",
+                "P015-CONTENT-V1",
+                "2026-Q3");
     }
 }

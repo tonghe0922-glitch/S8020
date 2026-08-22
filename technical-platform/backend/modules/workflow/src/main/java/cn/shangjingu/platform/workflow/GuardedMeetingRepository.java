@@ -13,8 +13,8 @@ import org.springframework.stereotype.Repository;
 @Primary
 @Repository
 public class GuardedMeetingRepository implements MeetingService.Repository {
-    private static final Pattern UUID_TEXT = Pattern.compile(
-            "(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$");
+    private static final Pattern UUID_TEXT =
+            Pattern.compile("(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$");
 
     private final JdbcMeetingRepository delegate;
 
@@ -49,27 +49,19 @@ public class GuardedMeetingRepository implements MeetingService.Repository {
     }
 
     @Override
-    public void replaceAgenda(
-            UUID tenantId, UUID meetingId, List<String> agendaItems, UUID actorId) {
+    public void replaceAgenda(UUID tenantId, UUID meetingId, List<String> agendaItems, UUID actorId) {
         delegate.replaceAgenda(tenantId, meetingId, agendaItems, actorId);
     }
 
     @Override
-    public void insertParticipants(
-            UUID tenantId, UUID meetingId, List<UUID> participantIds, UUID actorId) {
+    public void insertParticipants(UUID tenantId, UUID meetingId, List<UUID> participantIds, UUID actorId) {
         delegate.insertParticipants(tenantId, meetingId, participantIds, actorId);
     }
 
     @Override
     public int bindWorkflowAndMove(
-            UUID tenantId,
-            UUID meetingId,
-            int expectedVersion,
-            UUID workflowInstanceId,
-            String status,
-            UUID actorId) {
-        return delegate.bindWorkflowAndMove(
-                tenantId, meetingId, expectedVersion, workflowInstanceId, status, actorId);
+            UUID tenantId, UUID meetingId, int expectedVersion, UUID workflowInstanceId, String status, UUID actorId) {
+        return delegate.bindWorkflowAndMove(tenantId, meetingId, expectedVersion, workflowInstanceId, status, actorId);
     }
 
     @Override
@@ -81,8 +73,7 @@ public class GuardedMeetingRepository implements MeetingService.Repository {
             Instant archivedAt,
             Instant closedAt,
             UUID actorId) {
-        return delegate.moveStatus(
-                tenantId, meetingId, expectedVersion, status, archivedAt, closedAt, actorId);
+        return delegate.moveStatus(tenantId, meetingId, expectedVersion, status, archivedAt, closedAt, actorId);
     }
 
     @Override
@@ -96,48 +87,28 @@ public class GuardedMeetingRepository implements MeetingService.Repository {
     }
 
     @Override
-    public int confirmMinutes(
-            UUID tenantId,
-            UUID meetingId,
-            int expectedVersion,
-            String text,
-            UUID actorId) {
+    public int confirmMinutes(UUID tenantId, UUID meetingId, int expectedVersion, String text, UUID actorId) {
         return delegate.confirmMinutes(tenantId, meetingId, expectedVersion, text, actorId);
     }
 
     @Override
-    public int markAttendance(
-            UUID tenantId,
-            UUID itemId,
-            int expectedVersion,
-            String status,
-            UUID actorId) {
+    public int markAttendance(UUID tenantId, UUID itemId, int expectedVersion, String status, UUID actorId) {
         return delegate.markAttendance(tenantId, itemId, expectedVersion, status, actorId);
     }
 
     @Override
     public void replaceActionItems(
-            UUID tenantId,
-            UUID meetingId,
-            List<MeetingService.ActionItemInput> items,
-            UUID actorId) {
+            UUID tenantId, UUID meetingId, List<MeetingService.ActionItemInput> items, UUID actorId) {
         delegate.replaceActionItems(tenantId, meetingId, items, actorId);
     }
 
     @Override
-    public int submitActionEvidence(
-            UUID tenantId,
-            UUID itemId,
-            int expectedVersion,
-            String evidence,
-            UUID actorId) {
-        return delegate.submitActionEvidence(
-                tenantId, itemId, expectedVersion, evidence, actorId);
+    public int submitActionEvidence(UUID tenantId, UUID itemId, int expectedVersion, String evidence, UUID actorId) {
+        return delegate.submitActionEvidence(tenantId, itemId, expectedVersion, evidence, actorId);
     }
 
     @Override
-    public int returnActionItems(
-            UUID tenantId, UUID meetingId, List<UUID> itemIds, UUID actorId) {
+    public int returnActionItems(UUID tenantId, UUID meetingId, List<UUID> itemIds, UUID actorId) {
         return delegate.returnActionItems(tenantId, meetingId, itemIds, actorId);
     }
 
@@ -171,18 +142,14 @@ public class GuardedMeetingRepository implements MeetingService.Repository {
             throw new ProcessRejectedException("P006 issuer host reference is required");
         }
         String trimmed = issuerHostId.trim();
-        String canonical = UUID_TEXT.matcher(trimmed).matches()
-                ? trimmed.replace("-", "")
-                : trimmed;
+        String canonical = UUID_TEXT.matcher(trimmed).matches() ? trimmed.replace("-", "") : trimmed;
         if (canonical.length() > 32) {
-            throw new ProcessRejectedException(
-                    "P006 issuer host reference exceeds the canonical varchar(32) contract");
+            throw new ProcessRejectedException("P006 issuer host reference exceeds the canonical varchar(32) contract");
         }
         return canonical;
     }
 
-    private static MeetingService.Meeting withCanonicalIssuerHost(
-            MeetingService.Meeting meeting) {
+    private static MeetingService.Meeting withCanonicalIssuerHost(MeetingService.Meeting meeting) {
         return new MeetingService.Meeting(
                 meeting.id(),
                 meeting.tenantId(),

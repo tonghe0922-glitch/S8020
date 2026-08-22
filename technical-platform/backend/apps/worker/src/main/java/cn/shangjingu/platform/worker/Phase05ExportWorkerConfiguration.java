@@ -14,8 +14,13 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 @Configuration
 @ConditionalOnBean(JdbcTemplate.class)
-@Import({TenantTransactionRunner.class, IdempotencyRegistry.class, BusinessNumberService.class,
-        SensitiveExportService.class, JdbcSensitiveExportRepository.class})
+@Import({
+    TenantTransactionRunner.class,
+    IdempotencyRegistry.class,
+    BusinessNumberService.class,
+    SensitiveExportService.class,
+    JdbcSensitiveExportRepository.class
+})
 public class Phase05ExportWorkerConfiguration {
     @Bean
     Phase05ExportWorker phase05ExportWorker(

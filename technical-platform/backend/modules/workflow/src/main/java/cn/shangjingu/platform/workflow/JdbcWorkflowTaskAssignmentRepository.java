@@ -22,55 +22,87 @@ public class JdbcWorkflowTaskAssignmentRepository implements WorkflowTaskAssignm
 
     @Override
     public Optional<WorkflowTaskAssignmentService.CandidateTask> findTask(UUID tenantId, UUID taskId) {
-        return jdbc.query(taskSelect("where tenant_id=? and id=? and not is_deleted"),
-                (rs, row) -> mapTask(rs), tenantId, taskId).stream().findFirst();
+        return jdbc
+                .query(
+                        taskSelect("where tenant_id=? and id=? and not is_deleted"),
+                        (rs, row) -> mapTask(rs),
+                        tenantId,
+                        taskId)
+                .stream()
+                .findFirst();
     }
 
     @Override
     public Optional<WorkflowTaskAssignmentService.CandidateInstance> lockInstance(UUID tenantId, UUID instanceId) {
-        return jdbc.query(instanceSelect("where tenant_id=? and id=? and not is_deleted for update"),
-                (rs, row) -> mapInstance(rs), tenantId, instanceId).stream().findFirst();
+        return jdbc
+                .query(
+                        instanceSelect("where tenant_id=? and id=? and not is_deleted for update"),
+                        (rs, row) -> mapInstance(rs),
+                        tenantId,
+                        instanceId)
+                .stream()
+                .findFirst();
     }
 
     @Override
     public Optional<WorkflowTaskAssignmentService.CandidateTask> lockTask(UUID tenantId, UUID taskId) {
-        return jdbc.query(taskSelect("where tenant_id=? and id=? and not is_deleted for update"),
-                (rs, row) -> mapTask(rs), tenantId, taskId).stream().findFirst();
+        return jdbc
+                .query(
+                        taskSelect("where tenant_id=? and id=? and not is_deleted for update"),
+                        (rs, row) -> mapTask(rs),
+                        tenantId,
+                        taskId)
+                .stream()
+                .findFirst();
     }
 
     @Override
     public int claimTask(UUID tenantId, UUID taskId, UUID assigneeId, UUID actorId) {
-        return jdbc.update("""
+        return jdbc.update(
+                """
                 update workflow.wf_task
                 set assignee_id=?,updated_by=?,updated_at=now()
                 where tenant_id=? and id=? and status='PENDING' and assignee_id is null and not is_deleted
-                """, assigneeId, actorId, tenantId, taskId);
+                """,
+                assigneeId,
+                actorId,
+                tenantId,
+                taskId);
     }
 
     private WorkflowTaskAssignmentService.CandidateTask mapTask(ResultSet rs) throws SQLException {
         return new WorkflowTaskAssignmentService.CandidateTask(
-                rs.getObject("id", UUID.class), rs.getObject("instance_id", UUID.class), rs.getString("node_code"),
-                rs.getObject("assignee_id", UUID.class), parse(rs.getString("candidate_rule")), rs.getString("status"));
+                rs.getObject("id", UUID.class),
+                rs.getObject("instance_id", UUID.class),
+                rs.getString("node_code"),
+                rs.getObject("assignee_id", UUID.class),
+                parse(rs.getString("candidate_rule")),
+                rs.getString("status"));
     }
 
     private WorkflowTaskAssignmentService.CandidateInstance mapInstance(ResultSet rs) throws SQLException {
         return new WorkflowTaskAssignmentService.CandidateInstance(
-                rs.getObject("id", UUID.class), rs.getObject("initiator_id", UUID.class),
-                rs.getString("current_node_code"), rs.getString("status"), parse(rs.getString("context_snapshot")));
+                rs.getObject("id", UUID.class),
+                rs.getObject("initiator_id", UUID.class),
+                rs.getString("current_node_code"),
+                rs.getString("status"),
+                parse(rs.getString("context_snapshot")));
     }
 
     private String taskSelect(String suffix) {
         return """
                 select id,instance_id,node_code,assignee_id,candidate_rule,status
                 from workflow.wf_task
-                """ + suffix;
+                """
+                + suffix;
     }
 
     private String instanceSelect(String suffix) {
         return """
                 select id,initiator_id,current_node_code,status,context_snapshot
                 from workflow.wf_instance
-                """ + suffix;
+                """
+                + suffix;
     }
 
     private JsonNode parse(String json) {
@@ -78,8 +110,8 @@ public class JdbcWorkflowTaskAssignmentRepository implements WorkflowTaskAssignm
         try {
             return objectMapper.readTree(json);
         } catch (JsonProcessingException ex) {
-            throw new WorkflowException(WorkflowException.Code.INVALID_DEFINITION,
-                    "stored workflow JSON cannot be parsed", ex);
+            throw new WorkflowException(
+                    WorkflowException.Code.INVALID_DEFINITION, "stored workflow JSON cannot be parsed", ex);
         }
     }
 }

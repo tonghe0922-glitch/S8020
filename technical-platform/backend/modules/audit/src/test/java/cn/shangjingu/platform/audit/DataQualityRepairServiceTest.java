@@ -29,7 +29,8 @@ class DataQualityRepairServiceTest {
         UUID id = UUID.randomUUID();
         when(repository.find(tenant, id)).thenReturn(Optional.of(issue(tenant, id, "S05", 4)));
         when(repository.repairControl(tenant, id)).thenReturn(new DataQualityRepairService.RepairControl(user, "{}"));
-        DataQualityRepairService service = service(transactions, repository, List.of(), List.of(), List.of(), List.of());
+        DataQualityRepairService service =
+                service(transactions, repository, List.of(), List.of(), List.of(), List.of());
         assertThrows(ProcessRejectedException.class, () -> service.executeRepair(actor(tenant, user), id, 4));
     }
 
@@ -42,8 +43,10 @@ class DataQualityRepairServiceTest {
         UUID executor = UUID.randomUUID();
         UUID id = UUID.randomUUID();
         when(repository.find(tenant, id)).thenReturn(Optional.of(issue(tenant, id, "S05", 4)));
-        when(repository.repairControl(tenant, id)).thenReturn(new DataQualityRepairService.RepairControl(reviewer, "{}"));
-        DataQualityRepairService service = service(transactions, repository, List.of(), List.of(), List.of(), List.of());
+        when(repository.repairControl(tenant, id))
+                .thenReturn(new DataQualityRepairService.RepairControl(reviewer, "{}"));
+        DataQualityRepairService service =
+                service(transactions, repository, List.of(), List.of(), List.of(), List.of());
         assertThrows(ProcessRejectedException.class, () -> service.executeRepair(actor(tenant, executor), id, 4));
     }
 
@@ -54,26 +57,63 @@ class DataQualityRepairServiceTest {
             List<DataQualityRepairService.RepairHandler> handlers,
             List<DataQualityRepairService.CompensationCapability> compensations,
             List<DataQualityRepairService.VerificationCapability> verifiers) {
-        return new DataQualityRepairService(transactions, mock(IdempotencyRegistry.class), mock(BusinessNumberService.class),
-                repository, new ObjectMapper(), governance, handlers, compensations, verifiers);
+        return new DataQualityRepairService(
+                transactions,
+                mock(IdempotencyRegistry.class),
+                mock(BusinessNumberService.class),
+                repository,
+                new ObjectMapper(),
+                governance,
+                handlers,
+                compensations,
+                verifiers);
     }
 
     private static TenantTransactionRunner transactions() {
         TenantTransactionRunner transactions = mock(TenantTransactionRunner.class);
-        when(transactions.required(any(DatabaseSecurityContext.class), org.mockito.ArgumentMatchers.<Supplier<Object>>any()))
+        when(transactions.required(
+                        any(DatabaseSecurityContext.class), org.mockito.ArgumentMatchers.<Supplier<Object>>any()))
                 .thenAnswer(invocation -> ((Supplier<?>) invocation.getArgument(1)).get());
         return transactions;
     }
 
     private static DataQualityRepairService.QualityIssue issue(UUID tenant, UUID id, String status, int version) {
         return new DataQualityRepairService.QualityIssue(
-                id, tenant, "P020-1", status, version, "RULE", "SYNTHETIC_OBJECT", UUID.randomUUID(), "QUALITY", "HIGH",
-                "{\"before\":1}", null, null, null, null, Instant.now(), null, LocalDate.now(), "QUALITY_REPAIR",
-                "TEST", "synthetic issue", "synthetic-service", "synthetic scope", "HIGH", UUID.randomUUID());
+                id,
+                tenant,
+                "P020-1",
+                status,
+                version,
+                "RULE",
+                "SYNTHETIC_OBJECT",
+                UUID.randomUUID(),
+                "QUALITY",
+                "HIGH",
+                "{\"before\":1}",
+                null,
+                null,
+                null,
+                null,
+                Instant.now(),
+                null,
+                LocalDate.now(),
+                "QUALITY_REPAIR",
+                "TEST",
+                "synthetic issue",
+                "synthetic-service",
+                "synthetic scope",
+                "HIGH",
+                UUID.randomUUID());
     }
 
     private static DatabaseSecurityContext actor(UUID tenant, UUID user) {
-        return new DatabaseSecurityContext(tenant, user, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
-                UUID.randomUUID(), UUID.randomUUID());
+        return new DatabaseSecurityContext(
+                tenant,
+                user,
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                UUID.randomUUID());
     }
 }

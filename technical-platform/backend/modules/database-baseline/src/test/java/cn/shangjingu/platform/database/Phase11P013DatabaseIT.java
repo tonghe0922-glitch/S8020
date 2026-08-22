@@ -61,7 +61,8 @@ class Phase11P013DatabaseIT {
     void p013PublishedGraphMatchesFrozenContract() throws Exception {
         assertEquals(
                 "S01,S02,S03,S04,S05,S06,S07,S08,S09,END",
-                scalarString("""
+                scalarString(
+                        """
                         select string_agg(n.node_code,',' order by n.sort_no)
                         from workflow.wf_node n
                         join workflow.wf_version v on v.tenant_id=n.tenant_id and v.id=n.version_id
@@ -69,27 +70,34 @@ class Phase11P013DatabaseIT {
                         where d.tenant_id='%s' and d.process_code='P013'
                           and v.status='PUBLISHED' and v.checksum='phase11-p013-c0-v1'
                           and not n.is_deleted and not v.is_deleted and not d.is_deleted
-                        """.formatted(TENANT)));
-        assertEquals(9L, scalarLong("""
+                        """
+                                .formatted(TENANT)));
+        assertEquals(
+                9L,
+                scalarLong(
+                        """
                 select count(*) from workflow.wf_transition t
                 join workflow.wf_version v on v.tenant_id=t.tenant_id and v.id=t.version_id
                 join workflow.wf_definition d on d.tenant_id=v.tenant_id and d.id=v.definition_id
                 where d.tenant_id='%s' and d.process_code='P013'
                   and v.status='PUBLISHED' and v.checksum='phase11-p013-c0-v1'
                   and not t.is_deleted and not v.is_deleted and not d.is_deleted
-                """.formatted(TENANT)));
+                """
+                                .formatted(TENANT)));
     }
 
     @Test
     void oneSourceFactCreatesAtMostOneReward() {
-        SQLException duplicate = assertSqlRejected("""
+        SQLException duplicate = assertSqlRejected(
+                """
                 insert into reward.reward_case(
                   id,tenant_id,business_no,status,current_node_code,subject,reason,
                   owner_center_id,owner_employee_id,benefit_amount,employee_event_type,
                   fact_occurred_at,fact_summary,impact_level,source_fact_key)
                 values(gen_random_uuid(),'%s','P013-DUP','贡献事实登记','S01','duplicate','duplicate',
                   '%s','%s',0,'P013_REWARD',now(),'duplicate','CENTER','P013-SOURCE-1')
-                """.formatted(TENANT, CENTER, EMPLOYEE));
+                """
+                        .formatted(TENANT, CENTER, EMPLOYEE));
         assertTrue(message(duplicate).contains("uq_p013_source_fact"));
     }
 
@@ -98,25 +106,32 @@ class Phase11P013DatabaseIT {
         execute(pointEffectInsert("P013-EFFECT-1"));
         SQLException duplicate = assertSqlRejected(pointEffectInsert("P013-EFFECT-2"));
         assertTrue(message(duplicate).contains("uq_p013_point_effect"));
-        assertEquals(1L, scalarLong("""
+        assertEquals(
+                1L,
+                scalarLong(
+                        """
                 select count(*) from reward.point_transaction
                 where tenant_id='%s' and source_reward_case_id='%s' and not is_deleted
-                """.formatted(TENANT, REWARD)));
+                """
+                                .formatted(TENANT, REWARD)));
     }
 
     @Test
     void p013ConstraintsAndRlsFailClosed() throws Exception {
-        SQLException node = assertSqlRejected(
-                "update reward.reward_case set current_node_code='S99' where id='" + REWARD + "'");
+        SQLException node =
+                assertSqlRejected("update reward.reward_case set current_node_code='S99' where id='" + REWARD + "'");
         assertTrue(message(node).contains("ck_p013_current_node"));
-        assertEquals(1L, scalarLong(
-                "select count(*) from flyway_schema_history where success and version='124'"));
-        assertTrue(scalarBoolean("""
+        assertEquals(1L, scalarLong("select count(*) from flyway_schema_history where success and version='124'"));
+        assertTrue(
+                scalarBoolean(
+                        """
                 select exists(select 1 from pg_policies
                 where schemaname='reward' and tablename='reward_case'
                   and policyname='p_tenant_reward_case')
                 """));
-        assertTrue(scalarBoolean("""
+        assertTrue(
+                scalarBoolean(
+                        """
                 select exists(select 1 from pg_indexes
                 where schemaname='reward' and tablename='point_transaction'
                   and indexname='uq_p013_point_effect')
@@ -137,26 +152,34 @@ class Phase11P013DatabaseIT {
                   '%s','%s','effect',now(),0,0,'REWARD_POST','reward',
                   'NON_FINANCIAL','POINT','P013_REWARD_EFFECT',now(),
                   'reward fact','CENTER',10,'%s','%s')
-                """.formatted(TENANT, businessNo, CENTER, EMPLOYEE, businessNo, REWARD);
+                """
+                .formatted(TENANT, businessNo, CENTER, EMPLOYEE, businessNo, REWARD);
     }
 
     private static void seedFacts() throws SQLException {
-        execute("""
+        execute(
+                """
                 insert into org.organization(id,tenant_id,org_code,org_name,org_type,status)
                 values('%s','%s','PHASE11-P013-CENTER','PHASE-11 P013 Center','CENTER','ACTIVE')
-                """.formatted(CENTER, TENANT));
-        execute("""
+                """
+                        .formatted(CENTER, TENANT));
+        execute(
+                """
                 insert into org.position(id,tenant_id,position_code,position_name,org_id,status)
                 values('%s','%s','P013-POS','P013 Position','%s','ACTIVE')
-                """.formatted(POSITION, TENANT, CENTER));
-        execute("""
+                """
+                        .formatted(POSITION, TENANT, CENTER));
+        execute(
+                """
                 insert into org.employee(
                   id,tenant_id,employee_no,person_name,employment_status,hire_date,
                   primary_org_id,primary_position_id)
                 values('%s','%s','P013-EMPLOYEE','P013 Employee','ACTIVE',
                   date '2026-01-01','%s','%s')
-                """.formatted(EMPLOYEE, TENANT, CENTER, POSITION));
-        execute("""
+                """
+                        .formatted(EMPLOYEE, TENANT, CENTER, POSITION));
+        execute(
+                """
                 insert into reward.reward_case(
                   id,tenant_id,business_no,status,current_node_code,version_no,
                   business_date,subject,reason,priority,risk_level,owner_center_id,
@@ -166,7 +189,8 @@ class Phase11P013DatabaseIT {
                   'P013 reward test','reward','NORMAL','NORMAL','%s','%s',0,
                   'P013_REWARD',timestamptz '2026-08-16 00:00:00+00',
                   'reward fact','CENTER',10,'P013-SOURCE-1','P013-CONTENT-V1','2026-Q3')
-                """.formatted(REWARD, TENANT, CENTER, EMPLOYEE));
+                """
+                        .formatted(REWARD, TENANT, CENTER, EMPLOYEE));
     }
 
     private static SQLException assertSqlRejected(String sql) {
@@ -224,13 +248,12 @@ class Phase11P013DatabaseIT {
 
     private static void migrate(String database, String generatedFolder, String overlayFolder) {
         List<String> locations = new ArrayList<>();
-        locations.add("filesystem:" + repoRoot
-                .resolve("technical-platform/database/flyway")
-                .resolve(generatedFolder));
+        locations.add("filesystem:"
+                + repoRoot.resolve("technical-platform/database/flyway").resolve(generatedFolder));
         if (overlayFolder != null) {
-            locations.add("filesystem:" + repoRoot
-                    .resolve("technical-platform/database/flyway-overlays")
-                    .resolve(overlayFolder));
+            locations.add("filesystem:"
+                    + repoRoot.resolve("technical-platform/database/flyway-overlays")
+                            .resolve(overlayFolder));
         }
         Flyway flyway = Flyway.configure()
                 .dataSource(jdbcUrl(database), postgres.getUsername(), postgres.getPassword())
@@ -246,8 +269,7 @@ class Phase11P013DatabaseIT {
     }
 
     private static Connection admin(String database) throws SQLException {
-        return DriverManager.getConnection(
-                jdbcUrl(database), postgres.getUsername(), postgres.getPassword());
+        return DriverManager.getConnection(jdbcUrl(database), postgres.getUsername(), postgres.getPassword());
     }
 
     private static String jdbcUrl(String database) {

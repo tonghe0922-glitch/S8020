@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/step-up")
-public final class StepUpController {
+public class StepUpController {
     private final StepUpService stepUp;
 
     public StepUpController(StepUpService stepUp) {
@@ -19,16 +19,13 @@ public final class StepUpController {
 
     @PostMapping("/tickets")
     public StepUpResponse issue(
-            @AuthenticationPrincipal SessionPrincipal principal,
-            @RequestBody StepUpRequest request) {
-        var issued = stepUp.issue(
-                principal.context(), request.purpose(), request.requiredMfaLevel(), request.assertion());
+            @AuthenticationPrincipal SessionPrincipal principal, @RequestBody StepUpRequest request) {
+        var issued =
+                stepUp.issue(principal.context(), request.purpose(), request.requiredMfaLevel(), request.assertion());
         return new StepUpResponse(issued.ticket(), issued.purpose(), issued.requiredMfaLevel(), issued.expiresAt());
     }
 
-    public record StepUpRequest(String purpose, int requiredMfaLevel, String assertion) {
-    }
+    public record StepUpRequest(String purpose, int requiredMfaLevel, String assertion) {}
 
-    public record StepUpResponse(String ticket, String purpose, int requiredMfaLevel, Instant expiresAt) {
-    }
+    public record StepUpResponse(String ticket, String purpose, int requiredMfaLevel, Instant expiresAt) {}
 }

@@ -33,167 +33,92 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 /** Additional executable guards discovered during PHASE-10 post-green business review. */
 class Phase10WorkflowHardeningTest {
-    private static final UUID TENANT =
-            UUID.fromString("11000000-0000-0000-0000-000000000010");
-    private static final UUID USER =
-            UUID.fromString("21000000-0000-0000-0000-000000000010");
-    private static final UUID IDENTITY =
-            UUID.fromString("31000000-0000-0000-0000-000000000010");
-    private static final UUID EMPLOYEE =
-            UUID.fromString("41000000-0000-0000-0000-000000000010");
-    private static final UUID MANAGER =
-            UUID.fromString("42000000-0000-0000-0000-000000000010");
-    private static final UUID CENTER =
-            UUID.fromString("51000000-0000-0000-0000-000000000010");
-    private static final UUID POSITION =
-            UUID.fromString("61000000-0000-0000-0000-000000000010");
-    private static final UUID REQUEST =
-            UUID.fromString("71000000-0000-0000-0000-000000000010");
-    private static final UUID WORKFLOW =
-            UUID.fromString("81000000-0000-0000-0000-000000000010");
-    private static final UUID DEFINITION =
-            UUID.fromString("a1000000-0000-0000-0000-000000000010");
-    private static final UUID VERSION =
-            UUID.fromString("b1000000-0000-0000-0000-000000000010");
-    private static final UUID FORM =
-            UUID.fromString("c1000000-0000-0000-0000-000000000010");
+    private static final UUID TENANT = UUID.fromString("11000000-0000-0000-0000-000000000010");
+    private static final UUID USER = UUID.fromString("21000000-0000-0000-0000-000000000010");
+    private static final UUID IDENTITY = UUID.fromString("31000000-0000-0000-0000-000000000010");
+    private static final UUID EMPLOYEE = UUID.fromString("41000000-0000-0000-0000-000000000010");
+    private static final UUID MANAGER = UUID.fromString("42000000-0000-0000-0000-000000000010");
+    private static final UUID CENTER = UUID.fromString("51000000-0000-0000-0000-000000000010");
+    private static final UUID POSITION = UUID.fromString("61000000-0000-0000-0000-000000000010");
+    private static final UUID REQUEST = UUID.fromString("71000000-0000-0000-0000-000000000010");
+    private static final UUID WORKFLOW = UUID.fromString("81000000-0000-0000-0000-000000000010");
+    private static final UUID DEFINITION = UUID.fromString("a1000000-0000-0000-0000-000000000010");
+    private static final UUID VERSION = UUID.fromString("b1000000-0000-0000-0000-000000000010");
+    private static final UUID FORM = UUID.fromString("c1000000-0000-0000-0000-000000000010");
 
-    private static final Instant START =
-            Instant.parse("2026-08-12T01:00:00Z");
-    private static final Instant END =
-            Instant.parse("2026-08-12T09:00:00Z");
+    private static final Instant START = Instant.parse("2026-08-12T01:00:00Z");
+    private static final Instant END = Instant.parse("2026-08-12T09:00:00Z");
 
     private static final DatabaseSecurityContext ACTOR =
-            new DatabaseSecurityContext(
-                    TENANT,
-                    USER,
-                    IDENTITY,
-                    EMPLOYEE,
-                    null,
-                    CENTER,
-                    POSITION);
+            new DatabaseSecurityContext(TENANT, USER, IDENTITY, EMPLOYEE, null, CENTER, POSITION);
 
     @Test
     void p007EmployeeCanCreateOwnShiftChangeWithoutManagerRole() {
-        ShiftChangeService.Repository repository =
-                mock(ShiftChangeService.Repository.class);
+        ShiftChangeService.Repository repository = mock(ShiftChangeService.Repository.class);
         BusinessNumberService numbers = mock(BusinessNumberService.class);
-        WorkflowRuntimeService workflow =
-                mock(WorkflowRuntimeService.class);
+        WorkflowRuntimeService workflow = mock(WorkflowRuntimeService.class);
         WorkflowFormService forms = mock(WorkflowFormService.class);
 
-        when(repository.isActiveEmployeeInOrg(
-                        TENANT, CENTER, EMPLOYEE))
-                .thenReturn(true);
-        when(repository.workflowVersion(TENANT))
-                .thenReturn(Optional.of(VERSION));
-        when(repository.form(TENANT))
-                .thenReturn(
-                        Optional.of(
-                                new ShiftChangeService.FormRef(FORM, 1)));
-        when(repository.permissionCandidates(
-                        TENANT,
-                        ShiftChangeService.MANAGE_PERMISSION,
-                        CENTER))
+        when(repository.isActiveEmployeeInOrg(TENANT, CENTER, EMPLOYEE)).thenReturn(true);
+        when(repository.workflowVersion(TENANT)).thenReturn(Optional.of(VERSION));
+        when(repository.form(TENANT)).thenReturn(Optional.of(new ShiftChangeService.FormRef(FORM, 1)));
+        when(repository.permissionCandidates(TENANT, ShiftChangeService.MANAGE_PERMISSION, CENTER))
                 .thenReturn(List.of(MANAGER));
-        when(numbers.next(TENANT, EMPLOYEE, "P007"))
-                .thenReturn("P007-SELF-001");
-        when(workflow.start(
-                        any(WorkflowRuntimeService.StartCommand.class)))
-                .thenReturn(runtime("S01", "P007"));
-        when(workflow.act(
-                        any(WorkflowRuntimeService.ActionCommand.class)))
-                .thenReturn(runtime("S02", "P007"));
-        when(repository.bindAndMove(
-                        any(),
-                        any(),
-                        anyInt(),
-                        any(),
-                        anyString(),
-                        any()))
+        when(numbers.next(TENANT, EMPLOYEE, "P007")).thenReturn("P007-SELF-001");
+        when(workflow.start(any(WorkflowRuntimeService.StartCommand.class))).thenReturn(runtime("S01", "P007"));
+        when(workflow.act(any(WorkflowRuntimeService.ActionCommand.class))).thenReturn(runtime("S02", "P007"));
+        when(repository.bindAndMove(any(), any(), anyInt(), any(), anyString(), any()))
                 .thenReturn(1);
-        when(repository.find(TENANT, REQUEST))
-                .thenReturn(
-                        Optional.of(
-                                shiftRecord(
-                                        "S02",
-                                        1,
-                                        "SHIFT_CHANGE")));
+        when(repository.find(TENANT, REQUEST)).thenReturn(Optional.of(shiftRecord("S02", 1, "SHIFT_CHANGE")));
 
-        ShiftChangeService service =
-                shiftService(repository, numbers, workflow, forms);
-        ShiftChangeService.Aggregate result =
-                service.create(
-                        ACTOR,
-                        "p007-self-create",
-                        "hash",
-                        new ShiftChangeService.CreateCommand(
-                                "我的换班申请",
-                                null,
-                                CENTER,
-                                EMPLOYEE,
-                                "SHIFT_CHANGE",
-                                "家庭安排",
-                                "DAY",
-                                "2026-08-12",
-                                START,
-                                END));
+        ShiftChangeService service = shiftService(repository, numbers, workflow, forms);
+        ShiftChangeService.Aggregate result = service.create(
+                ACTOR,
+                "p007-self-create",
+                "hash",
+                new ShiftChangeService.CreateCommand(
+                        "我的换班申请", null, CENTER, EMPLOYEE, "SHIFT_CHANGE", "家庭安排", "DAY", "2026-08-12", START, END));
 
         assertEquals("S02", result.record().currentNodeCode());
         ArgumentCaptor<ShiftChangeService.ShiftRecord> inserted =
-                ArgumentCaptor.forClass(
-                        ShiftChangeService.ShiftRecord.class);
+                ArgumentCaptor.forClass(ShiftChangeService.ShiftRecord.class);
         verify(repository).insert(inserted.capture(), any());
         assertEquals("SHIFT_CHANGE", inserted.getValue().changeAction());
-        verify(workflow)
-                .start(any(WorkflowRuntimeService.StartCommand.class));
+        verify(workflow).start(any(WorkflowRuntimeService.StartCommand.class));
     }
 
     @Test
     void p007EmployeeCannotDisguiseScheduleCreationAsSelfService() {
-        ShiftChangeService.Repository repository =
-                mock(ShiftChangeService.Repository.class);
-        when(repository.isActiveEmployeeInOrg(
-                        TENANT, CENTER, EMPLOYEE))
-                .thenReturn(true);
-        when(repository.workflowVersion(TENANT))
-                .thenReturn(Optional.of(VERSION));
-        when(repository.form(TENANT))
-                .thenReturn(
-                        Optional.of(
-                                new ShiftChangeService.FormRef(FORM, 1)));
-        when(repository.permissionCandidates(
-                        TENANT,
-                        ShiftChangeService.MANAGE_PERMISSION,
-                        CENTER))
+        ShiftChangeService.Repository repository = mock(ShiftChangeService.Repository.class);
+        when(repository.isActiveEmployeeInOrg(TENANT, CENTER, EMPLOYEE)).thenReturn(true);
+        when(repository.workflowVersion(TENANT)).thenReturn(Optional.of(VERSION));
+        when(repository.form(TENANT)).thenReturn(Optional.of(new ShiftChangeService.FormRef(FORM, 1)));
+        when(repository.permissionCandidates(TENANT, ShiftChangeService.MANAGE_PERMISSION, CENTER))
                 .thenReturn(List.of(MANAGER));
 
-        ShiftChangeService service =
-                shiftService(
-                        repository,
-                        mock(BusinessNumberService.class),
-                        mock(WorkflowRuntimeService.class),
-                        mock(WorkflowFormService.class));
+        ShiftChangeService service = shiftService(
+                repository,
+                mock(BusinessNumberService.class),
+                mock(WorkflowRuntimeService.class),
+                mock(WorkflowFormService.class));
 
-        ProcessRejectedException error =
-                assertThrows(
-                        ProcessRejectedException.class,
-                        () ->
-                                service.create(
-                                        ACTOR,
-                                        "p007-forged-schedule",
-                                        "hash",
-                                        new ShiftChangeService.CreateCommand(
-                                                "伪造排班",
-                                                null,
-                                                CENTER,
-                                                EMPLOYEE,
-                                                "SCHEDULE",
-                                                "not allowed",
-                                                "DAY",
-                                                "2026-08-12",
-                                                START,
-                                                END)));
+        ProcessRejectedException error = assertThrows(
+                ProcessRejectedException.class,
+                () -> service.create(
+                        ACTOR,
+                        "p007-forged-schedule",
+                        "hash",
+                        new ShiftChangeService.CreateCommand(
+                                "伪造排班",
+                                null,
+                                CENTER,
+                                EMPLOYEE,
+                                "SCHEDULE",
+                                "not allowed",
+                                "DAY",
+                                "2026-08-12",
+                                START,
+                                END)));
 
         assertTrue(error.getMessage().contains("eligible manager"));
         verify(repository, never()).insert(any(), any());
@@ -201,108 +126,55 @@ class Phase10WorkflowHardeningTest {
 
     @Test
     void p007ValidationFailsClosedOnLeaveOrOvertimeConflict() {
-        ShiftChangeService.Repository repository =
-                mock(ShiftChangeService.Repository.class);
-        when(repository.find(TENANT, REQUEST))
-                .thenReturn(
-                        Optional.of(
-                                shiftRecord(
-                                        "S03",
-                                        2,
-                                        "SCHEDULE")));
-        when(repository.isActiveEmployeeInOrg(
-                        TENANT, CENTER, EMPLOYEE))
-                .thenReturn(true);
-        when(repository.hasOverlappingShift(
-                        TENANT,
-                        EMPLOYEE,
-                        START,
-                        END,
-                        REQUEST))
+        ShiftChangeService.Repository repository = mock(ShiftChangeService.Repository.class);
+        when(repository.find(TENANT, REQUEST)).thenReturn(Optional.of(shiftRecord("S03", 2, "SCHEDULE")));
+        when(repository.isActiveEmployeeInOrg(TENANT, CENTER, EMPLOYEE)).thenReturn(true);
+        when(repository.hasOverlappingShift(TENANT, EMPLOYEE, START, END, REQUEST))
                 .thenReturn(false);
-        when(repository.hasAttendanceConflict(
-                        TENANT, EMPLOYEE, START, END))
-                .thenReturn(true);
+        when(repository.hasAttendanceConflict(TENANT, EMPLOYEE, START, END)).thenReturn(true);
 
-        WorkflowRuntimeService workflow =
-                mock(WorkflowRuntimeService.class);
+        WorkflowRuntimeService workflow = mock(WorkflowRuntimeService.class);
         ShiftChangeService service =
-                shiftService(
-                        repository,
-                        mock(BusinessNumberService.class),
-                        workflow,
-                        mock(WorkflowFormService.class));
+                shiftService(repository, mock(BusinessNumberService.class), workflow, mock(WorkflowFormService.class));
 
-        ProcessRejectedException error =
-                assertThrows(
-                        ProcessRejectedException.class,
-                        () ->
-                                service.act(
-                                        ACTOR,
-                                        REQUEST,
-                                        "VALIDATE_SHIFT",
-                                        "p007-conflict",
-                                        "hash",
-                                        new ShiftChangeService.ActionCommand(
-                                                2, null, "validate")));
+        ProcessRejectedException error = assertThrows(
+                ProcessRejectedException.class,
+                () -> service.act(
+                        ACTOR,
+                        REQUEST,
+                        "VALIDATE_SHIFT",
+                        "p007-conflict",
+                        "hash",
+                        new ShiftChangeService.ActionCommand(2, null, "validate")));
 
-        assertTrue(
-                error.getMessage()
-                        .contains("active leave or overtime"));
-        verify(repository, never())
-                .markValidated(any(), any(), any(), any());
+        assertTrue(error.getMessage().contains("active leave or overtime"));
+        verify(repository, never()).markValidated(any(), any(), any(), any());
         verify(workflow, never()).get(any(), any());
     }
 
     @Test
     void p007CanonicalValidationMissCannotAdvanceWorkflow() {
-        ShiftChangeService.Repository repository =
-                mock(ShiftChangeService.Repository.class);
-        when(repository.find(TENANT, REQUEST))
-                .thenReturn(
-                        Optional.of(
-                                shiftRecord(
-                                        "S03",
-                                        2,
-                                        "SCHEDULE")));
-        when(repository.isActiveEmployeeInOrg(
-                        TENANT, CENTER, EMPLOYEE))
-                .thenReturn(true);
-        when(repository.hasOverlappingShift(
-                        TENANT,
-                        EMPLOYEE,
-                        START,
-                        END,
-                        REQUEST))
+        ShiftChangeService.Repository repository = mock(ShiftChangeService.Repository.class);
+        when(repository.find(TENANT, REQUEST)).thenReturn(Optional.of(shiftRecord("S03", 2, "SCHEDULE")));
+        when(repository.isActiveEmployeeInOrg(TENANT, CENTER, EMPLOYEE)).thenReturn(true);
+        when(repository.hasOverlappingShift(TENANT, EMPLOYEE, START, END, REQUEST))
                 .thenReturn(false);
-        when(repository.hasAttendanceConflict(
-                        TENANT, EMPLOYEE, START, END))
-                .thenReturn(false);
-        when(repository.markValidated(
-                        any(), any(), any(), any()))
-                .thenReturn(0);
+        when(repository.hasAttendanceConflict(TENANT, EMPLOYEE, START, END)).thenReturn(false);
+        when(repository.markValidated(any(), any(), any(), any())).thenReturn(0);
 
-        WorkflowRuntimeService workflow =
-                mock(WorkflowRuntimeService.class);
+        WorkflowRuntimeService workflow = mock(WorkflowRuntimeService.class);
         ShiftChangeService service =
-                shiftService(
-                        repository,
-                        mock(BusinessNumberService.class),
-                        workflow,
-                        mock(WorkflowFormService.class));
+                shiftService(repository, mock(BusinessNumberService.class), workflow, mock(WorkflowFormService.class));
 
-        ProcessRejectedException error =
-                assertThrows(
-                        ProcessRejectedException.class,
-                        () ->
-                                service.act(
-                                        ACTOR,
-                                        REQUEST,
-                                        "VALIDATE_SHIFT",
-                                        "p007-mutation-miss",
-                                        "hash",
-                                        new ShiftChangeService.ActionCommand(
-                                                2, null, "validate")));
+        ProcessRejectedException error = assertThrows(
+                ProcessRejectedException.class,
+                () -> service.act(
+                        ACTOR,
+                        REQUEST,
+                        "VALIDATE_SHIFT",
+                        "p007-mutation-miss",
+                        "hash",
+                        new ShiftChangeService.ActionCommand(2, null, "validate")));
 
         assertTrue(error.getMessage().contains("validation fact failed"));
         verify(workflow, never()).get(any(), any());
@@ -311,20 +183,11 @@ class Phase10WorkflowHardeningTest {
     @Test
     void p008RejectsZeroDifferenceLedgerEntryBeforeDatabaseAccess() {
         JdbcTemplate jdbc = mock(JdbcTemplate.class);
-        JdbcLeaveRepository repository =
-                new JdbcLeaveRepository(jdbc);
+        JdbcLeaveRepository repository = new JdbcLeaveRepository(jdbc);
 
-        ProcessRejectedException error =
-                assertThrows(
-                        ProcessRejectedException.class,
-                        () ->
-                                repository.appendLedger(
-                                        TENANT,
-                                        REQUEST,
-                                        "ADJUST",
-                                        BigDecimal.ZERO,
-                                        "no difference",
-                                        EMPLOYEE));
+        ProcessRejectedException error = assertThrows(
+                ProcessRejectedException.class,
+                () -> repository.appendLedger(TENANT, REQUEST, "ADJUST", BigDecimal.ZERO, "no difference", EMPLOYEE));
 
         assertTrue(error.getMessage().contains("must be non-zero"));
         verifyNoInteractions(jdbc);
@@ -332,73 +195,61 @@ class Phase10WorkflowHardeningTest {
 
     @Test
     void p010GuardedRepositoryStopsWorkflowWhenCanonicalExamUpdateMisses() {
-        JdbcLearningRepository delegate =
-                mock(JdbcLearningRepository.class);
-        GuardedLearningRepository guarded =
-                new GuardedLearningRepository(delegate);
-        LearningService.LearningRecord record =
-                new LearningService.LearningRecord(
+        JdbcLearningRepository delegate = mock(JdbcLearningRepository.class);
+        GuardedLearningRepository guarded = new GuardedLearningRepository(delegate);
+        LearningService.LearningRecord record = new LearningService.LearningRecord(
+                REQUEST,
+                TENANT,
+                "P010-HARDEN-001",
+                WORKFLOW,
+                "WFI-P010",
+                "S04",
+                LearningService.label("S04"),
+                3,
+                "安全考试",
+                CENTER,
+                EMPLOYEE,
+                "v1",
+                "COURSE-001",
+                "2026-A",
+                new BigDecimal("100"),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                Instant.now());
+
+        when(delegate.find(TENANT, REQUEST)).thenReturn(Optional.of(record));
+        when(delegate.evidence(TENANT, REQUEST)).thenReturn(List.of());
+        when(delegate.updateExam(TENANT, REQUEST, 900, EMPLOYEE)).thenReturn(0);
+
+        WorkflowRuntimeService workflow = mock(WorkflowRuntimeService.class);
+        LearningService service = new LearningService(
+                directTransactions(),
+                fixedClaim(),
+                mock(TransactionalOutboxService.class),
+                workflow,
+                mock(WorkflowTaskAssignmentService.class),
+                mock(WorkflowFormService.class),
+                guarded,
+                new ObjectMapper());
+
+        ProcessRejectedException error = assertThrows(
+                ProcessRejectedException.class,
+                () -> service.exam(
+                        ACTOR,
                         REQUEST,
-                        TENANT,
-                        "P010-HARDEN-001",
-                        WORKFLOW,
-                        "WFI-P010",
-                        "S04",
-                        LearningService.label("S04"),
-                        3,
-                        "安全考试",
-                        CENTER,
-                        EMPLOYEE,
-                        "v1",
-                        "COURSE-001",
-                        "2026-A",
-                        new BigDecimal("100"),
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        Instant.now());
-
-        when(delegate.find(TENANT, REQUEST))
-                .thenReturn(Optional.of(record));
-        when(delegate.evidence(TENANT, REQUEST))
-                .thenReturn(List.of());
-        when(delegate.updateExam(TENANT, REQUEST, 900, EMPLOYEE))
-                .thenReturn(0);
-
-        WorkflowRuntimeService workflow =
-                mock(WorkflowRuntimeService.class);
-        LearningService service =
-                new LearningService(
-                        directTransactions(),
-                        fixedClaim(),
-                        mock(TransactionalOutboxService.class),
-                        workflow,
-                        mock(WorkflowTaskAssignmentService.class),
-                        mock(WorkflowFormService.class),
-                        guarded,
-                        new ObjectMapper());
-
-        ProcessRejectedException error =
-                assertThrows(
-                        ProcessRejectedException.class,
-                        () ->
-                                service.exam(
-                                        ACTOR,
-                                        REQUEST,
-                                        "p010-exam-miss",
-                                        "hash",
-                                        new LearningService.ExamCommand(
-                                                900, "exam evidence")));
+                        "p010-exam-miss",
+                        "hash",
+                        new LearningService.ExamCommand(900, "exam evidence")));
 
         assertTrue(error.getMessage().contains("failed closed"));
         verify(workflow, never()).get(any(), any());
-        verify(workflow, never())
-                .act(any(WorkflowRuntimeService.ActionCommand.class));
+        verify(workflow, never()).act(any(WorkflowRuntimeService.ActionCommand.class));
     }
 
     private static ShiftChangeService shiftService(
@@ -418,8 +269,7 @@ class Phase10WorkflowHardeningTest {
                 new ObjectMapper());
     }
 
-    private static ShiftChangeService.ShiftRecord shiftRecord(
-            String node, int version, String changeAction) {
+    private static ShiftChangeService.ShiftRecord shiftRecord(String node, int version, String changeAction) {
         return new ShiftChangeService.ShiftRecord(
                 REQUEST,
                 TENANT,
@@ -456,58 +306,40 @@ class Phase10WorkflowHardeningTest {
     }
 
     private static TenantTransactionRunner directTransactions() {
-        TenantTransactionRunner transactions =
-                mock(TenantTransactionRunner.class);
-        when(transactions.required(
-                        any(DatabaseSecurityContext.class),
-                        ArgumentMatchers.<Supplier<Object>>any()))
-                .thenAnswer(
-                        invocation ->
-                                ((Supplier<?>)
-                                                invocation.getArgument(1))
-                                        .get());
+        TenantTransactionRunner transactions = mock(TenantTransactionRunner.class);
+        when(transactions.required(any(DatabaseSecurityContext.class), ArgumentMatchers.<Supplier<Object>>any()))
+                .thenAnswer(invocation -> ((Supplier<?>) invocation.getArgument(1)).get());
         return transactions;
     }
 
     private static IdempotencyRegistry fixedClaim() {
-        IdempotencyRegistry registry =
-                mock(IdempotencyRegistry.class);
-        when(registry.claim(
-                        any(),
-                        any(),
-                        anyString(),
-                        anyString(),
-                        anyString(),
-                        any(),
-                        any()))
+        IdempotencyRegistry registry = mock(IdempotencyRegistry.class);
+        when(registry.claim(any(), any(), anyString(), anyString(), anyString(), any(), any()))
                 .thenReturn(new IdempotencyClaim(REQUEST, false));
         return registry;
     }
 
-    private static WorkflowRuntimeService.Result runtime(
-            String node, String process) {
+    private static WorkflowRuntimeService.Result runtime(String node, String process) {
         Instant now = Instant.now();
-        WorkflowRuntimeService.Instance instance =
-                new WorkflowRuntimeService.Instance(
-                        WORKFLOW,
-                        TENANT,
-                        "WFI-HARDENING",
-                        DEFINITION,
-                        VERSION,
-                        process,
-                        "test.aggregate",
-                        REQUEST,
-                        "TEST-001",
-                        "PHASE-10 hardening",
-                        EMPLOYEE,
-                        node,
-                        WorkflowRuntimeService.RUNNING,
-                        "NORMAL",
-                        now,
-                        null,
-                        null,
-                        new ObjectMapper().createObjectNode());
-        return new WorkflowRuntimeService.Result(
-                instance, null, null, false);
+        WorkflowRuntimeService.Instance instance = new WorkflowRuntimeService.Instance(
+                WORKFLOW,
+                TENANT,
+                "WFI-HARDENING",
+                DEFINITION,
+                VERSION,
+                process,
+                "test.aggregate",
+                REQUEST,
+                "TEST-001",
+                "PHASE-10 hardening",
+                EMPLOYEE,
+                node,
+                WorkflowRuntimeService.RUNNING,
+                "NORMAL",
+                now,
+                null,
+                null,
+                new ObjectMapper().createObjectNode());
+        return new WorkflowRuntimeService.Result(instance, null, null, false);
     }
 }

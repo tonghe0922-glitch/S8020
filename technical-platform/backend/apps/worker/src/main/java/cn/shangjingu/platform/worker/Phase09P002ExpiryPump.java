@@ -7,7 +7,8 @@ public final class Phase09P002ExpiryPump {
     private final int batchSize;
 
     public Phase09P002ExpiryPump(Phase09P002ExpiryWorker worker, int batchSize) {
-        if (worker == null || batchSize <= 0) throw new IllegalArgumentException("P002 expiry pump configuration is invalid");
+        if (worker == null || batchSize <= 0)
+            throw new IllegalArgumentException("P002 expiry pump configuration is invalid");
         this.worker = worker;
         this.batchSize = batchSize;
     }

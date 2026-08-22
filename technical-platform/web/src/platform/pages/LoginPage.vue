@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ApiClientError } from '../../api'
+import { diagnosticRequestId, loginFailureMessage } from '../../api'
 import { SgjButton, SgjCard, SgjError, SgjInput, SgjPortalShell, SgjStatusChip } from '../../design-system'
 import { usePortalSessionStore } from '../../session'
 import { safeInternalRedirect } from '../../router/redirect'
@@ -25,10 +25,8 @@ const notice = computed(() => {
 })
 
 function showFailure(cause: unknown): void {
-  errorMessage.value = cause instanceof ApiClientError && cause.status === 401
-    ? '登录信息或 MFA 验证码无效，请检查后重试。'
-    : '暂时无法登录，请稍后重试。'
-  requestId.value = cause instanceof ApiClientError ? cause.requestId : undefined
+  errorMessage.value = loginFailureMessage(cause)
+  requestId.value = diagnosticRequestId(cause)
 }
 
 async function submit(): Promise<void> {

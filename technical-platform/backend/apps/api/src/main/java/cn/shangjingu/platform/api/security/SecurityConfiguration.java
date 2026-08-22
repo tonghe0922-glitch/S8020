@@ -15,26 +15,20 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfiguration {
     @Bean
     SecurityFilterChain securityFilterChain(
-            HttpSecurity http,
-            OpaqueAccessTokenFilter opaqueAccessTokenFilter,
-            SecurityProblemHandler problemHandler)
+            HttpSecurity http, OpaqueAccessTokenFilter opaqueAccessTokenFilter, SecurityProblemHandler problemHandler)
             throws Exception {
         http.csrf(csrf -> csrf.disable())
                 .httpBasic(httpBasic -> httpBasic.disable())
                 .formLogin(formLogin -> formLogin.disable())
                 .logout(logout -> logout.disable())
                 .requestCache(requestCache -> requestCache.disable())
-                .sessionManagement(session ->
-                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .exceptionHandling(exceptions -> exceptions
-                        .authenticationEntryPoint(problemHandler)
-                        .accessDeniedHandler(problemHandler))
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .exceptionHandling(exceptions ->
+                        exceptions.authenticationEntryPoint(problemHandler).accessDeniedHandler(problemHandler))
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers("/actuator/health", "/actuator/info").permitAll()
-                        .requestMatchers(
-                                HttpMethod.POST,
-                                "/api/v1/auth/login",
-                                "/api/v1/auth/refresh")
+                        .requestMatchers("/actuator/health", "/actuator/info")
+                        .permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/login", "/api/v1/auth/refresh")
                         .permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/platform/webhooks/*/*")
                         .permitAll()
@@ -67,9 +61,7 @@ public class SecurityConfiguration {
                         .denyAll()
                         .anyRequest()
                         .denyAll())
-                .addFilterBefore(
-                        opaqueAccessTokenFilter,
-                        UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(opaqueAccessTokenFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
 }

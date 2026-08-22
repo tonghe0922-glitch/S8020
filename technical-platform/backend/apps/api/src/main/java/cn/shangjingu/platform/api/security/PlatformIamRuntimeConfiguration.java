@@ -11,6 +11,7 @@ import cn.shangjingu.platform.iam.stepup.StepUpPolicy;
 import cn.shangjingu.platform.iam.stepup.StepUpService;
 import java.time.Duration;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.actuate.health.HealthIndicator;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -30,6 +31,11 @@ public class PlatformIamRuntimeConfiguration {
         return new RedisSessionStore(redis);
     }
 
+    @Bean("sessionStore")
+    HealthIndicator sessionStoreHealthIndicator(RedisSessionStore store) {
+        return new SessionStoreHealthIndicator(store);
+    }
+
     @Bean
     SessionService sessionService(
             IdentityDirectoryService identities,
@@ -37,9 +43,7 @@ public class PlatformIamRuntimeConfiguration {
             @Value("${sjg.security.session.access-ttl:PT15M}") String accessTtl,
             @Value("${sjg.security.session.refresh-ttl:P7D}") String refreshTtl) {
         return new SessionService(
-                identities,
-                store,
-                new SessionPolicy(Duration.parse(accessTtl), Duration.parse(refreshTtl)));
+                identities, store, new SessionPolicy(Duration.parse(accessTtl), Duration.parse(refreshTtl)));
     }
 
     @Bean
@@ -57,8 +61,14 @@ public class PlatformIamRuntimeConfiguration {
     JdbcSecurityAuditService securityAuditService(
             @Value("${sjg.audit.datasource.url:jdbc:postgresql://localhost:5432/sjg_audit}") String url,
             @Value("${sjg.audit.datasource.username:sjg_audit_writer}") String username,
-            @Value("${sjg.audit.datasource.password:}") String password) {
-        return new JdbcSecurityAuditService(url, username, password);
+            @Value("${sjg.audit.datasource.password:}") String password,
+            @Value("${sjg.security.audit.mode:fail-open}") String mode) {
+        return new JdbcSecurityAuditService(url, username, password, SecurityAuditMode.parse(mode));
+    }
+
+    @Bean("securityAudit")
+    HealthIndicator securityAuditHealthIndicator(JdbcSecurityAuditService audit) {
+        return new SecurityAuditHealthIndicator(audit);
     }
 
     @Bean
@@ -68,11 +78,6 @@ public class PlatformIamRuntimeConfiguration {
             MfaCapabilityProvider mfa,
             JdbcSecurityAuditService audit,
             @Value("${sjg.security.step-up.ticket-ttl:PT5M}") String ticketTtl) {
-        return new StepUpService(
-                identities,
-                store,
-                new StepUpPolicy(Duration.parse(ticketTtl)),
-                mfa,
-                audit);
+        return new StepUpService(identities, store, new StepUpPolicy(Duration.parse(ticketTtl)), mfa, audit);
     }
 }

@@ -30,8 +30,10 @@ class Phase05ProcessKernelDatabaseIT {
     private static final UUID BOOTSTRAP_TENANT = UUID.fromString("00000000-0000-0000-0000-000000000501");
     private static final UUID TENANT_A = UUID.fromString("00000000-0000-0000-0000-000000000502");
     private static final UUID TENANT_B = UUID.fromString("00000000-0000-0000-0000-000000000503");
-    private static final String API_PASSWORD = "p05_api_" + UUID.randomUUID().toString().replace("-", "");
-    private static final String AUDIT_PASSWORD = "p05_audit_" + UUID.randomUUID().toString().replace("-", "");
+    private static final String API_PASSWORD =
+            "p05_api_" + UUID.randomUUID().toString().replace("-", "");
+    private static final String AUDIT_PASSWORD =
+            "p05_audit_" + UUID.randomUUID().toString().replace("-", "");
 
     private static final List<String> PHASE05_TABLES = List.of(
             "welfare.care_case",
@@ -60,7 +62,8 @@ class Phase05ProcessKernelDatabaseIT {
         postgres.start();
 
         migrate("postgres", "cluster", null);
-        try (Connection connection = admin("postgres"); Statement statement = connection.createStatement()) {
+        try (Connection connection = admin("postgres");
+                Statement statement = connection.createStatement()) {
             statement.execute("ALTER ROLE sjg_api_runtime PASSWORD '" + API_PASSWORD + "'");
             statement.execute("ALTER ROLE sjg_audit_writer PASSWORD '" + AUDIT_PASSWORD + "'");
             statement.execute("CREATE DATABASE sjg_oms");
@@ -81,7 +84,8 @@ class Phase05ProcessKernelDatabaseIT {
         try (Connection connection = admin("sjg_oms")) {
             for (String qualified : PHASE05_TABLES) {
                 String[] parts = qualified.split("\\.");
-                try (PreparedStatement table = connection.prepareStatement("""
+                try (PreparedStatement table = connection.prepareStatement(
+                        """
                         SELECT c.relrowsecurity,pg_get_userbyid(c.relowner)
                         FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
                         WHERE n.nspname=? AND c.relname=? AND c.relkind IN ('r','p')
@@ -130,8 +134,9 @@ class Phase05ProcessKernelDatabaseIT {
             }
         });
         assertEquals(0, changed, "cross-tenant update must be filtered by approved RLS");
-        try (Connection connection = admin("sjg_oms"); PreparedStatement statement = connection.prepareStatement(
-                "SELECT subject FROM welfare.care_case WHERE id=?")) {
+        try (Connection connection = admin("sjg_oms");
+                PreparedStatement statement =
+                        connection.prepareStatement("SELECT subject FROM welfare.care_case WHERE id=?")) {
             statement.setObject(1, tenantBCase);
             try (ResultSet result = statement.executeQuery()) {
                 assertTrue(result.next());
@@ -146,12 +151,14 @@ class Phase05ProcessKernelDatabaseIT {
         String eventKey = "P018-INTEGRATION-SAME-EVENT";
         for (UUID tenant : List.of(TENANT_A, TENANT_B)) {
             inApiTenant(tenant, connection -> {
-                try (PreparedStatement idem = connection.prepareStatement("""
+                try (PreparedStatement idem = connection.prepareStatement(
+                                """
                         INSERT INTO core.idempotency_record(
                             tenant_id,idempotency_key,request_hash,resource_type,resource_id,expire_at)
                         VALUES (?,?,?,?,?,now()+interval '1 hour')
                         """);
-                     PreparedStatement outbox = connection.prepareStatement("""
+                        PreparedStatement outbox = connection.prepareStatement(
+                                """
                         INSERT INTO core.outbox_event(
                             tenant_id,aggregate_type,aggregate_id,event_type,event_version,payload,event_key)
                         VALUES (?,?,?,'P018_EXECUTE',1,'{}'::jsonb,?)
@@ -175,10 +182,16 @@ class Phase05ProcessKernelDatabaseIT {
             });
         }
         for (UUID tenant : List.of(TENANT_A, TENANT_B)) {
-            long idempotencyCount = inApiTenant(tenant, connection -> count(connection,
-                    "SELECT count(*) FROM core.idempotency_record WHERE idempotency_key='" + idempotencyKey + "'"));
-            long outboxCount = inApiTenant(tenant, connection -> count(connection,
-                    "SELECT count(*) FROM core.outbox_event WHERE event_key='" + eventKey + "'"));
+            long idempotencyCount = inApiTenant(
+                    tenant,
+                    connection -> count(
+                            connection,
+                            "SELECT count(*) FROM core.idempotency_record WHERE idempotency_key='" + idempotencyKey
+                                    + "'"));
+            long outboxCount = inApiTenant(
+                    tenant,
+                    connection -> count(
+                            connection, "SELECT count(*) FROM core.outbox_event WHERE event_key='" + eventKey + "'"));
             assertEquals(1L, idempotencyCount);
             assertEquals(1L, outboxCount);
         }
@@ -199,13 +212,16 @@ class Phase05ProcessKernelDatabaseIT {
     @Test
     void workerAuditSqlMatchesImmutableAuditContract() throws Exception {
         UUID eventId = UUID.randomUUID();
-        try (Connection connection = DriverManager.getConnection(jdbcUrl("sjg_audit"), "sjg_audit_writer", AUDIT_PASSWORD)) {
+        try (Connection connection =
+                DriverManager.getConnection(jdbcUrl("sjg_audit"), "sjg_audit_writer", AUDIT_PASSWORD)) {
             connection.setAutoCommit(false);
-            try (PreparedStatement context = connection.prepareStatement("SELECT set_config('app.tenant_id', ?, true)")) {
+            try (PreparedStatement context =
+                    connection.prepareStatement("SELECT set_config('app.tenant_id', ?, true)")) {
                 context.setString(1, TENANT_A.toString());
                 context.executeQuery();
             }
-            try (PreparedStatement insert = connection.prepareStatement("""
+            try (PreparedStatement insert = connection.prepareStatement(
+                    """
                     INSERT INTO audit.operation_log(tenant_id,action,resource_type,resource_id,request_id)
                     VALUES (?,?,?,?,?)
                     """)) {
@@ -219,7 +235,8 @@ class Phase05ProcessKernelDatabaseIT {
             connection.commit();
 
             connection.setAutoCommit(false);
-            try (PreparedStatement context = connection.prepareStatement("SELECT set_config('app.tenant_id', ?, true)")) {
+            try (PreparedStatement context =
+                    connection.prepareStatement("SELECT set_config('app.tenant_id', ?, true)")) {
                 context.setString(1, TENANT_A.toString());
                 context.executeQuery();
             }
@@ -249,14 +266,16 @@ class Phase05ProcessKernelDatabaseIT {
         }
     }
 
-    private static void insertTenant(PreparedStatement statement, UUID tenant, String code, String name) throws SQLException {
+    private static void insertTenant(PreparedStatement statement, UUID tenant, String code, String name)
+            throws SQLException {
         statement.setObject(1, tenant);
         statement.setString(2, code);
         statement.setString(3, name);
         assertEquals(1, statement.executeUpdate());
     }
 
-    private static void seedTenantFacts(Connection connection, UUID tenant, int base, String label) throws SQLException {
+    private static void seedTenantFacts(Connection connection, UUID tenant, int base, String label)
+            throws SQLException {
         UUID care = id(suffix(base + 2));
         UUID sourceFile = id(suffix(base + 3));
         UUID signature = id(suffix(base + 4));
@@ -264,7 +283,8 @@ class Phase05ProcessKernelDatabaseIT {
         UUID export = id(suffix(base + 6));
         UUID quality = id(suffix(base + 7));
 
-        try (PreparedStatement file = connection.prepareStatement("""
+        try (PreparedStatement file = connection.prepareStatement(
+                """
                 INSERT INTO document.file_object(
                     id,tenant_id,object_key,original_name,content_type,size_bytes,sha256,storage_bucket,virus_scan_status)
                 VALUES (?,?,?,?,?,1,?,'phase05-test','CLEAN')
@@ -277,7 +297,8 @@ class Phase05ProcessKernelDatabaseIT {
             file.setString(6, "0000000000000000000000000000000000000000000000000000000000000000");
             assertEquals(1, file.executeUpdate());
         }
-        try (PreparedStatement statement = connection.prepareStatement("""
+        try (PreparedStatement statement = connection.prepareStatement(
+                """
                 INSERT INTO welfare.care_case(
                     id,tenant_id,business_no,status,cost_center_id,currency,employee_event_type,
                     fact_occurred_at,fact_summary,impact_level,subject)
@@ -289,7 +310,8 @@ class Phase05ProcessKernelDatabaseIT {
             statement.setString(4, label + "-care");
             assertEquals(1, statement.executeUpdate());
         }
-        try (PreparedStatement statement = connection.prepareStatement("""
+        try (PreparedStatement statement = connection.prepareStatement(
+                """
                 INSERT INTO document.signature_envelope(
                     id,tenant_id,business_no,envelope_no,document_hash,signing_order,sign_status,
                     actual_start_at,authentication_method,business_date,document_type,result_summary)
@@ -302,7 +324,8 @@ class Phase05ProcessKernelDatabaseIT {
             statement.setString(5, "sha256-" + label);
             assertEquals(1, statement.executeUpdate());
         }
-        try (PreparedStatement statement = connection.prepareStatement("""
+        try (PreparedStatement statement = connection.prepareStatement(
+                """
                 INSERT INTO integration.data_import_job(
                     id,tenant_id,business_no,import_type,source_file_id,template_version,
                     actual_start_at,business_date,environment,result_summary,system_service_name,tech_impact_scope,tech_risk_level)
@@ -314,7 +337,8 @@ class Phase05ProcessKernelDatabaseIT {
             statement.setObject(4, sourceFile);
             assertEquals(1, statement.executeUpdate());
         }
-        try (PreparedStatement statement = connection.prepareStatement("""
+        try (PreparedStatement statement = connection.prepareStatement(
+                """
                 INSERT INTO integration.data_import_job_item(tenant_id,master_id,field_code,item_value_text)
                 VALUES (?,?,'tech_logs_reports','synthetic')
                 """)) {
@@ -322,7 +346,8 @@ class Phase05ProcessKernelDatabaseIT {
             statement.setObject(2, importJob);
             assertEquals(1, statement.executeUpdate());
         }
-        try (PreparedStatement statement = connection.prepareStatement("""
+        try (PreparedStatement statement = connection.prepareStatement(
+                """
                 INSERT INTO audit.data_export_request(
                     id,tenant_id,business_no,export_type,data_scope,field_scope,purpose,approval_level,
                     actual_start_at,business_date,environment,result_summary,system_service_name,tech_impact_scope,tech_risk_level)
@@ -334,7 +359,8 @@ class Phase05ProcessKernelDatabaseIT {
             statement.setString(3, "P019-" + label);
             assertEquals(1, statement.executeUpdate());
         }
-        try (PreparedStatement statement = connection.prepareStatement("""
+        try (PreparedStatement statement = connection.prepareStatement(
+                """
                 INSERT INTO audit.data_export_request_item(tenant_id,master_id,field_code,item_value_text)
                 VALUES (?,?,'tech_logs_reports','synthetic')
                 """)) {
@@ -342,7 +368,8 @@ class Phase05ProcessKernelDatabaseIT {
             statement.setObject(2, export);
             assertEquals(1, statement.executeUpdate());
         }
-        try (PreparedStatement statement = connection.prepareStatement("""
+        try (PreparedStatement statement = connection.prepareStatement(
+                """
                 INSERT INTO audit.data_quality_issue(
                     id,tenant_id,business_no,rule_code,object_type,issue_type,severity,
                     actual_start_at,business_date,employee_event_type,environment,result_summary,
@@ -355,7 +382,8 @@ class Phase05ProcessKernelDatabaseIT {
             statement.setString(3, "P020-" + label);
             assertEquals(1, statement.executeUpdate());
         }
-        try (PreparedStatement statement = connection.prepareStatement("""
+        try (PreparedStatement statement = connection.prepareStatement(
+                """
                 INSERT INTO audit.data_quality_issue_item(tenant_id,master_id,field_code,item_value_text)
                 VALUES (?,?,'approved_repair_plan','synthetic')
                 """)) {
@@ -370,7 +398,8 @@ class Phase05ProcessKernelDatabaseIT {
     }
 
     private static long count(Connection connection, String sql) {
-        try (Statement statement = connection.createStatement(); ResultSet result = statement.executeQuery(sql)) {
+        try (Statement statement = connection.createStatement();
+                ResultSet result = statement.executeQuery(sql)) {
             assertTrue(result.next());
             return result.getLong(1);
         } catch (SQLException ex) {
@@ -381,7 +410,8 @@ class Phase05ProcessKernelDatabaseIT {
     private static <T> T inApiTenant(UUID tenant, Function<Connection, T> work) {
         try (Connection connection = DriverManager.getConnection(jdbcUrl("sjg_oms"), "sjg_api_runtime", API_PASSWORD)) {
             connection.setAutoCommit(false);
-            try (PreparedStatement context = connection.prepareStatement("SELECT set_config('app.tenant_id', ?, true)")) {
+            try (PreparedStatement context =
+                    connection.prepareStatement("SELECT set_config('app.tenant_id', ?, true)")) {
                 context.setString(1, tenant.toString());
                 context.executeQuery();
             }
@@ -393,7 +423,8 @@ class Phase05ProcessKernelDatabaseIT {
         }
     }
 
-    private static boolean hasTablePrivilege(Connection connection, String role, String table, String privilege) throws SQLException {
+    private static boolean hasTablePrivilege(Connection connection, String role, String table, String privilege)
+            throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement("SELECT has_table_privilege(?,?,?)")) {
             statement.setString(1, role);
             statement.setString(2, table);
@@ -405,7 +436,8 @@ class Phase05ProcessKernelDatabaseIT {
         }
     }
 
-    private static boolean hasSchemaPrivilege(Connection connection, String role, String schema, String privilege) throws SQLException {
+    private static boolean hasSchemaPrivilege(Connection connection, String role, String schema, String privilege)
+            throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement("SELECT has_schema_privilege(?,?,?)")) {
             statement.setString(1, role);
             statement.setString(2, schema);
@@ -419,9 +451,12 @@ class Phase05ProcessKernelDatabaseIT {
 
     private static void migrate(String database, String generatedFolder, String overlayFolder) {
         List<String> locations = new ArrayList<>();
-        locations.add("filesystem:" + repoRoot.resolve("technical-platform/database/flyway").resolve(generatedFolder));
+        locations.add("filesystem:"
+                + repoRoot.resolve("technical-platform/database/flyway").resolve(generatedFolder));
         if (overlayFolder != null) {
-            locations.add("filesystem:" + repoRoot.resolve("technical-platform/database/flyway-overlays").resolve(overlayFolder));
+            locations.add("filesystem:"
+                    + repoRoot.resolve("technical-platform/database/flyway-overlays")
+                            .resolve(overlayFolder));
         }
         Flyway flyway = Flyway.configure()
                 .dataSource(jdbcUrl(database), postgres.getUsername(), postgres.getPassword())

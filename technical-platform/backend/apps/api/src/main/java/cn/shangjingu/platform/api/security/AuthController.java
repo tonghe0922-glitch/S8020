@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/auth")
-public final class AuthController {
+public class AuthController {
     private final LoginService loginService;
     private final SessionService sessions;
     private final SessionViewFactory sessionViews;
@@ -32,15 +32,10 @@ public final class AuthController {
     @PostMapping("/login")
     public LoginBootstrapResponse login(@RequestBody LoginRequest request) {
         LoginService.LoginOutcome outcome = loginService.login(
-                request.tenantCode(),
-                request.loginName(),
-                request.password(),
-                request.identityId(),
-                request.mfaCode());
+                request.tenantCode(), request.loginName(), request.password(), request.identityId(), request.mfaCode());
         try {
             return LoginBootstrapResponse.from(
-                    outcome.tokens(),
-                    sessionViews.create(outcome.tokens().context(), outcome.activeIdentities()));
+                    outcome.tokens(), sessionViews.create(outcome.tokens().context(), outcome.activeIdentities()));
         } catch (RuntimeException exception) {
             compensate(outcome.tokens().accessToken());
             throw exception;
@@ -74,12 +69,7 @@ public final class AuthController {
         }
     }
 
-    public record LoginRequest(
-            String tenantCode,
-            String loginName,
-            String password,
-            UUID identityId,
-            String mfaCode) {}
+    public record LoginRequest(String tenantCode, String loginName, String password, UUID identityId, String mfaCode) {}
 
     public record RefreshRequest(String refreshToken) {}
 }

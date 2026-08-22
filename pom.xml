@@ -21,6 +21,7 @@
     <maven-surefire-plugin.version>3.5.3</maven-surefire-plugin.version>
     <maven-dependency-plugin.version>3.11.0</maven-dependency-plugin.version>
     <spotless-maven-plugin.version>2.43.0</spotless-maven-plugin.version>
+    <palantir-java-format.version>2.39.0</palantir-java-format.version>
     <argLine></argLine>
   </properties>
 
@@ -137,6 +138,9 @@
         </executions>
         <configuration>
           <java>
+            <palantirJavaFormat>
+              <version>${palantir-java-format.version}</version>
+            </palantirJavaFormat>
             <removeUnusedImports />
             <trimTrailingWhitespace />
             <endWithNewline />

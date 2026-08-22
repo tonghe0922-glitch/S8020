@@ -24,7 +24,7 @@ import org.springframework.stereotype.Service;
 
 /** P014 discipline, responsibility, independent appeal and remediation lifecycle. */
 @Service
-public final class DisciplineService {
+public class DisciplineService {
     private static final Phase11Process PROCESS = Phase11Process.P014;
     private static final Duration IDEMPOTENCY_TTL = Duration.ofHours(24);
 
@@ -57,10 +57,7 @@ public final class DisciplineService {
     }
 
     public Phase11Record create(
-            DatabaseSecurityContext actor,
-            String idempotencyKey,
-            String requestHash,
-            CreateCommand command) {
+            DatabaseSecurityContext actor, String idempotencyKey, String requestHash, CreateCommand command) {
         requireActor(actor);
         validateCreate(command);
         return transactions.required(actor, () -> {
@@ -80,13 +77,14 @@ public final class DisciplineService {
             if (claim.existing()) {
                 return required(actor.tenantId(), claim.resourceId());
             }
-            if (!discipline.sourceFactAvailable(actor.tenantId(), command.sourceFactKey().trim())) {
+            if (!discipline.sourceFactAvailable(
+                    actor.tenantId(), command.sourceFactKey().trim())) {
                 throw rejected("source fact has already produced a discipline case");
             }
             Phase11Record draft = draft(actor, claim.resourceId(), command);
             discipline.insert(draft, command, actor.employeeId());
-            Phase11WorkflowCoordinator.Started started = workflow.start(
-                    actor, PROCESS, draft, command.toCreateData(), idempotencyKey);
+            Phase11WorkflowCoordinator.Started started =
+                    workflow.start(actor, PROCESS, draft, command.toCreateData(), idempotencyKey);
             if (discipline.bindWorkflow(
                             actor.tenantId(),
                             draft.id(),
@@ -132,8 +130,8 @@ public final class DisciplineService {
             }
             Phase11Process.Step step = PROCESS.requireTransition(current.currentNodeCode(), action);
             validateAction(current, actor.employeeId(), action, command);
-            WorkflowRuntimeService.Result moved = workflow.advance(
-                    actor, PROCESS, current, action, command.reason(), idempotencyKey);
+            WorkflowRuntimeService.Result moved =
+                    workflow.advance(actor, PROCESS, current, action, command.reason(), idempotencyKey);
             if (!step.targetNode().equals(moved.instance().currentNodeCode())) {
                 throw rejected("workflow target does not match frozen contract");
             }
@@ -163,11 +161,7 @@ public final class DisciplineService {
         return transactions.required(actor, () -> discipline.list(actor.tenantId()));
     }
 
-    private void validateAction(
-            Phase11Record current,
-            UUID actorEmployeeId,
-            String action,
-            ActionCommand command) {
+    private void validateAction(Phase11Record current, UUID actorEmployeeId, String action, ActionCommand command) {
         requireText(command.summary(), "summary");
         switch (action) {
             case "APPLY_SAFETY_MEASURE" -> {
@@ -244,8 +238,7 @@ public final class DisciplineService {
         }
     }
 
-    static void validateAppealReviewer(
-            UUID subjectEmployeeId, UUID decisionEmployeeId, UUID reviewerEmployeeId) {
+    static void validateAppealReviewer(UUID subjectEmployeeId, UUID decisionEmployeeId, UUID reviewerEmployeeId) {
         if (subjectEmployeeId != null && subjectEmployeeId.equals(reviewerEmployeeId)) {
             throw rejected("subject employee cannot review own appeal");
         }
@@ -271,8 +264,10 @@ public final class DisciplineService {
         if (command.sourceFactKey().trim().length() > 160) {
             throw rejected("sourceFactKey must not exceed 160 characters");
         }
-        boolean hasCustomerId = command.customerId() != null && !command.customerId().isBlank();
-        boolean hasCustomerName = command.customerName() != null && !command.customerName().isBlank();
+        boolean hasCustomerId =
+                command.customerId() != null && !command.customerId().isBlank();
+        boolean hasCustomerName =
+                command.customerName() != null && !command.customerName().isBlank();
         if (hasCustomerId != hasCustomerName) {
             throw rejected("customerId and customerName must be supplied together");
         }
@@ -321,8 +316,7 @@ public final class DisciplineService {
     }
 
     private Phase11Record required(UUID tenantId, UUID caseId) {
-        return discipline.find(tenantId, caseId)
-                .orElseThrow(() -> rejected("discipline case not found"));
+        return discipline.find(tenantId, caseId).orElseThrow(() -> rejected("discipline case not found"));
     }
 
     private void emit(DatabaseSecurityContext actor, Phase11Record record, String action) {

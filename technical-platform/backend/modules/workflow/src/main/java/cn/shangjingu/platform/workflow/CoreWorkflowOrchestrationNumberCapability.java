@@ -5,7 +5,8 @@ import java.util.UUID;
 import org.springframework.stereotype.Component;
 
 @Component
-public final class CoreWorkflowOrchestrationNumberCapability implements WorkflowOrchestrationService.OrchestrationNumberCapability {
+public class CoreWorkflowOrchestrationNumberCapability
+        implements WorkflowOrchestrationService.OrchestrationNumberCapability {
     private final BusinessNumberService numbers;
 
     public CoreWorkflowOrchestrationNumberCapability(BusinessNumberService numbers) {

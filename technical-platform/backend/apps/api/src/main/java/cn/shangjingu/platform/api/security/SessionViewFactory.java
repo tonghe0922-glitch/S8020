@@ -8,7 +8,7 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 
 @Service
-public final class SessionViewFactory {
+public class SessionViewFactory {
     private final IdentityDirectoryService identities;
 
     public SessionViewFactory(IdentityDirectoryService identities) {
@@ -20,10 +20,12 @@ public final class SessionViewFactory {
     }
 
     public SessionViewResponse create(SessionContext context, List<IdentityRecord> activeIdentities) {
-        List<String> permissions = identities.authorization(context).permissions().stream().sorted().toList();
+        List<String> permissions = identities.authorization(context).permissions().stream()
+                .sorted()
+                .toList();
         List<IdentityRecord> sortedIdentities = activeIdentities.stream()
-                .sorted(Comparator.comparing(IdentityRecord::primary).reversed()
-                        .thenComparing(identity -> identity.id().toString()))
+                .sorted(Comparator.comparing(IdentityRecord::primary).reversed().thenComparing(identity -> identity.id()
+                        .toString()))
                 .toList();
         return SessionViewResponse.from(context, permissions, sortedIdentities);
     }

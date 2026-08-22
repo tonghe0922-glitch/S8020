@@ -10,12 +10,9 @@ import org.flywaydb.core.Flyway;
 import org.flywaydb.core.api.output.MigrateResult;
 
 public final class Phase03DatabaseMigrator {
-    private static final Pattern ADMIN_LOGIN_NAME =
-            Pattern.compile("[A-Za-z0-9._@-]{1,128}");
-    private static final Pattern ADMIN_EMPLOYEE_NO =
-            Pattern.compile("[A-Za-z0-9._-]{1,64}");
-    private static final Pattern BCRYPT_COST_12 =
-            Pattern.compile("\\$2[aby]\\$12\\$[./A-Za-z0-9]{53}");
+    private static final Pattern ADMIN_LOGIN_NAME = Pattern.compile("[A-Za-z0-9._@-]{1,128}");
+    private static final Pattern ADMIN_EMPLOYEE_NO = Pattern.compile("[A-Za-z0-9._-]{1,64}");
+    private static final Pattern BCRYPT_COST_12 = Pattern.compile("\\$2[aby]\\$12\\$[./A-Za-z0-9]{53}");
 
     private Phase03DatabaseMigrator() {}
 
@@ -40,8 +37,7 @@ public final class Phase03DatabaseMigrator {
         System.out.println("PHASE-03 database migration completed for sjg_oms/sjg_audit/sjg_dw");
     }
 
-    private static void migrateTarget(
-            Path root, Map<String, String> env, String database, String folder, String url) {
+    private static void migrateTarget(Path root, Map<String, String> env, String database, String folder, String url) {
         Map<String, String> placeholders = new LinkedHashMap<>();
         placeholders.put("sjg_tenant_id", sqlLiteral(env.get("SJG_TENANT_ID")));
         placeholders.put("sjg_tenant_code", sqlLiteral(env.get("SJG_TENANT_CODE")));
@@ -50,27 +46,14 @@ public final class Phase03DatabaseMigrator {
         placeholders.put("sjg_admin_password_hash", sqlLiteral(env.get("SJG_ADMIN_PASSWORD_HASH")));
         placeholders.put("sjg_admin_employee_no", sqlLiteral(env.get("SJG_ADMIN_EMPLOYEE_NO")));
 
-        String initSql = "SET ROLE sjg_owner";
-        if ("oms".equals(folder)) {
-            initSql += "; SELECT set_config('sjg.bootstrap.admin_login_name', '"
-                    + sqlLiteral(env.get("SJG_ADMIN_LOGIN_NAME"))
-                    + "', false)";
-            initSql += "; SELECT set_config('sjg.bootstrap.admin_password_hash', '"
-                    + sqlLiteral(env.get("SJG_ADMIN_PASSWORD_HASH"))
-                    + "', false)";
-            initSql += "; SELECT set_config('sjg.bootstrap.admin_employee_no', '"
-                    + sqlLiteral(env.get("SJG_ADMIN_EMPLOYEE_NO"))
-                    + "', false)";
-        }
+        String initSql = migrationInitSql(folder, env);
 
         Flyway flyway = Flyway.configure()
-                .dataSource(
-                        url,
-                        env.get("SJG_MIGRATION_DB_USERNAME"),
-                        env.get("SJG_MIGRATION_DB_PASSWORD"))
+                .dataSource(url, env.get("SJG_MIGRATION_DB_USERNAME"), env.get("SJG_MIGRATION_DB_PASSWORD"))
                 .locations(
                         "filesystem:"
-                                + root.resolve("technical-platform/database/flyway").resolve(folder),
+                                + root.resolve("technical-platform/database/flyway")
+                                        .resolve(folder),
                         "filesystem:"
                                 + root.resolve("technical-platform/database/flyway-overlays")
                                         .resolve(folder))
@@ -79,6 +62,22 @@ public final class Phase03DatabaseMigrator {
                 .cleanDisabled(true)
                 .load();
         migrateAndValidate(database, flyway);
+    }
+
+    static String migrationInitSql(String folder, Map<String, String> env) {
+        if (!"oms".equals(folder)) {
+            return "SET ROLE sjg_owner";
+        }
+        return "SET ROLE sjg_owner; DO $sjg_bootstrap$ BEGIN "
+                + "PERFORM set_config('sjg.bootstrap.admin_login_name', '"
+                + sqlLiteral(env.get("SJG_ADMIN_LOGIN_NAME"))
+                + "', false); "
+                + "PERFORM set_config('sjg.bootstrap.admin_password_hash', '"
+                + sqlLiteral(env.get("SJG_ADMIN_PASSWORD_HASH"))
+                + "', false); "
+                + "PERFORM set_config('sjg.bootstrap.admin_employee_no', '"
+                + sqlLiteral(env.get("SJG_ADMIN_EMPLOYEE_NO"))
+                + "', false); END $sjg_bootstrap$";
     }
 
     private static void migrateAndValidate(String name, Flyway flyway) {
@@ -90,16 +89,10 @@ public final class Phase03DatabaseMigrator {
         MigrateResult second = flyway.migrate();
         if (!second.success || second.migrationsExecuted != 0) {
             throw new IllegalStateException(
-                    "Flyway repeatability failed for "
-                            + name
-                            + ": migrationsExecuted="
-                            + second.migrationsExecuted);
+                    "Flyway repeatability failed for " + name + ": migrationsExecuted=" + second.migrationsExecuted);
         }
         System.out.println(
-                "Flyway "
-                        + name
-                        + " migrate/validate/repeatability PASS; executed="
-                        + first.migrationsExecuted);
+                "Flyway " + name + " migrate/validate/repeatability PASS; executed=" + first.migrationsExecuted);
     }
 
     static Map<String, String> requiredEnvironment() {
@@ -124,8 +117,7 @@ public final class Phase03DatabaseMigrator {
             String value = System.getenv(name);
             if (value == null || value.isBlank() || value.startsWith("__SET_LOCAL_")) {
                 throw new IllegalStateException(
-                        "Required deployment environment variable is missing or still a placeholder: "
-                                + name);
+                        "Required deployment environment variable is missing or still a placeholder: " + name);
             }
             values.put(name, value);
         }
@@ -171,8 +163,7 @@ public final class Phase03DatabaseMigrator {
             }
             current = current.getParent();
         }
-        throw new IllegalStateException(
-                "repository root not found from " + System.getProperty("user.dir"));
+        throw new IllegalStateException("repository root not found from " + System.getProperty("user.dir"));
     }
 
     static boolean isRepoRoot(Path candidate) {

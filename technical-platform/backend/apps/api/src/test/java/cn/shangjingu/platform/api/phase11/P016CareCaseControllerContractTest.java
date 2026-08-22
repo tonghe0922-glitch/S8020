@@ -15,9 +15,8 @@ class P016CareCaseControllerContractTest {
         assertEquals(P016CareCaseController.CONFIRM, P016CareCaseController.actionPermission("CONFIRM_RECEIPT"));
         assertEquals(P016CareCaseController.RECONCILE, P016CareCaseController.actionPermission("RECONCILE"));
         assertEquals(P016CareCaseController.EXECUTE, P016CareCaseController.actionPermission("ARCHIVE"));
-        assertThrows(IllegalArgumentException.class,
-                () -> P016CareCaseController.actionPermission("REGISTER_CARE_CASE"));
-        assertThrows(IllegalArgumentException.class,
-                () -> P016CareCaseController.actionPermission("TARGET_STATUS"));
+        assertThrows(
+                IllegalArgumentException.class, () -> P016CareCaseController.actionPermission("REGISTER_CARE_CASE"));
+        assertThrows(IllegalArgumentException.class, () -> P016CareCaseController.actionPermission("TARGET_STATUS"));
     }
 }

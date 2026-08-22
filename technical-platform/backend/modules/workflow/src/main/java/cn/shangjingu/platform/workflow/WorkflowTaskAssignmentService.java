@@ -20,45 +20,49 @@ public class WorkflowTaskAssignmentService {
     @Transactional
     public ClaimResult claim(ClaimCommand command) {
         validate(command);
-        CandidateTask snapshot = repository.findTask(command.tenantId(), command.taskId())
+        CandidateTask snapshot = repository
+                .findTask(command.tenantId(), command.taskId())
                 .orElseThrow(() -> WorkflowException.notFound("workflow task not found"));
-        CandidateInstance instance = repository.lockInstance(command.tenantId(), snapshot.instanceId())
+        CandidateInstance instance = repository
+                .lockInstance(command.tenantId(), snapshot.instanceId())
                 .orElseThrow(() -> WorkflowException.notFound("workflow instance not found"));
-        CandidateTask task = repository.lockTask(command.tenantId(), command.taskId())
+        CandidateTask task = repository
+                .lockTask(command.tenantId(), command.taskId())
                 .orElseThrow(() -> WorkflowException.notFound("workflow task not found"));
 
         if (!task.instanceId().equals(instance.id())) {
-            throw new WorkflowException(WorkflowException.Code.STALE_VERSION,
-                    "workflow task instance changed while claiming");
+            throw new WorkflowException(
+                    WorkflowException.Code.STALE_VERSION, "workflow task instance changed while claiming");
         }
         if (!WorkflowRuntimeService.RUNNING.equals(instance.status())
                 || !task.nodeCode().equals(instance.currentNodeCode())) {
-            throw new WorkflowException(WorkflowException.Code.STALE_VERSION,
+            throw new WorkflowException(
+                    WorkflowException.Code.STALE_VERSION,
                     "workflow task no longer belongs to the current running node");
         }
         if (!WorkflowRuntimeService.PENDING.equals(task.status())) {
-            throw new WorkflowException(WorkflowException.Code.STALE_VERSION,
-                    "workflow task is no longer pending");
+            throw new WorkflowException(WorkflowException.Code.STALE_VERSION, "workflow task is no longer pending");
         }
         if (task.assigneeId() != null) {
             if (task.assigneeId().equals(command.claimantId())) {
-                return new ClaimResult(task.id(), task.instanceId(), command.claimantId(), List.of(command.claimantId()), true);
+                return new ClaimResult(
+                        task.id(), task.instanceId(), command.claimantId(), List.of(command.claimantId()), true);
             }
-            throw new WorkflowException(WorkflowException.Code.STALE_VERSION,
-                    "workflow task has already been claimed by another approver");
+            throw new WorkflowException(
+                    WorkflowException.Code.STALE_VERSION, "workflow task has already been claimed by another approver");
         }
 
         WorkflowCandidateResolver.Resolution resolution = candidateResolver.resolve(
                 command.tenantId(), instance.initiatorId(), task.candidateRule(), instance.contextSnapshot());
         if (!resolution.candidateIds().contains(command.claimantId())) {
-            throw new WorkflowException(WorkflowException.Code.FORBIDDEN,
-                    "claimant is not an eligible workflow approver");
+            throw new WorkflowException(
+                    WorkflowException.Code.FORBIDDEN, "claimant is not an eligible workflow approver");
         }
 
         int changed = repository.claimTask(command.tenantId(), task.id(), command.claimantId(), command.claimantId());
         if (changed != 1) {
-            throw new WorkflowException(WorkflowException.Code.STALE_VERSION,
-                    "workflow task changed concurrently while claiming");
+            throw new WorkflowException(
+                    WorkflowException.Code.STALE_VERSION, "workflow task changed concurrently while claiming");
         }
         return new ClaimResult(task.id(), task.instanceId(), command.claimantId(), resolution.candidateIds(), false);
     }
@@ -72,8 +76,11 @@ public class WorkflowTaskAssignmentService {
 
     public interface Repository {
         Optional<CandidateTask> findTask(UUID tenantId, UUID taskId);
+
         Optional<CandidateInstance> lockInstance(UUID tenantId, UUID instanceId);
+
         Optional<CandidateTask> lockTask(UUID tenantId, UUID taskId);
+
         int claimTask(UUID tenantId, UUID taskId, UUID assigneeId, UUID actorId);
     }
 

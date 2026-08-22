@@ -47,7 +47,8 @@ class Phase05WorkflowFinalDatabaseIT {
     private static final UUID BOOTSTRAP_TENANT = UUID.fromString("00000000-0000-0000-0000-000000000001");
     private static final UUID TENANT_A = UUID.fromString("00000000-0000-0000-0000-000000000581");
     private static final UUID TENANT_B = UUID.fromString("00000000-0000-0000-0000-000000000582");
-    private static final String API_PASSWORD = "p05_c8_api_" + UUID.randomUUID().toString().replace("-", "");
+    private static final String API_PASSWORD =
+            "p05_c8_api_" + UUID.randomUUID().toString().replace("-", "");
     private static final AtomicInteger VERSION_SEQUENCE = new AtomicInteger(9950);
     private static PostgreSQLContainer<?> postgres;
     private static Path repoRoot;
@@ -63,7 +64,8 @@ class Phase05WorkflowFinalDatabaseIT {
                 .withPassword("phase05-c8-bootstrap-" + UUID.randomUUID());
         postgres.start();
         migrate("postgres", "cluster", null);
-        try (Connection connection = admin("postgres"); Statement statement = connection.createStatement()) {
+        try (Connection connection = admin("postgres");
+                Statement statement = connection.createStatement()) {
             statement.execute("ALTER ROLE sjg_api_runtime PASSWORD '" + API_PASSWORD + "'");
             statement.execute("CREATE DATABASE sjg_oms");
         }
@@ -96,14 +98,22 @@ class Phase05WorkflowFinalDatabaseIT {
             assertApprovedRls(qualified);
         }
 
-        long tenantASeesA = Phase05WorkflowFinalDatabaseIT.<Long>inApiTenant(TENANT_A, connection -> count(
-                connection, "select count(*) from workflow.wf_definition where process_code='C8RLSA'"));
-        long tenantASeesB = Phase05WorkflowFinalDatabaseIT.<Long>inApiTenant(TENANT_A, connection -> count(
-                connection, "select count(*) from workflow.wf_definition where process_code='C8RLSB'"));
-        long tenantBSeesB = Phase05WorkflowFinalDatabaseIT.<Long>inApiTenant(TENANT_B, connection -> count(
-                connection, "select count(*) from workflow.wf_definition where process_code='C8RLSB'"));
-        long tenantBSeesA = Phase05WorkflowFinalDatabaseIT.<Long>inApiTenant(TENANT_B, connection -> count(
-                connection, "select count(*) from workflow.wf_definition where process_code='C8RLSA'"));
+        long tenantASeesA = Phase05WorkflowFinalDatabaseIT.<Long>inApiTenant(
+                TENANT_A,
+                connection ->
+                        count(connection, "select count(*) from workflow.wf_definition where process_code='C8RLSA'"));
+        long tenantASeesB = Phase05WorkflowFinalDatabaseIT.<Long>inApiTenant(
+                TENANT_A,
+                connection ->
+                        count(connection, "select count(*) from workflow.wf_definition where process_code='C8RLSB'"));
+        long tenantBSeesB = Phase05WorkflowFinalDatabaseIT.<Long>inApiTenant(
+                TENANT_B,
+                connection ->
+                        count(connection, "select count(*) from workflow.wf_definition where process_code='C8RLSB'"));
+        long tenantBSeesA = Phase05WorkflowFinalDatabaseIT.<Long>inApiTenant(
+                TENANT_B,
+                connection ->
+                        count(connection, "select count(*) from workflow.wf_definition where process_code='C8RLSA'"));
         assertEquals(1L, tenantASeesA);
         assertEquals(0L, tenantASeesB);
         assertEquals(1L, tenantBSeesB);
@@ -119,8 +129,9 @@ class Phase05WorkflowFinalDatabaseIT {
             }
         });
         assertEquals(0, changed, "cross-tenant workflow update must be filtered by approved RLS");
-        assertEquals("C8 RLS Tenant B", scalarString(
-                "select process_name from workflow.wf_definition where id='" + tenantBDefinition + "'"));
+        assertEquals(
+                "C8 RLS Tenant B",
+                scalarString("select process_name from workflow.wf_definition where id='" + tenantBDefinition + "'"));
 
         try (Connection connection = admin("sjg_oms")) {
             assertTrue(hasTablePrivilege(connection, "sjg_api_runtime", "workflow.wf_instance", "SELECT"));
@@ -133,11 +144,20 @@ class Phase05WorkflowFinalDatabaseIT {
     void competingRuntimeActionsCommitExactlyOneMutationAndRollbackLoserIdempotency() throws Exception {
         RuntimeSeed seed = seedRuntimeGraph();
         RuntimeHandle bootstrap = runtime();
-        WorkflowRuntimeService.Result started = bootstrap.tx().execute(status -> bootstrap.service().start(startCommand(
-                seed, "c8-concurrency-start", "Concurrency workflow")));
+        WorkflowRuntimeService.Result started = bootstrap.tx().execute(status -> bootstrap
+                .service()
+                .start(startCommand(seed, "c8-concurrency-start", "Concurrency workflow")));
         assertNotNull(started);
-        WorkflowRuntimeService.Result review = bootstrap.tx().execute(status -> bootstrap.service().act(actionCommand(
-                seed.actorId(), started.instance().id(), null, "START", "SUBMIT", "c8-concurrency-submit", "submit")));
+        WorkflowRuntimeService.Result review = bootstrap.tx().execute(status -> bootstrap
+                .service()
+                .act(actionCommand(
+                        seed.actorId(),
+                        started.instance().id(),
+                        null,
+                        "START",
+                        "SUBMIT",
+                        "c8-concurrency-submit",
+                        "submit")));
         assertNotNull(review);
         assertNotNull(review.task());
         assign(review.task().id(), seed.actorId());
@@ -166,16 +186,26 @@ class Phase05WorkflowFinalDatabaseIT {
             pool.shutdownNow();
         }
 
-        assertEquals("COMPLETED", scalarString(
-                "select status from workflow.wf_instance where id='" + review.instance().id() + "'"));
-        assertEquals("END_OK", scalarString(
-                "select current_node_code from workflow.wf_instance where id='" + review.instance().id() + "'"));
-        assertEquals("COMPLETED", scalarString(
-                "select status from workflow.wf_task where id='" + review.task().id() + "'"));
-        assertEquals(1L, scalarLong(
-                "select count(*) from workflow.wf_action_log where instance_id='" + review.instance().id()
-                        + "' and action_code='APPROVE'"));
-        assertEquals(1L, scalarLong("""
+        assertEquals(
+                "COMPLETED",
+                scalarString("select status from workflow.wf_instance where id='"
+                        + review.instance().id() + "'"));
+        assertEquals(
+                "END_OK",
+                scalarString("select current_node_code from workflow.wf_instance where id='"
+                        + review.instance().id() + "'"));
+        assertEquals(
+                "COMPLETED",
+                scalarString("select status from workflow.wf_task where id='"
+                        + review.task().id() + "'"));
+        assertEquals(
+                1L,
+                scalarLong("select count(*) from workflow.wf_action_log where instance_id='"
+                        + review.instance().id() + "' and action_code='APPROVE'"));
+        assertEquals(
+                1L,
+                scalarLong(
+                        """
                 select count(*) from core.idempotency_record
                 where idempotency_key in ('c8-race-action-a','c8-race-action-b')
                 """));
@@ -187,87 +217,129 @@ class Phase05WorkflowFinalDatabaseIT {
         RuntimeHandle runtime = runtime();
 
         WorkflowRuntimeService.StartCommand original = startCommand(seed, "c8-idem-start", "Idempotent workflow");
-        WorkflowRuntimeService.Result first = runtime.tx().execute(status -> runtime.service().start(original));
-        WorkflowRuntimeService.Result replay = runtime.tx().execute(status -> runtime.service().start(original));
+        WorkflowRuntimeService.Result first =
+                runtime.tx().execute(status -> runtime.service().start(original));
+        WorkflowRuntimeService.Result replay =
+                runtime.tx().execute(status -> runtime.service().start(original));
         assertNotNull(first);
         assertNotNull(replay);
         assertTrue(replay.replayed());
         assertEquals(first.instance().id(), replay.instance().id());
-        WorkflowException changedStart = assertWorkflowFailure(() -> runtime.tx().execute(status -> runtime.service().start(
-                startCommand(seed, "c8-idem-start", "Changed request must conflict"))));
+        WorkflowException changedStart =
+                assertWorkflowFailure(() -> runtime.tx().execute(status -> runtime.service()
+                        .start(startCommand(seed, "c8-idem-start", "Changed request must conflict"))));
         assertEquals(WorkflowException.Code.CONFLICT, changedStart.code());
-        assertEquals(1L, scalarLong(
-                "select count(*) from core.idempotency_record where idempotency_key='c8-idem-start'"));
+        assertEquals(
+                1L, scalarLong("select count(*) from core.idempotency_record where idempotency_key='c8-idem-start'"));
 
-        WorkflowRuntimeService.Result approveReview = runtime.tx().execute(status -> runtime.service().act(actionCommand(
-                seed.actorId(), first.instance().id(), null, "START", "SUBMIT", "c8-idem-submit", "submit")));
+        WorkflowRuntimeService.Result approveReview = runtime.tx().execute(status -> runtime.service()
+                .act(actionCommand(
+                        seed.actorId(), first.instance().id(), null, "START", "SUBMIT", "c8-idem-submit", "submit")));
         assertNotNull(approveReview);
         assign(approveReview.task().id(), seed.actorId());
         WorkflowRuntimeService.ActionCommand approve = actionCommand(
-                seed.actorId(), approveReview.instance().id(), approveReview.task().id(), "REVIEW", "APPROVE",
-                "c8-idem-approve", "approve");
-        WorkflowRuntimeService.Result approved = runtime.tx().execute(status -> runtime.service().act(approve));
-        WorkflowRuntimeService.Result approveReplay = runtime.tx().execute(status -> runtime.service().act(approve));
+                seed.actorId(),
+                approveReview.instance().id(),
+                approveReview.task().id(),
+                "REVIEW",
+                "APPROVE",
+                "c8-idem-approve",
+                "approve");
+        WorkflowRuntimeService.Result approved =
+                runtime.tx().execute(status -> runtime.service().act(approve));
+        WorkflowRuntimeService.Result approveReplay =
+                runtime.tx().execute(status -> runtime.service().act(approve));
         assertNotNull(approved);
         assertNotNull(approveReplay);
         assertTrue(approveReplay.replayed());
         assertEquals(approved.action().id(), approveReplay.action().id());
-        WorkflowException changedApprove = assertWorkflowFailure(() -> runtime.tx().execute(status -> runtime.service().act(
-                actionCommand(seed.actorId(), approveReview.instance().id(), approveReview.task().id(), "REVIEW", "APPROVE",
-                        "c8-idem-approve", "changed reason"))));
+        WorkflowException changedApprove =
+                assertWorkflowFailure(() -> runtime.tx().execute(status -> runtime.service()
+                        .act(actionCommand(
+                                seed.actorId(),
+                                approveReview.instance().id(),
+                                approveReview.task().id(),
+                                "REVIEW",
+                                "APPROVE",
+                                "c8-idem-approve",
+                                "changed reason"))));
         assertEquals(WorkflowException.Code.CONFLICT, changedApprove.code());
-        assertEquals(1L, scalarLong(
-                "select count(*) from workflow.wf_action_log where instance_id='" + approveReview.instance().id()
-                        + "' and action_code='APPROVE'"));
+        assertEquals(
+                1L,
+                scalarLong("select count(*) from workflow.wf_action_log where instance_id='"
+                        + approveReview.instance().id() + "' and action_code='APPROVE'"));
 
         WorkflowRuntimeService.Result rejectReview = toReview(runtime, seed, "c8-reject");
         assign(rejectReview.task().id(), seed.actorId());
-        WorkflowRuntimeService.Result rejected = runtime.tx().execute(status -> runtime.service().act(actionCommand(
-                seed.actorId(), rejectReview.instance().id(), rejectReview.task().id(), "REVIEW", "REJECT",
-                "c8-reject-action", "reject reason")));
+        WorkflowRuntimeService.Result rejected = runtime.tx().execute(status -> runtime.service()
+                .act(actionCommand(
+                        seed.actorId(),
+                        rejectReview.instance().id(),
+                        rejectReview.task().id(),
+                        "REVIEW",
+                        "REJECT",
+                        "c8-reject-action",
+                        "reject reason")));
         assertEquals(WorkflowRuntimeService.REJECTED, rejected.instance().status());
         assertEquals("REJECT", rejected.action().actionCode());
-        assertEquals("REJECT", scalarString(
-                "select result_code from workflow.wf_task where id='" + rejectReview.task().id() + "'"));
+        assertEquals(
+                "REJECT",
+                scalarString("select result_code from workflow.wf_task where id='"
+                        + rejectReview.task().id() + "'"));
 
         WorkflowRuntimeService.Result returnReview = toReview(runtime, seed, "c8-return");
         assign(returnReview.task().id(), seed.actorId());
-        WorkflowRuntimeService.Result returned = runtime.tx().execute(status -> runtime.service().act(actionCommand(
-                seed.actorId(), returnReview.instance().id(), returnReview.task().id(), "REVIEW", "RETURN",
-                "c8-return-action", "return reason")));
+        WorkflowRuntimeService.Result returned = runtime.tx().execute(status -> runtime.service()
+                .act(actionCommand(
+                        seed.actorId(),
+                        returnReview.instance().id(),
+                        returnReview.task().id(),
+                        "REVIEW",
+                        "RETURN",
+                        "c8-return-action",
+                        "return reason")));
         assertEquals(WorkflowRuntimeService.RUNNING, returned.instance().status());
         assertEquals("START", returned.instance().currentNodeCode());
         assertEquals("RETURN", returned.action().actionCode());
 
-        WorkflowRuntimeService.Result withdrawStart = runtime.tx().execute(status -> runtime.service().start(startCommand(
-                seed, "c8-withdraw-start", "Withdraw workflow")));
-        WorkflowRuntimeService.Result withdrawn = runtime.tx().execute(status -> runtime.service().act(actionCommand(
-                seed.actorId(), withdrawStart.instance().id(), null, "START", "WITHDRAW",
-                "c8-withdraw-action", "withdraw reason")));
+        WorkflowRuntimeService.Result withdrawStart = runtime.tx().execute(status -> runtime.service()
+                .start(startCommand(seed, "c8-withdraw-start", "Withdraw workflow")));
+        WorkflowRuntimeService.Result withdrawn = runtime.tx().execute(status -> runtime.service()
+                .act(actionCommand(
+                        seed.actorId(),
+                        withdrawStart.instance().id(),
+                        null,
+                        "START",
+                        "WITHDRAW",
+                        "c8-withdraw-action",
+                        "withdraw reason")));
         assertEquals(WorkflowRuntimeService.WITHDRAWN, withdrawn.instance().status());
         assertEquals("WITHDRAW", withdrawn.action().actionCode());
 
-        assertEquals(1L, scalarLong("select count(*) from workflow.wf_action_log where id='" + rejected.action().id()
-                + "' and action_code='REJECT' and to_status='END_REJECT'"));
-        assertEquals(1L, scalarLong("select count(*) from workflow.wf_action_log where id='" + returned.action().id()
-                + "' and action_code='RETURN' and from_status='REVIEW' and to_status='START'"));
-        assertEquals(1L, scalarLong("select count(*) from workflow.wf_action_log where id='" + withdrawn.action().id()
-                + "' and action_code='WITHDRAW' and from_status='START' and to_status='END_WITHDRAW'"));
+        assertEquals(
+                1L,
+                scalarLong("select count(*) from workflow.wf_action_log where id='"
+                        + rejected.action().id() + "' and action_code='REJECT' and to_status='END_REJECT'"));
+        assertEquals(
+                1L,
+                scalarLong("select count(*) from workflow.wf_action_log where id='"
+                        + returned.action().id()
+                        + "' and action_code='RETURN' and from_status='REVIEW' and to_status='START'"));
+        assertEquals(
+                1L,
+                scalarLong("select count(*) from workflow.wf_action_log where id='"
+                        + withdrawn.action().id()
+                        + "' and action_code='WITHDRAW' and from_status='START' and to_status='END_WITHDRAW'"));
     }
 
     private static Attempt concurrentApprove(
-            UUID actorId,
-            UUID instanceId,
-            UUID taskId,
-            String key,
-            CountDownLatch ready,
-            CountDownLatch fire) {
+            UUID actorId, UUID instanceId, UUID taskId, String key, CountDownLatch ready, CountDownLatch fire) {
         RuntimeHandle runtime = runtime();
         ready.countDown();
         try {
             if (!fire.await(20, TimeUnit.SECONDS)) return new Attempt(false, WorkflowException.Code.CONFLICT);
-            runtime.tx().execute(status -> runtime.service().act(actionCommand(
-                    actorId, instanceId, taskId, "REVIEW", "APPROVE", key, key)));
+            runtime.tx().execute(status -> runtime.service()
+                    .act(actionCommand(actorId, instanceId, taskId, "REVIEW", "APPROVE", key, key)));
             return new Attempt(true, null);
         } catch (WorkflowException ex) {
             return new Attempt(false, ex.code());
@@ -285,19 +357,26 @@ class Phase05WorkflowFinalDatabaseIT {
     }
 
     private static WorkflowRuntimeService.Result toReview(RuntimeHandle runtime, RuntimeSeed seed, String prefix) {
-        WorkflowRuntimeService.Result started = runtime.tx().execute(status -> runtime.service().start(startCommand(
-                seed, prefix + "-start", prefix + " workflow")));
+        WorkflowRuntimeService.Result started = runtime.tx().execute(status -> runtime.service()
+                .start(startCommand(seed, prefix + "-start", prefix + " workflow")));
         assertNotNull(started);
-        WorkflowRuntimeService.Result review = runtime.tx().execute(status -> runtime.service().act(actionCommand(
-                seed.actorId(), started.instance().id(), null, "START", "SUBMIT", prefix + "-submit", "submit")));
+        WorkflowRuntimeService.Result review = runtime.tx().execute(status -> runtime.service()
+                .act(actionCommand(
+                        seed.actorId(),
+                        started.instance().id(),
+                        null,
+                        "START",
+                        "SUBMIT",
+                        prefix + "-submit",
+                        "submit")));
         assertNotNull(review);
         assertNotNull(review.task());
         return review;
     }
 
     private static RuntimeHandle runtime() {
-        DriverManagerDataSource dataSource = new DriverManagerDataSource(
-                jdbcUrl("sjg_oms"), postgres.getUsername(), postgres.getPassword());
+        DriverManagerDataSource dataSource =
+                new DriverManagerDataSource(jdbcUrl("sjg_oms"), postgres.getUsername(), postgres.getPassword());
         JdbcTemplate jdbc = new JdbcTemplate(dataSource);
         WorkflowRuntimeService service = new WorkflowRuntimeService(
                 new JdbcWorkflowRuntimeRepository(jdbc, new ObjectMapper()),
@@ -309,15 +388,16 @@ class Phase05WorkflowFinalDatabaseIT {
 
     private static RuntimeSeed seedRuntimeGraph() throws Exception {
         UUID actorId = UUID.randomUUID();
-        execute("insert into org.employee(id,tenant_id,employee_no,person_name,employment_status) values ('"
-                + actorId + "','" + BOOTSTRAP_TENANT + "','C8-" + shortId() + "','C8 Workflow Actor','ACTIVE')");
+        execute("insert into org.employee(id,tenant_id,employee_no,person_name,employment_status) values ('" + actorId
+                + "','" + BOOTSTRAP_TENANT + "','C8-" + shortId() + "','C8 Workflow Actor','ACTIVE')");
         UUID definitionId = scalarUuid("select id from workflow.wf_definition where tenant_id='" + BOOTSTRAP_TENANT
                 + "' and process_code='P006'");
         UUID versionId = UUID.randomUUID();
         int versionNo = VERSION_SEQUENCE.incrementAndGet();
-        execute("insert into workflow.wf_version(id,tenant_id,definition_id,version_no,status,definition_json,checksum) values ('"
-                + versionId + "','" + BOOTSTRAP_TENANT + "','" + definitionId + "'," + versionNo
-                + ",'DRAFT','{}'::jsonb,'c8-draft-" + shortId() + "')");
+        execute(
+                "insert into workflow.wf_version(id,tenant_id,definition_id,version_no,status,definition_json,checksum) values ('"
+                        + versionId + "','" + BOOTSTRAP_TENANT + "','" + definitionId + "'," + versionNo
+                        + ",'DRAFT','{}'::jsonb,'c8-draft-" + shortId() + "')");
         insertNode(versionId, "START", "START", 10);
         insertNode(versionId, "REVIEW", "TASK", 20);
         insertNode(versionId, "END_OK", "END", 30);
@@ -339,17 +419,28 @@ class Phase05WorkflowFinalDatabaseIT {
                 + "','" + type + "'," + sort + ")");
     }
 
-    private static void insertTransition(
-            UUID versionId, String from, String action, String to, boolean rollback) throws SQLException {
-        execute("insert into workflow.wf_transition(id,tenant_id,version_id,from_node_code,action_code,to_node_code,is_rollback) values ('"
-                + UUID.randomUUID() + "','" + BOOTSTRAP_TENANT + "','" + versionId + "','" + from + "','" + action
-                + "','" + to + "'," + rollback + ")");
+    private static void insertTransition(UUID versionId, String from, String action, String to, boolean rollback)
+            throws SQLException {
+        execute(
+                "insert into workflow.wf_transition(id,tenant_id,version_id,from_node_code,action_code,to_node_code,is_rollback) values ('"
+                        + UUID.randomUUID() + "','" + BOOTSTRAP_TENANT + "','" + versionId + "','" + from + "','"
+                        + action
+                        + "','" + to + "'," + rollback + ")");
     }
 
     private static WorkflowRuntimeService.StartCommand startCommand(RuntimeSeed seed, String key, String title) {
         return new WorkflowRuntimeService.StartCommand(
-                BOOTSTRAP_TENANT, seed.actorId(), null, seed.versionId(), "C8_TEST", null, null,
-                title, "NORMAL", new ObjectMapper().createObjectNode().put("c8", true), key);
+                BOOTSTRAP_TENANT,
+                seed.actorId(),
+                null,
+                seed.versionId(),
+                "C8_TEST",
+                null,
+                null,
+                title,
+                "NORMAL",
+                new ObjectMapper().createObjectNode().put("c8", true),
+                key);
     }
 
     private static WorkflowRuntimeService.ActionCommand actionCommand(
@@ -378,14 +469,19 @@ class Phase05WorkflowFinalDatabaseIT {
         execute("insert into core.tenant(id,tenant_code,tenant_name,status,timezone) values ('" + TENANT_A
                 + "','C8_RLS_A','C8 RLS Tenant A','ACTIVE','Asia/Shanghai'),('" + TENANT_B
                 + "','C8_RLS_B','C8 RLS Tenant B','ACTIVE','Asia/Shanghai')");
-        execute("insert into workflow.wf_definition(id,tenant_id,process_code,process_name,module_code,owner_schema,owner_table) values ('"
-                + tenantADefinition + "','" + TENANT_A + "','C8RLSA','C8 RLS Tenant A','C8','workflow','generic_request'),('"
-                + tenantBDefinition + "','" + TENANT_B + "','C8RLSB','C8 RLS Tenant B','C8','workflow','generic_request')");
+        execute(
+                "insert into workflow.wf_definition(id,tenant_id,process_code,process_name,module_code,owner_schema,owner_table) values ('"
+                        + tenantADefinition + "','" + TENANT_A
+                        + "','C8RLSA','C8 RLS Tenant A','C8','workflow','generic_request'),('"
+                        + tenantBDefinition + "','" + TENANT_B
+                        + "','C8RLSB','C8 RLS Tenant B','C8','workflow','generic_request')");
     }
 
     private static void assertApprovedRls(String qualified) throws Exception {
         String[] parts = qualified.split("\\.");
-        try (Connection connection = admin("sjg_oms"); PreparedStatement table = connection.prepareStatement("""
+        try (Connection connection = admin("sjg_oms");
+                PreparedStatement table = connection.prepareStatement(
+                        """
                 select c.relrowsecurity,pg_get_userbyid(c.relowner)
                 from pg_class c join pg_namespace n on n.oid=c.relnamespace
                 where n.nspname=? and c.relname=? and c.relkind in ('r','p')
@@ -412,7 +508,8 @@ class Phase05WorkflowFinalDatabaseIT {
     private static <T> T inApiTenant(UUID tenantId, Function<Connection, T> work) throws Exception {
         try (Connection connection = DriverManager.getConnection(jdbcUrl("sjg_oms"), "sjg_api_runtime", API_PASSWORD)) {
             connection.setAutoCommit(false);
-            try (PreparedStatement context = connection.prepareStatement("select set_config('app.tenant_id', ?, true)")) {
+            try (PreparedStatement context =
+                    connection.prepareStatement("select set_config('app.tenant_id', ?, true)")) {
                 context.setString(1, tenantId.toString());
                 context.executeQuery();
             }
@@ -431,7 +528,8 @@ class Phase05WorkflowFinalDatabaseIT {
     }
 
     private static long count(Connection connection, String sql) {
-        try (Statement statement = connection.createStatement(); ResultSet result = statement.executeQuery(sql)) {
+        try (Statement statement = connection.createStatement();
+                ResultSet result = statement.executeQuery(sql)) {
             assertTrue(result.next());
             return result.getLong(1);
         } catch (SQLException ex) {
@@ -466,14 +564,16 @@ class Phase05WorkflowFinalDatabaseIT {
     }
 
     private static void execute(String sql) throws SQLException {
-        try (Connection connection = admin("sjg_oms"); Statement statement = connection.createStatement()) {
+        try (Connection connection = admin("sjg_oms");
+                Statement statement = connection.createStatement()) {
             statement.execute(sql);
         }
     }
 
     private static UUID scalarUuid(String sql) throws SQLException {
-        try (Connection connection = admin("sjg_oms"); Statement statement = connection.createStatement();
-             ResultSet result = statement.executeQuery(sql)) {
+        try (Connection connection = admin("sjg_oms");
+                Statement statement = connection.createStatement();
+                ResultSet result = statement.executeQuery(sql)) {
             assertTrue(result.next());
             UUID value = result.getObject(1, UUID.class);
             assertNotNull(value);
@@ -482,16 +582,18 @@ class Phase05WorkflowFinalDatabaseIT {
     }
 
     private static long scalarLong(String sql) throws SQLException {
-        try (Connection connection = admin("sjg_oms"); Statement statement = connection.createStatement();
-             ResultSet result = statement.executeQuery(sql)) {
+        try (Connection connection = admin("sjg_oms");
+                Statement statement = connection.createStatement();
+                ResultSet result = statement.executeQuery(sql)) {
             assertTrue(result.next());
             return result.getLong(1);
         }
     }
 
     private static String scalarString(String sql) throws SQLException {
-        try (Connection connection = admin("sjg_oms"); Statement statement = connection.createStatement();
-             ResultSet result = statement.executeQuery(sql)) {
+        try (Connection connection = admin("sjg_oms");
+                Statement statement = connection.createStatement();
+                ResultSet result = statement.executeQuery(sql)) {
             assertTrue(result.next());
             return result.getString(1);
         }
@@ -499,8 +601,12 @@ class Phase05WorkflowFinalDatabaseIT {
 
     private static void migrate(String database, String generatedFolder, String overlayFolder) {
         List<String> locations = new ArrayList<>();
-        locations.add("filesystem:" + repoRoot.resolve("technical-platform/database/flyway").resolve(generatedFolder));
-        if (overlayFolder != null) locations.add("filesystem:" + repoRoot.resolve("technical-platform/database/flyway-overlays").resolve(overlayFolder));
+        locations.add("filesystem:"
+                + repoRoot.resolve("technical-platform/database/flyway").resolve(generatedFolder));
+        if (overlayFolder != null)
+            locations.add("filesystem:"
+                    + repoRoot.resolve("technical-platform/database/flyway-overlays")
+                            .resolve(overlayFolder));
         Flyway flyway = Flyway.configure()
                 .dataSource(jdbcUrl(database), postgres.getUsername(), postgres.getPassword())
                 .locations(locations.toArray(String[]::new))
@@ -547,7 +653,9 @@ class Phase05WorkflowFinalDatabaseIT {
     }
 
     private record RuntimeSeed(UUID actorId, UUID versionId) {}
+
     private record RuntimeHandle(WorkflowRuntimeService service, TransactionTemplate tx) {}
+
     private record Attempt(boolean success, WorkflowException.Code code) {}
 
     private static final class DatabaseTestException extends RuntimeException {

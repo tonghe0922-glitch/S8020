@@ -18,9 +18,7 @@ public record SessionViewResponse(
         List<AvailableIdentityView> availableIdentities) {
 
     public static SessionViewResponse from(
-            SessionContext context,
-            List<String> permissions,
-            List<IdentityRecord> identities) {
+            SessionContext context, List<String> permissions, List<IdentityRecord> identities) {
         return new SessionViewResponse(
                 context.tenantId(),
                 context.userId(),

@@ -28,7 +28,7 @@ import org.springframework.stereotype.Service;
 
 /** Source-backed P004 domain binding over the shared workflow runtime and canonical generic_request table. */
 @Service
-public final class GenericRequestService {
+public class GenericRequestService {
     public static final String PROCESS_CODE = "P004";
     public static final String INITIAL_FORM_CODE = "EMP-P004-F01";
     public static final String EVENT_TYPE = "P004_GENERIC_REQUEST_EVENT";
@@ -85,14 +85,23 @@ public final class GenericRequestService {
         return transactions.required(actor, () -> {
             UUID proposedId = UUID.randomUUID();
             IdempotencyClaim claim = idempotency.claim(
-                    actor.tenantId(), actor.employeeId(), idempotencyKey, requestHash,
-                    "workflow.generic_request", proposedId, IDEMPOTENCY_TTL);
+                    actor.tenantId(),
+                    actor.employeeId(),
+                    idempotencyKey,
+                    requestHash,
+                    "workflow.generic_request",
+                    proposedId,
+                    IDEMPOTENCY_TTL);
             if (claim.existing()) return required(actor.tenantId(), claim.resourceId());
 
-            UUID workflowVersion = repository.latestPublishedWorkflowVersion(actor.tenantId(), PROCESS_CODE)
-                    .orElseThrow(() -> new ProcessRejectedException("P004 published workflow version is not configured"));
-            FormRef form = repository.latestPublishedForm(actor.tenantId(), INITIAL_FORM_CODE, PROCESS_CODE, "S02")
-                    .orElseThrow(() -> new ProcessRejectedException("P004 initial published form EMP-P004-F01 is not configured"));
+            UUID workflowVersion = repository
+                    .latestPublishedWorkflowVersion(actor.tenantId(), PROCESS_CODE)
+                    .orElseThrow(
+                            () -> new ProcessRejectedException("P004 published workflow version is not configured"));
+            FormRef form = repository
+                    .latestPublishedForm(actor.tenantId(), INITIAL_FORM_CODE, PROCESS_CODE, "S02")
+                    .orElseThrow(() ->
+                            new ProcessRejectedException("P004 initial published form EMP-P004-F01 is not configured"));
             List<UUID> actionCandidates = repository.permissionCandidates(
                     actor.tenantId(), ACT_PERMISSION, actor.orgId(), actor.employeeId());
             if (actionCandidates.stream().distinct().count() < 2) {
@@ -102,12 +111,31 @@ public final class GenericRequestService {
 
             String businessNo = numbers.next(actor.tenantId(), actor.employeeId(), PROCESS_CODE);
             GenericRequest draft = new GenericRequest(
-                    claim.resourceId(), actor.tenantId(), businessNo, null, null, "S02", label("S02"), 0,
-                    command.requestType().trim(), command.subject().trim(), trimToNull(command.reason()),
-                    trimToNull(command.requestedResult()), command.businessDate(), null, null,
-                    actor.orgId(), actor.employeeId(), normalize(command.priority(), "NORMAL"),
-                    normalize(command.riskLevel(), "NORMAL"), command.amount(), null, null, 0,
-                    null, Instant.now());
+                    claim.resourceId(),
+                    actor.tenantId(),
+                    businessNo,
+                    null,
+                    null,
+                    "S02",
+                    label("S02"),
+                    0,
+                    command.requestType().trim(),
+                    command.subject().trim(),
+                    trimToNull(command.reason()),
+                    trimToNull(command.requestedResult()),
+                    command.businessDate(),
+                    null,
+                    null,
+                    actor.orgId(),
+                    actor.employeeId(),
+                    normalize(command.priority(), "NORMAL"),
+                    normalize(command.riskLevel(), "NORMAL"),
+                    command.amount(),
+                    null,
+                    null,
+                    0,
+                    null,
+                    Instant.now());
             repository.insert(draft, actor.employeeId());
 
             ObjectNode context = mapper.createObjectNode();
@@ -120,41 +148,86 @@ public final class GenericRequestService {
             context.set("recusedEmployeeIds", mapper.createArrayNode());
 
             WorkflowRuntimeService.Result started = workflow.start(new WorkflowRuntimeService.StartCommand(
-                    actor.tenantId(), actor.employeeId(), actor.identityId(), workflowVersion,
-                    "workflow.generic_request", draft.id(), draft.businessNo(), draft.subject(), draft.priority(),
-                    context, scopedKey(idempotencyKey, "start")));
+                    actor.tenantId(),
+                    actor.employeeId(),
+                    actor.identityId(),
+                    workflowVersion,
+                    "workflow.generic_request",
+                    draft.id(),
+                    draft.businessNo(),
+                    draft.subject(),
+                    draft.priority(),
+                    context,
+                    scopedKey(idempotencyKey, "start")));
 
             WorkflowFormService.Submission submission = forms.submit(new WorkflowFormService.SubmitForm(
-                    actor.tenantId(), actor.employeeId(), actor.identityId(), started.instance().id(), null,
-                    form.id(), form.versionNo(), initialFormValues(started.instance(), command), scopedKey(idempotencyKey, "form")));
+                    actor.tenantId(),
+                    actor.employeeId(),
+                    actor.identityId(),
+                    started.instance().id(),
+                    null,
+                    form.id(),
+                    form.versionNo(),
+                    initialFormValues(started.instance(), command),
+                    scopedKey(idempotencyKey, "form")));
 
             WorkflowRuntimeService.Result submitted = workflow.act(new WorkflowRuntimeService.ActionCommand(
-                    actor.tenantId(), actor.employeeId(), actor.identityId(), started.instance().id(), null,
-                    "S02", "SUBMIT", draft.reason(), scopedKey(idempotencyKey, "submit")));
+                    actor.tenantId(),
+                    actor.employeeId(),
+                    actor.identityId(),
+                    started.instance().id(),
+                    null,
+                    "S02",
+                    "SUBMIT",
+                    draft.reason(),
+                    scopedKey(idempotencyKey, "submit")));
             if (repository.bindWorkflowAndMove(
-                    actor.tenantId(), draft.id(), 0, submitted.instance().id(), label("S03"), actor.employeeId()) != 1) {
+                            actor.tenantId(),
+                            draft.id(),
+                            0,
+                            submitted.instance().id(),
+                            label("S03"),
+                            actor.employeeId())
+                    != 1) {
                 throw new ProcessRejectedException("P004 concurrent create transition conflict");
             }
-            emit(actor.tenantId(), actor.employeeId(), draft.id(), draft.businessNo(), "S02", "SUBMIT",
-                    submitted.instance().currentNodeCode(), recipients(submitted));
+            emit(
+                    actor.tenantId(),
+                    actor.employeeId(),
+                    draft.id(),
+                    draft.businessNo(),
+                    "S02",
+                    "SUBMIT",
+                    submitted.instance().currentNodeCode(),
+                    recipients(submitted));
             GenericRequest created = required(actor.tenantId(), draft.id());
             if (!submission.id().equals(created.initialSubmissionId())) {
-                throw new ProcessRejectedException("P004 initial form submission could not be recovered from the persisted instance");
+                throw new ProcessRejectedException(
+                        "P004 initial form submission could not be recovered from the persisted instance");
             }
             return created;
         });
     }
 
     public GenericRequest act(
-            DatabaseSecurityContext actor, UUID id, String actionCode,
-            String idempotencyKey, String requestHash, ActionCommand command) {
+            DatabaseSecurityContext actor,
+            UUID id,
+            String actionCode,
+            String idempotencyKey,
+            String requestHash,
+            ActionCommand command) {
         requireActor(actor);
         Objects.requireNonNull(command, "P004 action command is required");
         String action = normalize(actionCode, "").toUpperCase(Locale.ROOT);
         return transactions.required(actor, () -> {
             IdempotencyClaim claim = idempotency.claim(
-                    actor.tenantId(), actor.employeeId(), idempotencyKey, requestHash,
-                    "workflow.generic_request.action", id, IDEMPOTENCY_TTL);
+                    actor.tenantId(),
+                    actor.employeeId(),
+                    idempotencyKey,
+                    requestHash,
+                    "workflow.generic_request.action",
+                    id,
+                    IDEMPOTENCY_TTL);
             if (claim.existing()) return required(actor.tenantId(), id);
 
             GenericRequest current = required(actor.tenantId(), id);
@@ -171,12 +244,15 @@ public final class GenericRequestService {
 
             if ("S02".equals(node)) {
                 if (!actor.employeeId().equals(current.ownerEmployeeId())) {
-                    throw new ProcessRejectedException("P004 only the applicant may resubmit or withdraw a returned application");
+                    throw new ProcessRejectedException(
+                            "P004 only the applicant may resubmit or withdraw a returned application");
                 }
-                if (runtime.task() != null) throw new ProcessRejectedException("P004 S02 must not expose a task assignment");
+                if (runtime.task() != null)
+                    throw new ProcessRejectedException("P004 S02 must not expose a task assignment");
             } else {
                 if (actor.employeeId().equals(current.ownerEmployeeId())) {
-                    throw new ProcessRejectedException("P004 applicant cannot act on their own approval/execution task");
+                    throw new ProcessRejectedException(
+                            "P004 applicant cannot act on their own approval/execution task");
                 }
                 if (runtime.task() == null) throw new ProcessRejectedException("P004 current task is missing");
                 enforceSeparation(actor, current, node);
@@ -185,21 +261,41 @@ public final class GenericRequestService {
             }
 
             WorkflowRuntimeService.Result result = workflow.act(new WorkflowRuntimeService.ActionCommand(
-                    actor.tenantId(), actor.employeeId(), actor.identityId(), current.workflowInstanceId(),
-                    runtime.task() == null ? null : runtime.task().id(), node, action,
-                    trimToNull(command.reason()), scopedKey(idempotencyKey, "workflow")));
+                    actor.tenantId(),
+                    actor.employeeId(),
+                    actor.identityId(),
+                    current.workflowInstanceId(),
+                    runtime.task() == null ? null : runtime.task().id(),
+                    node,
+                    action,
+                    trimToNull(command.reason()),
+                    scopedKey(idempotencyKey, "workflow")));
             String targetNode = result.instance().currentNodeCode();
             Instant closedAt = "END".equals(targetNode) ? result.instance().finishedAt() : null;
-            BigDecimal actualAmount = "S07".equals(node) && "SUBMIT_RESULT".equals(action)
-                    ? command.actualAmount() : null;
+            BigDecimal actualAmount =
+                    "S07".equals(node) && "SUBMIT_RESULT".equals(action) ? command.actualAmount() : null;
             String resultSummary = trimToNull(command.resultSummary());
             if (repository.moveStatus(
-                    actor.tenantId(), current.id(), current.versionNo(), label(targetNode),
-                    actualAmount, resultSummary, closedAt, actor.employeeId()) != 1) {
+                            actor.tenantId(),
+                            current.id(),
+                            current.versionNo(),
+                            label(targetNode),
+                            actualAmount,
+                            resultSummary,
+                            closedAt,
+                            actor.employeeId())
+                    != 1) {
                 throw new ProcessRejectedException("P004 concurrent action conflict");
             }
-            emit(actor.tenantId(), actor.employeeId(), current.id(), current.businessNo(), node, action,
-                    targetNode, "END".equals(targetNode) ? List.of(current.ownerEmployeeId()) : recipients(result));
+            emit(
+                    actor.tenantId(),
+                    actor.employeeId(),
+                    current.id(),
+                    current.businessNo(),
+                    node,
+                    action,
+                    targetNode,
+                    "END".equals(targetNode) ? List.of(current.ownerEmployeeId()) : recipients(result));
             return required(actor.tenantId(), current.id());
         });
     }
@@ -217,24 +313,32 @@ public final class GenericRequestService {
     public boolean isApplicantAction(GenericRequest request, String actionCode) {
         if (request == null) return false;
         String action = normalize(actionCode, "").toUpperCase(Locale.ROOT);
-        return "S02".equals(request.currentNodeCode()) && Set.of("SUBMIT", "WITHDRAW").contains(action);
+        return "S02".equals(request.currentNodeCode())
+                && Set.of("SUBMIT", "WITHDRAW").contains(action);
     }
 
     private void enforceSeparation(DatabaseSecurityContext actor, GenericRequest current, String node) {
         if ("S05".equals(node)) {
-            repository.lastActorAtNodeAction(actor.tenantId(), current.workflowInstanceId(), "S04", "SUBMIT_APPROVAL")
+            repository
+                    .lastActorAtNodeAction(actor.tenantId(), current.workflowInstanceId(), "S04", "SUBMIT_APPROVAL")
                     .filter(actor.employeeId()::equals)
-                    .ifPresent(ignored -> { throw new ProcessRejectedException("P004 S04 and S05 require distinct employees"); });
+                    .ifPresent(ignored -> {
+                        throw new ProcessRejectedException("P004 S04 and S05 require distinct employees");
+                    });
         }
         if ("S08".equals(node)) {
-            repository.lastActorAtNodeAction(actor.tenantId(), current.workflowInstanceId(), "S07", "SUBMIT_RESULT")
+            repository
+                    .lastActorAtNodeAction(actor.tenantId(), current.workflowInstanceId(), "S07", "SUBMIT_RESULT")
                     .filter(actor.employeeId()::equals)
-                    .ifPresent(ignored -> { throw new ProcessRejectedException("P004 acceptance must be independent from the executor"); });
+                    .ifPresent(ignored -> {
+                        throw new ProcessRejectedException("P004 acceptance must be independent from the executor");
+                    });
         }
     }
 
     private GenericRequest required(UUID tenantId, UUID id) {
-        return repository.find(tenantId, id)
+        return repository
+                .find(tenantId, id)
                 .orElseThrow(() -> new ProcessRejectedException("P004 generic request not found"));
     }
 
@@ -258,16 +362,25 @@ public final class GenericRequestService {
     private static WorkflowFormService.FieldValue text(String code, String value) {
         return new WorkflowFormService.FieldValue(code, "TEXT", value, null, null, null, null, null, "P1", false);
     }
+
     private static WorkflowFormService.FieldValue number(String code, BigDecimal value) {
         return new WorkflowFormService.FieldValue(code, "NUMBER", null, value, null, null, null, null, "P1", false);
     }
+
     private static void addText(List<WorkflowFormService.FieldValue> values, String code, String value) {
         String normalized = trimToNull(value);
         if (normalized != null) values.add(text(code, normalized));
     }
 
-    private void emit(UUID tenantId, UUID actorId, UUID id, String businessNo,
-                      String completedNode, String actionCode, String targetNode, List<UUID> recipients) {
+    private void emit(
+            UUID tenantId,
+            UUID actorId,
+            UUID id,
+            String businessNo,
+            String completedNode,
+            String actionCode,
+            String targetNode,
+            List<UUID> recipients) {
         ObjectNode payload = mapper.createObjectNode();
         payload.put("requestId", id.toString());
         payload.put("businessNo", businessNo);
@@ -276,8 +389,15 @@ public final class GenericRequestService {
         payload.put("nodeCode", targetNode);
         payload.set("recipientEmployeeIds", uuidArray(recipients));
         outbox.enqueue(new TransactionalOutboxService.Command(
-                tenantId, actorId, AGGREGATE_TYPE, id, EVENT_TYPE, 1, json(payload),
-                "p004:" + id + ":" + completedNode.toLowerCase(Locale.ROOT) + ":" + actionCode.toLowerCase(Locale.ROOT)));
+                tenantId,
+                actorId,
+                AGGREGATE_TYPE,
+                id,
+                EVENT_TYPE,
+                1,
+                json(payload),
+                "p004:" + id + ":" + completedNode.toLowerCase(Locale.ROOT) + ":"
+                        + actionCode.toLowerCase(Locale.ROOT)));
     }
 
     private static String stageEvent(String node) {
@@ -300,21 +420,25 @@ public final class GenericRequestService {
         JsonNode field = result.task().candidateRule().get("field");
         if (field == null || !field.isTextual()) return List.of();
         JsonNode values = result.instance().contextSnapshot() == null
-                ? null : result.instance().contextSnapshot().get(field.textValue());
+                ? null
+                : result.instance().contextSnapshot().get(field.textValue());
         if (values == null || !values.isArray()) return List.of();
         List<UUID> ids = new ArrayList<>();
         values.forEach(value -> {
             if (value.isTextual()) {
-                try { ids.add(UUID.fromString(value.textValue())); }
-                catch (IllegalArgumentException ignored) { }
+                try {
+                    ids.add(UUID.fromString(value.textValue()));
+                } catch (IllegalArgumentException ignored) {
+                }
             }
         });
         return List.copyOf(ids);
     }
 
     private String json(JsonNode value) {
-        try { return mapper.writeValueAsString(value); }
-        catch (JsonProcessingException ex) {
+        try {
+            return mapper.writeValueAsString(value);
+        } catch (JsonProcessingException ex) {
             throw new ProcessRejectedException("P004 event payload cannot be serialized", ex);
         }
     }
@@ -327,8 +451,11 @@ public final class GenericRequestService {
 
     private static void validate(CreateCommand command) {
         Objects.requireNonNull(command, "P004 create command is required");
-        if (command.businessDate() == null || command.requestType() == null || command.requestType().isBlank()
-                || command.subject() == null || command.subject().isBlank()) {
+        if (command.businessDate() == null
+                || command.requestType() == null
+                || command.requestType().isBlank()
+                || command.subject() == null
+                || command.subject().isBlank()) {
             throw new ProcessRejectedException("P004 required request fields are missing");
         }
         if (command.amount() != null && command.amount().signum() < 0) {
@@ -337,14 +464,20 @@ public final class GenericRequestService {
     }
 
     private static void requireActor(DatabaseSecurityContext actor) {
-        if (actor == null || actor.tenantId() == null || actor.userId() == null || actor.identityId() == null
-                || actor.employeeId() == null || actor.orgId() == null || actor.positionId() == null) {
+        if (actor == null
+                || actor.tenantId() == null
+                || actor.userId() == null
+                || actor.identityId() == null
+                || actor.employeeId() == null
+                || actor.orgId() == null
+                || actor.positionId() == null) {
             throw new ProcessRejectedException("P004 authenticated employee context is required");
         }
     }
 
     private static void requireVersion(GenericRequest request, int expectedVersion) {
-        if (request.versionNo() != expectedVersion) throw new ProcessRejectedException("P004 generic request version conflict");
+        if (request.versionNo() != expectedVersion)
+            throw new ProcessRejectedException("P004 generic request version conflict");
     }
 
     public static String label(String node) {
@@ -369,41 +502,112 @@ public final class GenericRequestService {
         if (value.length() > 128) throw new ProcessRejectedException("P004 idempotency key is too long");
         return value;
     }
+
     private static String normalize(String value, String fallback) {
         return value == null || value.isBlank() ? fallback : value.trim();
     }
-    private static String trimToNull(String value) { return value == null || value.isBlank() ? null : value.trim(); }
+
+    private static String trimToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
+    }
 
     public interface Repository {
         Optional<UUID> latestPublishedWorkflowVersion(UUID tenantId, String processCode);
+
         Optional<FormRef> latestPublishedForm(UUID tenantId, String formCode, String processCode, String nodeCode);
+
         List<UUID> permissionCandidates(UUID tenantId, String permissionCode, UUID orgId, UUID excludedEmployeeId);
+
         void insert(GenericRequest request, UUID actorId);
-        int bindWorkflowAndMove(UUID tenantId, UUID id, int expectedVersion, UUID workflowInstanceId, String status, UUID actorId);
-        int moveStatus(UUID tenantId, UUID id, int expectedVersion, String status, BigDecimal actualAmount,
-                       String resultSummary, Instant closedAt, UUID actorId);
-        Optional<UUID> lastActorAtNodeAction(UUID tenantId, UUID workflowInstanceId, String nodeCode, String actionCode);
+
+        int bindWorkflowAndMove(
+                UUID tenantId, UUID id, int expectedVersion, UUID workflowInstanceId, String status, UUID actorId);
+
+        int moveStatus(
+                UUID tenantId,
+                UUID id,
+                int expectedVersion,
+                String status,
+                BigDecimal actualAmount,
+                String resultSummary,
+                Instant closedAt,
+                UUID actorId);
+
+        Optional<UUID> lastActorAtNodeAction(
+                UUID tenantId, UUID workflowInstanceId, String nodeCode, String actionCode);
+
         Optional<GenericRequest> find(UUID tenantId, UUID id);
+
         List<GenericRequest> list(UUID tenantId);
     }
 
     public record FormRef(UUID id, int versionNo) {}
+
     public record CreateCommand(
-            String requestType, String subject, String reason, String requestedResult, LocalDate businessDate,
-            String priority, String riskLevel, BigDecimal amount) {}
+            String requestType,
+            String subject,
+            String reason,
+            String requestedResult,
+            LocalDate businessDate,
+            String priority,
+            String riskLevel,
+            BigDecimal amount) {}
+
     public record ActionCommand(int expectedVersion, String reason, String resultSummary, BigDecimal actualAmount) {}
+
     public record GenericRequest(
-            UUID id, UUID tenantId, String businessNo, UUID workflowInstanceId, String workflowInstanceNo,
-            String currentNodeCode, String status, int versionNo, String requestType, String subject,
-            String reason, String requestedResult, LocalDate businessDate, BigDecimal actualAmount,
-            Instant actualEndAt, UUID ownerCenterId, UUID ownerEmployeeId, String priority, String riskLevel,
-            BigDecimal amount, UUID initialSubmissionId, String initialSubmissionNo, int initialFormVersion,
-            String resultSummary, Instant updatedAt) {
+            UUID id,
+            UUID tenantId,
+            String businessNo,
+            UUID workflowInstanceId,
+            String workflowInstanceNo,
+            String currentNodeCode,
+            String status,
+            int versionNo,
+            String requestType,
+            String subject,
+            String reason,
+            String requestedResult,
+            LocalDate businessDate,
+            BigDecimal actualAmount,
+            Instant actualEndAt,
+            UUID ownerCenterId,
+            UUID ownerEmployeeId,
+            String priority,
+            String riskLevel,
+            BigDecimal amount,
+            UUID initialSubmissionId,
+            String initialSubmissionNo,
+            int initialFormVersion,
+            String resultSummary,
+            Instant updatedAt) {
         public GenericRequest metadataOnly() {
-            return new GenericRequest(id, tenantId, businessNo, workflowInstanceId, workflowInstanceNo, currentNodeCode,
-                    status, versionNo, requestType, subject, null, null, businessDate, actualAmount, actualEndAt,
-                    ownerCenterId, ownerEmployeeId, priority, riskLevel, amount, initialSubmissionId,
-                    initialSubmissionNo, initialFormVersion, resultSummary, updatedAt);
+            return new GenericRequest(
+                    id,
+                    tenantId,
+                    businessNo,
+                    workflowInstanceId,
+                    workflowInstanceNo,
+                    currentNodeCode,
+                    status,
+                    versionNo,
+                    requestType,
+                    subject,
+                    null,
+                    null,
+                    businessDate,
+                    actualAmount,
+                    actualEndAt,
+                    ownerCenterId,
+                    ownerEmployeeId,
+                    priority,
+                    riskLevel,
+                    amount,
+                    initialSubmissionId,
+                    initialSubmissionNo,
+                    initialFormVersion,
+                    resultSummary,
+                    updatedAt);
         }
     }
 }

@@ -20,23 +20,43 @@ class StepUpMinimumMfaTest {
         StepUpTicketStore store = mock(StepUpTicketStore.class);
         StepUpAuditSink audit = mock(StepUpAuditSink.class);
         SessionContext subject = subject();
-        when(store.consume(anyString(), org.mockito.ArgumentMatchers.eq(subject),
-                org.mockito.ArgumentMatchers.eq("platform.file.download"), org.mockito.ArgumentMatchers.eq(2)))
+        when(store.consume(
+                        anyString(),
+                        org.mockito.ArgumentMatchers.eq(subject),
+                        org.mockito.ArgumentMatchers.eq("platform.file.download"),
+                        org.mockito.ArgumentMatchers.eq(2)))
                 .thenReturn(StepUpTicketStore.ConsumeOutcome.MFA_LEVEL_INSUFFICIENT);
-        StepUpService service = new StepUpService(mock(IdentityDirectoryService.class), store,
-                new StepUpPolicy(Duration.ofMinutes(5)), mock(MfaCapabilityProvider.class), audit);
+        StepUpService service = new StepUpService(
+                mock(IdentityDirectoryService.class),
+                store,
+                new StepUpPolicy(Duration.ofMinutes(5)),
+                mock(MfaCapabilityProvider.class),
+                audit);
 
-        StepUpRejectedException rejected = assertThrows(StepUpRejectedException.class,
+        StepUpRejectedException rejected = assertThrows(
+                StepUpRejectedException.class,
                 () -> service.requireAndConsume("synthetic-ticket", subject, "platform.file.download", 2));
         assertEquals(StepUpRejectedException.Reason.MFA_LEVEL_INSUFFICIENT, rejected.reason());
-        verify(store).consume(anyString(), org.mockito.ArgumentMatchers.eq(subject),
-                org.mockito.ArgumentMatchers.eq("platform.file.download"), org.mockito.ArgumentMatchers.eq(2));
-        verify(audit).record(org.mockito.ArgumentMatchers.argThat(event ->
-                "STEP_UP_REJECTED".equals(event.eventType()) && "MFA_LEVEL_INSUFFICIENT".equals(event.outcome())));
+        verify(store)
+                .consume(
+                        anyString(),
+                        org.mockito.ArgumentMatchers.eq(subject),
+                        org.mockito.ArgumentMatchers.eq("platform.file.download"),
+                        org.mockito.ArgumentMatchers.eq(2));
+        verify(audit)
+                .record(org.mockito.ArgumentMatchers.argThat(event -> "STEP_UP_REJECTED".equals(event.eventType())
+                        && "MFA_LEVEL_INSUFFICIENT".equals(event.outcome())));
     }
 
     private static SessionContext subject() {
-        return new SessionContext(UUID.randomUUID(),UUID.randomUUID(),UUID.randomUUID(),UUID.randomUUID(),
-                UUID.randomUUID(),UUID.randomUUID(),UUID.randomUUID(),Instant.now());
+        return new SessionContext(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                Instant.now());
     }
 }

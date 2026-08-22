@@ -10,7 +10,7 @@ import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.stereotype.Component;
 
 @Component
-public final class WorkerCriticalAuditService {
+public class WorkerCriticalAuditService {
     private final JdbcTemplate auditJdbc;
 
     public WorkerCriticalAuditService(
@@ -30,11 +30,17 @@ public final class WorkerCriticalAuditService {
             throw new ProcessRejectedException("critical worker audit context is incomplete");
         }
         try {
-            auditJdbc.update("""
+            auditJdbc.update(
+                    """
                     insert into audit.operation_log(
                         tenant_id,action,resource_type,resource_id,request_id)
                     values (?,?,?,?,?)
-                    """, tenantId, action, resourceType, resourceId, requestId(details));
+                    """,
+                    tenantId,
+                    action,
+                    resourceType,
+                    resourceId,
+                    requestId(details));
         } catch (DataAccessException ex) {
             throw new ProcessRejectedException("critical worker audit persistence is unavailable", ex);
         }

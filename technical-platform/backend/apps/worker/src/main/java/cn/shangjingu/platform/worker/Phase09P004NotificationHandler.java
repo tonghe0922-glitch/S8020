@@ -23,14 +23,22 @@ public final class Phase09P004NotificationHandler implements PlatformOutboxHandl
     private final ObjectMapper mapper;
 
     public Phase09P004NotificationHandler(NotificationService notifications, JdbcTemplate jdbc, ObjectMapper mapper) {
-        if (notifications == null || jdbc == null || mapper == null) throw new IllegalArgumentException("P004 notification dependencies are required");
+        if (notifications == null || jdbc == null || mapper == null)
+            throw new IllegalArgumentException("P004 notification dependencies are required");
         this.notifications = notifications;
         this.jdbc = jdbc;
         this.mapper = mapper;
     }
 
-    @Override public String eventType() { return EVENT_TYPE; }
-    @Override public String consumerName() { return "phase09-p004-notification"; }
+    @Override
+    public String eventType() {
+        return EVENT_TYPE;
+    }
+
+    @Override
+    public String consumerName() {
+        return "phase09-p004-notification";
+    }
 
     @Override
     public void handle(PlatformOutboxEvent event) {
@@ -44,17 +52,29 @@ public final class Phase09P004NotificationHandler implements PlatformOutboxHandl
         String nodeCode = requiredText(payload, "nodeCode");
         for (UUID recipient : recipients(payload.path("recipientEmployeeIds"))) {
             notifications.create(new NotificationService.CreateCommand(
-                    event.tenantId(), null, "p004-notify:" + event.id() + ":" + recipient,
-                    TEMPLATE, "IN_APP", "EMPLOYEE", recipient,
-                    Map.of("businessNo", businessNo, "event", eventCode, "nodeLabel", nodeLabel(nodeCode)), (Instant) null));
+                    event.tenantId(),
+                    null,
+                    "p004-notify:" + event.id() + ":" + recipient,
+                    TEMPLATE,
+                    "IN_APP",
+                    "EMPLOYEE",
+                    recipient,
+                    Map.of("businessNo", businessNo, "event", eventCode, "nodeLabel", nodeLabel(nodeCode)),
+                    (Instant) null));
         }
     }
 
     private void ensureTemplate(UUID tenantId) {
         if (tenantId == null) throw new IllegalArgumentException("P004 notification tenant is required");
-        jdbc.query("select pg_advisory_xact_lock(hashtextextended(cast(? as text),0))", rs -> { rs.next(); return null; },
+        jdbc.query(
+                "select pg_advisory_xact_lock(hashtextextended(cast(? as text),0))",
+                rs -> {
+                    rs.next();
+                    return null;
+                },
                 tenantId + "|" + TEMPLATE);
-        jdbc.update("""
+        jdbc.update(
+                """
                 insert into notification.template(
                     id,tenant_id,template_code,channel,title_template,body_template,variables_schema,enabled)
                 select gen_random_uuid(),?,'P004_GENERIC_REQUEST_EVENT','IN_APP',
@@ -64,7 +84,8 @@ public final class Phase09P004NotificationHandler implements PlatformOutboxHandl
                 where not exists (
                     select 1 from notification.template
                     where tenant_id=? and template_code='P004_GENERIC_REQUEST_EVENT' and not is_deleted)
-                """, tenantId,
+                """,
+                tenantId,
                 "{\"type\":\"object\",\"properties\":{\"businessNo\":{\"type\":\"string\"},\"event\":{\"type\":\"string\"},\"nodeLabel\":{\"type\":\"string\"}},\"required\":[\"businessNo\",\"event\",\"nodeLabel\"]}",
                 tenantId);
     }
@@ -72,7 +93,8 @@ public final class Phase09P004NotificationHandler implements PlatformOutboxHandl
     private JsonNode parse(String raw) {
         try {
             JsonNode value = mapper.readTree(raw);
-            if (value == null || !value.isObject()) throw new IllegalArgumentException("P004 event payload must be an object");
+            if (value == null || !value.isObject())
+                throw new IllegalArgumentException("P004 event payload must be an object");
             return value;
         } catch (IllegalArgumentException ex) {
             throw ex;
@@ -94,8 +116,11 @@ public final class Phase09P004NotificationHandler implements PlatformOutboxHandl
         if (values == null || !values.isArray()) return result;
         values.forEach(value -> {
             if (!value.isTextual()) return;
-            try { result.add(UUID.fromString(value.textValue())); }
-            catch (IllegalArgumentException ex) { throw new IllegalArgumentException("P004 notification recipient is not a UUID", ex); }
+            try {
+                result.add(UUID.fromString(value.textValue()));
+            } catch (IllegalArgumentException ex) {
+                throw new IllegalArgumentException("P004 notification recipient is not a UUID", ex);
+            }
         });
         return result;
     }

@@ -18,11 +18,11 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 
 @Service
-public final class CareCaseService {
+public class CareCaseService {
     public static final String PROCESS_CODE = "P016";
     private static final Duration IDEMPOTENCY_TTL = Duration.ofHours(24);
-    private static final SequentialStateMachine STATES = new SequentialStateMachine(
-            List.of("S01", "S02", "S03", "S04", "S05", "S06", "S07", "S08"));
+    private static final SequentialStateMachine STATES =
+            new SequentialStateMachine(List.of("S01", "S02", "S03", "S04", "S05", "S06", "S07", "S08"));
 
     private final TenantTransactionRunner transactions;
     private final IdempotencyRegistry idempotency;
@@ -43,26 +43,55 @@ public final class CareCaseService {
         this.financeCapabilities = List.copyOf(financeCapabilities);
     }
 
-    public CareCase create(DatabaseSecurityContext actor, String idempotencyKey, String requestHash, CreateCommand command) {
+    public CareCase create(
+            DatabaseSecurityContext actor, String idempotencyKey, String requestHash, CreateCommand command) {
         Objects.requireNonNull(actor, "actor");
         validate(command);
         return transactions.required(actor, () -> {
             UUID proposedId = UUID.randomUUID();
             IdempotencyClaim claim = idempotency.claim(
-                    actor.tenantId(), actor.userId(), idempotencyKey, requestHash,
-                    "welfare.care_case", proposedId, IDEMPOTENCY_TTL);
+                    actor.tenantId(),
+                    actor.userId(),
+                    idempotencyKey,
+                    requestHash,
+                    "welfare.care_case",
+                    proposedId,
+                    IDEMPOTENCY_TTL);
             if (claim.existing()) {
-                return repository.find(actor.tenantId(), claim.resourceId())
+                return repository
+                        .find(actor.tenantId(), claim.resourceId())
                         .orElseThrow(() -> new ProcessRejectedException("idempotent care case no longer exists"));
             }
             String businessNo = numbers.next(actor.tenantId(), actor.userId(), PROCESS_CODE);
             CareCase created = new CareCase(
-                    proposedId, actor.tenantId(), businessNo, STATES.initial(), 0,
-                    command.sourceChannel(), command.businessDate(), command.subject(), command.reason(),
-                    command.priority(), command.riskLevel(), command.ownerCenterId(), command.ownerDepartmentId(),
-                    command.ownerEmployeeId(), command.benefitAmount(), command.budgetItemId(), command.costCenterId(),
-                    command.currency(), command.employeeEventType(), command.factOccurredAt(), command.factSummary(),
-                    command.impactEffectiveDate(), command.impactLevel(), command.pointsDelta(), null, null, null, null);
+                    proposedId,
+                    actor.tenantId(),
+                    businessNo,
+                    STATES.initial(),
+                    0,
+                    command.sourceChannel(),
+                    command.businessDate(),
+                    command.subject(),
+                    command.reason(),
+                    command.priority(),
+                    command.riskLevel(),
+                    command.ownerCenterId(),
+                    command.ownerDepartmentId(),
+                    command.ownerEmployeeId(),
+                    command.benefitAmount(),
+                    command.budgetItemId(),
+                    command.costCenterId(),
+                    command.currency(),
+                    command.employeeEventType(),
+                    command.factOccurredAt(),
+                    command.factSummary(),
+                    command.impactEffectiveDate(),
+                    command.impactLevel(),
+                    command.pointsDelta(),
+                    null,
+                    null,
+                    null,
+                    null);
             repository.insert(created, actor.userId());
             return created;
         });
@@ -82,7 +111,8 @@ public final class CareCaseService {
             ClosureChecklist closureChecklist) {
         Objects.requireNonNull(actor, "actor");
         return transactions.required(actor, () -> {
-            CareCase current = repository.find(actor.tenantId(), id)
+            CareCase current = repository
+                    .find(actor.tenantId(), id)
                     .orElseThrow(() -> new ProcessRejectedException("care case not found"));
             if (current.versionNo() != expectedVersion) {
                 throw new ProcessRejectedException("care case version conflict");
@@ -111,12 +141,20 @@ public final class CareCaseService {
                 closedAt = actualEndAt;
             }
             int updated = repository.updateStatus(
-                    actor.tenantId(), id, expectedVersion, requestedStatus, resultSummary,
-                    actualStartAt, actualEndAt, closedAt, actor.userId());
+                    actor.tenantId(),
+                    id,
+                    expectedVersion,
+                    requestedStatus,
+                    resultSummary,
+                    actualStartAt,
+                    actualEndAt,
+                    closedAt,
+                    actor.userId());
             if (updated != 1) {
                 throw new ProcessRejectedException("care case concurrent update conflict");
             }
-            return repository.find(actor.tenantId(), id)
+            return repository
+                    .find(actor.tenantId(), id)
                     .orElseThrow(() -> new ProcessRejectedException("care case disappeared after update"));
         });
     }
@@ -125,7 +163,8 @@ public final class CareCaseService {
         Objects.requireNonNull(actor, "actor");
         validateInvoice(invoice);
         transactions.required(actor, () -> {
-            CareCase current = repository.find(actor.tenantId(), id)
+            CareCase current = repository
+                    .find(actor.tenantId(), id)
                     .orElseThrow(() -> new ProcessRejectedException("care case not found"));
             finance().assertInvoiceUnique(current, invoice);
             return null;
@@ -142,7 +181,8 @@ public final class CareCaseService {
             validateInvoice(invoice);
         }
         transactions.required(actor, () -> {
-            CareCase current = repository.find(actor.tenantId(), id)
+            CareCase current = repository
+                    .find(actor.tenantId(), id)
                     .orElseThrow(() -> new ProcessRejectedException("care case not found"));
             FinanceCapability capability = finance();
             if (invoice != null) {
@@ -157,7 +197,8 @@ public final class CareCaseService {
     public void reconcileBenefit(DatabaseSecurityContext actor, UUID id) {
         Objects.requireNonNull(actor, "actor");
         transactions.required(actor, () -> {
-            CareCase current = repository.find(actor.tenantId(), id)
+            CareCase current = repository
+                    .find(actor.tenantId(), id)
                     .orElseThrow(() -> new ProcessRejectedException("care case not found"));
             finance().reconcile(current);
             return null;
@@ -173,8 +214,12 @@ public final class CareCaseService {
 
     private static void validate(CreateCommand command) {
         Objects.requireNonNull(command, "command");
-        if (blank(command.costCenterId()) || blank(command.currency()) || blank(command.employeeEventType())
-                || command.factOccurredAt() == null || blank(command.factSummary()) || blank(command.impactLevel())) {
+        if (blank(command.costCenterId())
+                || blank(command.currency())
+                || blank(command.employeeEventType())
+                || command.factOccurredAt() == null
+                || blank(command.factSummary())
+                || blank(command.impactLevel())) {
             throw new ProcessRejectedException("required care case fields are missing");
         }
         if (command.benefitAmount() != null && command.benefitAmount().signum() < 0) {
@@ -184,17 +229,25 @@ public final class CareCaseService {
 
     private static void validateInvoice(InvoiceEvidence invoice) {
         Objects.requireNonNull(invoice, "invoice");
-        if (invoice.amount() == null || invoice.amount().signum() < 0
-                || blank(invoice.invoiceCode()) || blank(invoice.invoiceNumber())
-                || invoice.invoiceDate() == null || invoice.fileId() == null
-                || blank(invoice.imageSha256()) || invoice.imageSha256().length() != 64) {
+        if (invoice.amount() == null
+                || invoice.amount().signum() < 0
+                || blank(invoice.invoiceCode())
+                || blank(invoice.invoiceNumber())
+                || invoice.invoiceDate() == null
+                || invoice.fileId() == null
+                || blank(invoice.imageSha256())
+                || invoice.imageSha256().length() != 64) {
             throw new ProcessRejectedException("invoice evidence is incomplete or invalid");
         }
     }
 
     private static void requireClosure(ClosureChecklist checklist, String resultSummary) {
-        if (checklist == null || !checklist.requiredTasksComplete() || !checklist.settlementReceiptComplete()
-                || !checklist.exceptionsResolved() || !checklist.archiveComplete() || blank(resultSummary)) {
+        if (checklist == null
+                || !checklist.requiredTasksComplete()
+                || !checklist.settlementReceiptComplete()
+                || !checklist.exceptionsResolved()
+                || !checklist.archiveComplete()
+                || blank(resultSummary)) {
             throw new ProcessRejectedException("care case close conditions are not satisfied");
         }
     }
@@ -205,14 +258,26 @@ public final class CareCaseService {
 
     public interface Repository {
         void insert(CareCase careCase, UUID actorId);
+
         Optional<CareCase> find(UUID tenantId, UUID id);
-        int updateStatus(UUID tenantId, UUID id, int expectedVersion, String status, String resultSummary,
-                Instant actualStartAt, Instant actualEndAt, Instant closedAt, UUID actorId);
+
+        int updateStatus(
+                UUID tenantId,
+                UUID id,
+                int expectedVersion,
+                String status,
+                String resultSummary,
+                Instant actualStartAt,
+                Instant actualEndAt,
+                Instant closedAt,
+                UUID actorId);
     }
 
     public interface FinanceCapability {
         void validateBudgetInvoiceAndExecute(CareCase careCase);
+
         void reconcile(CareCase careCase);
+
         void assertInvoiceUnique(CareCase careCase, InvoiceEvidence invoiceEvidence);
     }
 
@@ -222,15 +287,13 @@ public final class CareCaseService {
             LocalDate invoiceDate,
             BigDecimal amount,
             UUID fileId,
-            String imageSha256) {
-    }
+            String imageSha256) {}
 
     public record ClosureChecklist(
             boolean requiredTasksComplete,
             boolean settlementReceiptComplete,
             boolean exceptionsResolved,
-            boolean archiveComplete) {
-    }
+            boolean archiveComplete) {}
 
     public record CreateCommand(
             String sourceChannel,
@@ -251,8 +314,7 @@ public final class CareCaseService {
             String factSummary,
             LocalDate impactEffectiveDate,
             String impactLevel,
-            Long pointsDelta) {
-    }
+            Long pointsDelta) {}
 
     public record CareCase(
             UUID id,
@@ -282,6 +344,5 @@ public final class CareCaseService {
             String resultSummary,
             Instant actualStartAt,
             Instant actualEndAt,
-            Instant closedAt) {
-    }
+            Instant closedAt) {}
 }

@@ -15,7 +15,7 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 
 @Service
-public final class IdentityDirectoryService {
+public class IdentityDirectoryService {
     private final IdentityDirectoryPort identities;
     private final OrgDirectoryService organizations;
     private final TenantTransactionRunner tenantTransactions;
@@ -43,10 +43,7 @@ public final class IdentityDirectoryService {
 
     public List<IdentityRecord> activeIdentities(UUID tenantId, UUID userId) {
         return tenantTransactions.required(
-                tenantId,
-                userId,
-                null,
-                () -> identities.findActiveIdentities(tenantId, userId).stream()
+                tenantId, userId, null, () -> identities.findActiveIdentities(tenantId, userId).stream()
                         .filter(identity -> identity.employeeId() != null)
                         .filter(identity -> identity.orgId() != null)
                         .filter(identity -> identity.positionId() != null)
@@ -54,42 +51,42 @@ public final class IdentityDirectoryService {
     }
 
     public Optional<IdentityRecord> activeIdentity(UUID tenantId, UUID userId, UUID identityId) {
-        return tenantTransactions.required(tenantId, userId, identityId, () ->
-                identities.findActiveIdentity(tenantId, userId, identityId)
-                        .filter(identity -> identity.employeeId() != null && identity.orgId() != null && identity.positionId() != null)
-                        .filter(identity -> organizations.hasActiveAppointment(
-                                tenantId, identity.employeeId(), identity.orgId(), identity.positionId())));
+        return tenantTransactions.required(tenantId, userId, identityId, () -> identities
+                .findActiveIdentity(tenantId, userId, identityId)
+                .filter(identity ->
+                        identity.employeeId() != null && identity.orgId() != null && identity.positionId() != null)
+                .filter(identity -> organizations.hasActiveAppointment(
+                        tenantId, identity.employeeId(), identity.orgId(), identity.positionId())));
     }
 
     public Optional<AppointmentRecord> activeAppointment(UUID tenantId, IdentityRecord identity) {
         return tenantTransactions.required(
-                tenantId,
-                identity.userId(),
-                identity.id(),
-                () -> matchingAppointments(tenantId, identity).stream().findFirst());
+                tenantId, identity.userId(), identity.id(), () -> matchingAppointments(tenantId, identity).stream()
+                        .findFirst());
     }
 
     public Optional<AppointmentRecord> activeAppointment(UUID tenantId, UUID userId, UUID identityId) {
-        return tenantTransactions.required(tenantId, userId, identityId, () ->
-                identities.findActiveIdentity(tenantId, userId, identityId)
-                        .flatMap(identity -> matchingAppointments(tenantId, identity).stream().findFirst()));
+        return tenantTransactions.required(tenantId, userId, identityId, () -> identities
+                .findActiveIdentity(tenantId, userId, identityId)
+                .flatMap(identity ->
+                        matchingAppointments(tenantId, identity).stream().findFirst()));
     }
 
     public Optional<AppointmentRecord> activeAppointment(
-            UUID tenantId,
-            UUID userId,
-            UUID identityId,
-            UUID appointmentId) {
-        return tenantTransactions.required(tenantId, userId, identityId, () ->
-                identities.findActiveIdentity(tenantId, userId, identityId)
-                        .flatMap(identity -> matchingAppointments(tenantId, identity).stream()
-                                .filter(appointment -> appointment.id().equals(appointmentId))
-                                .findFirst()));
+            UUID tenantId, UUID userId, UUID identityId, UUID appointmentId) {
+        return tenantTransactions.required(tenantId, userId, identityId, () -> identities
+                .findActiveIdentity(tenantId, userId, identityId)
+                .flatMap(identity -> matchingAppointments(tenantId, identity).stream()
+                        .filter(appointment -> appointment.id().equals(appointmentId))
+                        .findFirst()));
     }
 
     public AuthorizationSnapshot authorization(UUID tenantId, UUID userId, UUID identityId) {
-        return tenantTransactions.required(tenantId, userId, identityId, () ->
-                AuthorizationSnapshot.from(identities.findAuthorizationGrants(tenantId, userId, identityId)));
+        return tenantTransactions.required(
+                tenantId,
+                userId,
+                identityId,
+                () -> AuthorizationSnapshot.from(identities.findAuthorizationGrants(tenantId, userId, identityId)));
     }
 
     public AuthorizationSnapshot authorization(SessionContext subject) {
@@ -101,8 +98,9 @@ public final class IdentityDirectoryService {
                 subject.appointmentId(),
                 subject.orgId(),
                 subject.positionId());
-        return tenantTransactions.required(databaseContext, () ->
-                AuthorizationSnapshot.from(identities.findAuthorizationGrants(
+        return tenantTransactions.required(
+                databaseContext,
+                () -> AuthorizationSnapshot.from(identities.findAuthorizationGrants(
                         subject.tenantId(), subject.userId(), subject.identityId())));
     }
 

@@ -24,7 +24,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/processes/P002/permission-requests")
-public final class P002PermissionRequestController {
+public class P002PermissionRequestController {
     private static final String SUBMIT = "p002.request.submit";
     private static final String READ = "p002.request.read";
     private static final String REVIEW = "p002.request.review";
@@ -56,20 +56,25 @@ public final class P002PermissionRequestController {
             @RequestHeader("Idempotency-Key") String idempotencyKey,
             @RequestBody PermissionRequestService.CreateCommand command) {
         require(authorization.authorizeAction(principal.context(), SUBMIT));
-        require(authorization.authorizeData(principal.context(), SUBMIT, new AuthorizationTarget(
-                principal.context().tenantId(), principal.context().employeeId(), principal.context().orgId(),
-                principal.context().positionId(), principal.context().employeeId())));
+        require(authorization.authorizeData(
+                principal.context(),
+                SUBMIT,
+                new AuthorizationTarget(
+                        principal.context().tenantId(),
+                        principal.context().employeeId(),
+                        principal.context().orgId(),
+                        principal.context().positionId(),
+                        principal.context().employeeId())));
         audit.recordOperation(principal.context(), "P002_CREATE_ATTEMPT", "iam.permission_request", null);
-        PermissionRequestService.PermissionRequest created = requests.create(
-                context(principal), idempotencyKey, hash(command), command);
+        PermissionRequestService.PermissionRequest created =
+                requests.create(context(principal), idempotencyKey, hash(command), command);
         audit.recordOperation(principal.context(), "P002_CREATED", "iam.permission_request", created.id());
         return created;
     }
 
     @GetMapping("/{id}")
     public PermissionRequestService.PermissionRequest get(
-            @AuthenticationPrincipal SessionPrincipal principal,
-            @PathVariable UUID id) {
+            @AuthenticationPrincipal SessionPrincipal principal, @PathVariable UUID id) {
         require(authorization.authorizeAction(principal.context(), READ));
         PermissionRequestService.PermissionRequest request = requests.find(context(principal), id)
                 .orElseThrow(() -> new IllegalArgumentException("P002 permission request not found"));
@@ -79,11 +84,12 @@ public final class P002PermissionRequestController {
     }
 
     @GetMapping
-    public List<PermissionRequestService.PermissionRequest> list(
-            @AuthenticationPrincipal SessionPrincipal principal) {
+    public List<PermissionRequestService.PermissionRequest> list(@AuthenticationPrincipal SessionPrincipal principal) {
         require(authorization.authorizeAction(principal.context(), READ));
         List<PermissionRequestService.PermissionRequest> visible = requests.list(context(principal)).stream()
-                .filter(request -> authorization.authorizeData(principal.context(), READ, target(request)).allowed())
+                .filter(request -> authorization
+                        .authorizeData(principal.context(), READ, target(request))
+                        .allowed())
                 .toList();
         audit.recordOperation(principal.context(), "P002_LIST", "iam.permission_request", null);
         return visible;
@@ -99,8 +105,8 @@ public final class P002PermissionRequestController {
         DatabaseSecurityContext actor = context(principal);
         reviewSeparation.requireDistinctReviewer(actor, current, idempotencyKey);
         audit.recordOperation(principal.context(), "P002_REVIEW_ATTEMPT", "iam.permission_request", id);
-        PermissionRequestService.PermissionRequest result = requests.review(
-                actor, current.id(), idempotencyKey, hash(command), command);
+        PermissionRequestService.PermissionRequest result =
+                requests.review(actor, current.id(), idempotencyKey, hash(command), command);
         audit.recordOperation(principal.context(), "P002_REVIEWED", "iam.permission_request", id);
         return result;
     }
@@ -113,8 +119,8 @@ public final class P002PermissionRequestController {
             @RequestBody PermissionRequestService.ActionCommand command) {
         PermissionRequestService.PermissionRequest current = scoped(principal, id, EXECUTE);
         audit.recordOperation(principal.context(), "P002_EXECUTE_ATTEMPT", "iam.permission_request", id);
-        PermissionRequestService.PermissionRequest result = requests.execute(
-                context(principal), current.id(), idempotencyKey, hash(command), command);
+        PermissionRequestService.PermissionRequest result =
+                requests.execute(context(principal), current.id(), idempotencyKey, hash(command), command);
         audit.recordOperation(principal.context(), "P002_EXECUTED", "iam.permission_request", id);
         return result;
     }
@@ -127,8 +133,8 @@ public final class P002PermissionRequestController {
             @RequestBody PermissionRequestService.ActionCommand command) {
         PermissionRequestService.PermissionRequest current = scoped(principal, id, REVOKE);
         audit.recordOperation(principal.context(), "P002_REVOKE_ATTEMPT", "iam.permission_request", id);
-        PermissionRequestService.PermissionRequest result = requests.revoke(
-                context(principal), current.id(), idempotencyKey, hash(command), command);
+        PermissionRequestService.PermissionRequest result =
+                requests.revoke(context(principal), current.id(), idempotencyKey, hash(command), command);
         audit.recordOperation(principal.context(), "P002_REVOKED", "iam.permission_request", id);
         return result;
     }
@@ -142,7 +148,11 @@ public final class P002PermissionRequestController {
     }
 
     private static AuthorizationTarget target(PermissionRequestService.PermissionRequest request) {
-        return new AuthorizationTarget(request.tenantId(), request.ownerEmployeeId(), request.ownerCenterId(), null,
+        return new AuthorizationTarget(
+                request.tenantId(),
+                request.ownerEmployeeId(),
+                request.ownerCenterId(),
+                null,
                 request.ownerEmployeeId());
     }
 
@@ -158,7 +168,8 @@ public final class P002PermissionRequestController {
 
     private String hash(Object value) {
         try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(mapper.writeValueAsBytes(value)));
+            return HexFormat.of()
+                    .formatHex(MessageDigest.getInstance("SHA-256").digest(mapper.writeValueAsBytes(value)));
         } catch (Exception ex) {
             throw new IllegalArgumentException("P002 request cannot be hashed", ex);
         }

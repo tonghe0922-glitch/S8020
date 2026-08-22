@@ -12,5 +12,4 @@ public record AppointmentRecord(
         boolean primary,
         LocalDate effectiveStartDate,
         LocalDate effectiveEndDate,
-        String status) {
-}
+        String status) {}

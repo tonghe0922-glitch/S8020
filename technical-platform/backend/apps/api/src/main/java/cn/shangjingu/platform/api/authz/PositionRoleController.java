@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/authz/positions/{positionId}/roles")
-public final class PositionRoleController {
+public class PositionRoleController {
     private final AuthzConfigurationService service;
     private final AuthzApiSupport support;
 
@@ -28,8 +28,7 @@ public final class PositionRoleController {
 
     @GetMapping
     public List<PositionRoleView> list(
-            @AuthenticationPrincipal SessionPrincipal principal,
-            @PathVariable UUID positionId) {
+            @AuthenticationPrincipal SessionPrincipal principal, @PathVariable UUID positionId) {
         support.requireRead(principal);
         List<PositionRoleView> result = service.positionRoles(support.context(principal), positionId);
         support.auditRead(principal, "AUTHZ_POSITION_ROLE_LIST", "iam.position_role", positionId);
@@ -43,10 +42,9 @@ public final class PositionRoleController {
             @RequestHeader("X-Step-Up-Ticket") String stepUpTicket,
             @RequestBody List<PositionRoleSelection> selections) {
         support.requireWrite(principal, AuthzApiSupport.POSITION_ROLE_MANAGE, stepUpTicket);
-        Mutation<List<PositionRoleView>> mutation = service.replacePositionRoles(
-                support.context(principal), positionId, selections);
-        support.auditMutation(
-                principal, "AUTHZ_POSITION_ROLES_REPLACED", "iam.position_role", positionId, mutation);
+        Mutation<List<PositionRoleView>> mutation =
+                service.replacePositionRoles(support.context(principal), positionId, selections);
+        support.auditMutation(principal, "AUTHZ_POSITION_ROLES_REPLACED", "iam.position_role", positionId, mutation);
         return mutation.after();
     }
 }

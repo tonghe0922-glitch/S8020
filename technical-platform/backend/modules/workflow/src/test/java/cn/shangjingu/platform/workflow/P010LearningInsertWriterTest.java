@@ -30,32 +30,31 @@ class P010LearningInsertWriterTest {
         UUID ownerCenterId = UUID.randomUUID();
         UUID ownerEmployeeId = UUID.randomUUID();
         UUID actor = UUID.randomUUID();
-        LearningService.LearningRecord record =
-                new LearningService.LearningRecord(
-                        id,
-                        tenantId,
-                        "P010-TEST-001",
-                        null,
-                        null,
-                        "S01",
-                        LearningService.label("S01"),
-                        0,
-                        "P010 test assignment",
-                        ownerCenterId,
-                        ownerEmployeeId,
-                        "V1",
-                        "COURSE-P010-TEST",
-                        "P010-TEST-PERIOD",
-                        BigDecimal.ZERO,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        Instant.now());
+        LearningService.LearningRecord record = new LearningService.LearningRecord(
+                id,
+                tenantId,
+                "P010-TEST-001",
+                null,
+                null,
+                "S01",
+                LearningService.label("S01"),
+                0,
+                "P010 test assignment",
+                ownerCenterId,
+                ownerEmployeeId,
+                "V1",
+                "COURSE-P010-TEST",
+                "P010-TEST-PERIOD",
+                BigDecimal.ZERO,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                Instant.now());
 
         writer.insert(
                 record,
@@ -67,17 +66,28 @@ class P010LearningInsertWriterTest {
                 Instant.parse("2031-05-31T09:00:00Z"),
                 actor);
 
-        ArgumentCaptor<SqlParameterSource> captor =
-                ArgumentCaptor.forClass(SqlParameterSource.class);
+        ArgumentCaptor<SqlParameterSource> captor = ArgumentCaptor.forClass(SqlParameterSource.class);
         verify(jdbc).update(eq(P010LearningInsertWriter.INSERT_SQL), captor.capture());
         MapSqlParameterSource parameters = (MapSqlParameterSource) captor.getValue();
         assertFalse(P010LearningInsertWriter.INSERT_SQL.contains("?"));
         assertEquals(
                 Set.of(
-                        "id", "tenantId", "businessNo", "status", "actor", "subject",
-                        "reason", "riskLevel", "ownerCenterId", "ownerEmployeeId",
-                        "plannedStartAt", "plannedFinishAt", "contentVersion",
-                        "courseTeamName", "courseVersionId", "learnerProfile",
+                        "id",
+                        "tenantId",
+                        "businessNo",
+                        "status",
+                        "actor",
+                        "subject",
+                        "reason",
+                        "riskLevel",
+                        "ownerCenterId",
+                        "ownerEmployeeId",
+                        "plannedStartAt",
+                        "plannedFinishAt",
+                        "contentVersion",
+                        "courseTeamName",
+                        "courseVersionId",
+                        "learnerProfile",
                         "periodOrCourseNo"),
                 Set.of(parameters.getParameterNames()));
         assertEquals(id, parameters.getValue("id"));

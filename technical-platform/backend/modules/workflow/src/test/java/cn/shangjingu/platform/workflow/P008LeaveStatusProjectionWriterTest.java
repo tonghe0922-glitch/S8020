@@ -16,13 +16,7 @@ class P008LeaveStatusProjectionWriterTest {
         P008LeaveStatusProjectionWriter writer = new P008LeaveStatusProjectionWriter(jdbc);
         Instant closedAt = Instant.parse("2026-08-14T09:30:00Z");
 
-        int updated = writer.moveStatus(
-                UUID.randomUUID(),
-                UUID.randomUUID(),
-                8,
-                "已关闭",
-                closedAt,
-                UUID.randomUUID());
+        int updated = writer.moveStatus(UUID.randomUUID(), UUID.randomUUID(), 8, "已关闭", closedAt, UUID.randomUUID());
 
         assertEquals(1, updated);
         assertTrue(jdbc.sql.contains("closed_at=coalesce(?,closed_at)"));

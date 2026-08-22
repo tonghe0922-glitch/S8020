@@ -31,10 +31,7 @@ public final class PermissionPreviewCalculator {
             Accumulator current = byCode.computeIfAbsent(
                     fact.permissionCode(),
                     ignored -> new Accumulator(
-                            fact.permissionCode(),
-                            fact.permissionName(),
-                            fact.actionCode(),
-                            fact.riskLevel()));
+                            fact.permissionCode(), fact.permissionName(), fact.actionCode(), fact.riskLevel()));
             current.roles.add(fact.roleCode());
             if (fact.moduleId() != null) {
                 current.moduleIds.add(fact.moduleId());
@@ -49,9 +46,7 @@ public final class PermissionPreviewCalculator {
         for (Accumulator value : byCode.values()) {
             boolean unclassified = value.moduleIds.isEmpty();
             boolean moduleEnabled = unclassified || value.moduleIds.stream().anyMatch(enabledModuleIds::contains);
-            String reason = unclassified
-                    ? "未归属模块，迁移期兼容放行"
-                    : moduleEnabled ? "角色权限存在且组织模块已启用" : "角色权限存在，但组织模块未启用";
+            String reason = unclassified ? "未归属模块，迁移期兼容放行" : moduleEnabled ? "角色权限存在且组织模块已启用" : "角色权限存在，但组织模块未启用";
             PermissionSimulation simulation = new PermissionSimulation(
                     value.code,
                     value.name,
@@ -83,8 +78,7 @@ public final class PermissionPreviewCalculator {
                 false);
     }
 
-    private static ModuleCapabilityType strongest(
-            ModuleCapabilityType left, ModuleCapabilityType right) {
+    private static ModuleCapabilityType strongest(ModuleCapabilityType left, ModuleCapabilityType right) {
         if (right == null) return left;
         if (left == null || right.ordinal() > left.ordinal()) return right;
         return left;

@@ -28,7 +28,8 @@ public class PromotionRepository {
 
     public Eligibility authoritativeEligibility(
             UUID tenantId, UUID centerId, UUID employeeId, UUID performanceCycleId) {
-        return jdbc.query(
+        return jdbc
+                .query(
                         """
                         select case when p.current_node_code='END' then 'CLOSED' else 'OPEN' end fsm_state,
                                case when p.current_node_code='END' then 'FINISHED' else 'IN_PROGRESS' end timebox_state,
@@ -56,8 +57,7 @@ public class PromotionRepository {
                                 nullableLong(rs, "weighted_review_score")))
                 .stream()
                 .findFirst()
-                .orElseThrow(() -> rejected(
-                        "source P011 performance cycle is missing or outside candidate scope"));
+                .orElseThrow(() -> rejected("source P011 performance cycle is missing or outside candidate scope"));
     }
 
     public boolean activeTargetPosition(UUID tenantId, UUID centerId, UUID positionId) {
@@ -76,8 +76,7 @@ public class PromotionRepository {
         return Boolean.TRUE.equals(value);
     }
 
-    public boolean activeCurrentAppointment(
-            UUID tenantId, UUID employeeId, UUID positionId) {
+    public boolean activeCurrentAppointment(UUID tenantId, UUID employeeId, UUID positionId) {
         if (positionId == null) {
             return true;
         }
@@ -97,10 +96,7 @@ public class PromotionRepository {
     }
 
     public void insert(
-            Phase11Record record,
-            PromotionService.CreateCommand command,
-            Eligibility eligibility,
-            UUID actorId) {
+            Phase11Record record, PromotionService.CreateCommand command, Eligibility eligibility, UUID actorId) {
         int rows = jdbc.update(
                 """
                 insert into hr.promotion_request(
@@ -208,31 +204,25 @@ public class PromotionRepository {
                         "effectiveDate", effectiveDate(current, command),
                         "appointmentEffectId", appointmentEffectId)
                 .addValue("targetPositionId", uuid(current.details(), "targetPositionId"));
-        String domainSet = switch (action) {
-            case "PASS_ELIGIBILITY" ->
-                    "eligibility_verified_at=coalesce(eligibility_verified_at,now()),";
-            case "SUBMIT_ASSESSMENT" -> "assessment_summary=:summary,";
-            case "VERIFY_POSITION_BUDGET" ->
-                    "position_budget_verified_at=coalesce(position_budget_verified_at,now()),";
-            case "COMPLETE_REVIEW" -> "review_summary=:summary,";
-            case "APPROVE_PROMOTION" ->
-                    "approval_decision=:decision,approved_at=coalesce(approved_at,now()),";
-            case "COMPLETE_NOTICE" ->
-                    "notice_completed_at=coalesce(notice_completed_at,now()),";
-            case "CONFIRM_APPOINTMENT" ->
-                    "employee_confirmed_at=coalesce(employee_confirmed_at,now()),";
-            case "COMPLETE_VALIDATION" ->
-                    "validation_completed_at=coalesce(validation_completed_at,now()),"
+        String domainSet =
+                switch (action) {
+                    case "PASS_ELIGIBILITY" -> "eligibility_verified_at=coalesce(eligibility_verified_at,now()),";
+                    case "SUBMIT_ASSESSMENT" -> "assessment_summary=:summary,";
+                    case "VERIFY_POSITION_BUDGET" -> "position_budget_verified_at=coalesce(position_budget_verified_at,now()),";
+                    case "COMPLETE_REVIEW" -> "review_summary=:summary,";
+                    case "APPROVE_PROMOTION" -> "approval_decision=:decision,approved_at=coalesce(approved_at,now()),";
+                    case "COMPLETE_NOTICE" -> "notice_completed_at=coalesce(notice_completed_at,now()),";
+                    case "CONFIRM_APPOINTMENT" -> "employee_confirmed_at=coalesce(employee_confirmed_at,now()),";
+                    case "COMPLETE_VALIDATION" -> "validation_completed_at=coalesce(validation_completed_at,now()),"
                             + "planned_effective_date=:effectiveDate,";
-            case "ACTIVATE_APPOINTMENT" ->
-                    "appointment_activated_at=coalesce(appointment_activated_at,now()),"
+                    case "ACTIVATE_APPOINTMENT" -> "appointment_activated_at=coalesce(appointment_activated_at,now()),"
                             + "appointment_effect_id=:appointmentEffectId,"
                             + "appointment_position_id=:targetPositionId,"
                             + "actual_effective_date=:effectiveDate,"
                             + "closed_at=coalesce(closed_at,now()),"
                             + "actual_end_at=coalesce(actual_end_at,now()),";
-            default -> "";
-        };
+                    default -> "";
+                };
         return jdbc.update(
                 "update hr.promotion_request set "
                         + domainSet
@@ -245,10 +235,7 @@ public class PromotionRepository {
                 parameters);
     }
 
-    public UUID activateAppointment(
-            Phase11Record current,
-            PromotionService.ActionCommand command,
-            UUID actorId) {
+    public UUID activateAppointment(Phase11Record current, PromotionService.ActionCommand command, UUID actorId) {
         UUID targetPositionId = uuid(current.details(), "targetPositionId");
         LocalDate effectiveDate = effectiveDate(current, command);
         MapSqlParameterSource parameters = params(
@@ -304,7 +291,8 @@ public class PromotionRepository {
     }
 
     public Optional<Phase11Record> find(UUID tenantId, UUID promotionId) {
-        return jdbc.query(
+        return jdbc
+                .query(
                         selectSql("and p.id=:promotionId"),
                         params("tenantId", tenantId, "promotionId", promotionId),
                         this::mapRecord)
@@ -314,9 +302,7 @@ public class PromotionRepository {
 
     public List<Phase11Record> list(UUID tenantId) {
         return jdbc.query(
-                selectSql("order by p.created_at desc,p.id desc"),
-                params("tenantId", tenantId),
-                this::mapRecord);
+                selectSql("order by p.created_at desc,p.id desc"), params("tenantId", tenantId), this::mapRecord);
     }
 
     private String selectSql(String suffix) {
@@ -351,7 +337,8 @@ public class PromotionRepository {
                   left join workflow.wf_instance wi
                     on wi.tenant_id=p.tenant_id and wi.id=p.workflow_instance_id and not wi.is_deleted
                  where p.tenant_id=:tenantId and not p.is_deleted
-                """ + suffix;
+                """
+                + suffix;
     }
 
     private Phase11Record mapRecord(ResultSet rs, int rowNum) throws SQLException {
@@ -412,8 +399,7 @@ public class PromotionRepository {
         return value == null ? null : Timestamp.from(value);
     }
 
-    private static LocalDate effectiveDate(
-            Phase11Record current, PromotionService.ActionCommand command) {
+    private static LocalDate effectiveDate(Phase11Record current, PromotionService.ActionCommand command) {
         if (command.appointmentEffectiveDate() != null) {
             return command.appointmentEffectiveDate();
         }
@@ -456,11 +442,7 @@ public class PromotionRepository {
     }
 
     public record Eligibility(
-            String fsmState,
-            String timeboxState,
-            String qaState,
-            int reviewFacetCount,
-            Long weightedReviewScore) {
+            String fsmState, String timeboxState, String qaState, int reviewFacetCount, Long weightedReviewScore) {
         public long requiredScore() {
             if (weightedReviewScore == null) {
                 throw rejected("authoritative P011 score is required");

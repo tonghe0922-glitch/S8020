@@ -11,7 +11,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Component
-public final class MfaSecretCipher {
+public class MfaSecretCipher {
     private static final int IV_BYTES = 12;
     private static final int TAG_BITS = 128;
     private final String masterKeyBase64;
@@ -28,7 +28,10 @@ public final class MfaSecretCipher {
             Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
             cipher.init(Cipher.ENCRYPT_MODE, key(), new GCMParameterSpec(TAG_BITS, iv));
             byte[] encrypted = cipher.doFinal(plaintext);
-            return ByteBuffer.allocate(iv.length + encrypted.length).put(iv).put(encrypted).array();
+            return ByteBuffer.allocate(iv.length + encrypted.length)
+                    .put(iv)
+                    .put(encrypted)
+                    .array();
         } catch (GeneralSecurityException ex) {
             throw new MfaRejectedException("MFA secret encryption failed", ex);
         }
@@ -53,8 +56,11 @@ public final class MfaSecretCipher {
     private SecretKeySpec key() {
         if (masterKeyBase64.isBlank()) throw new MfaRejectedException("MFA master key is not configured");
         byte[] bytes;
-        try { bytes = Base64.getDecoder().decode(masterKeyBase64); }
-        catch (IllegalArgumentException ex) { throw new MfaRejectedException("MFA master key is invalid", ex); }
+        try {
+            bytes = Base64.getDecoder().decode(masterKeyBase64);
+        } catch (IllegalArgumentException ex) {
+            throw new MfaRejectedException("MFA master key is invalid", ex);
+        }
         if (bytes.length != 32) throw new MfaRejectedException("MFA master key must decode to 32 bytes");
         return new SecretKeySpec(bytes, "AES");
     }

@@ -9,8 +9,11 @@ import java.util.Set;
 /** Frozen PHASE-11 process graphs exposed strictly in checkpoint order. */
 public enum Phase11Process {
     P011(
-            "绩效管理", "performance.performance_cycle", "EMP-P011-F01",
-            "p011.performance.evaluate", "p011.performance.calibrate",
+            "绩效管理",
+            "performance.performance_cycle",
+            "EMP-P011-F01",
+            "p011.performance.evaluate",
+            "p011.performance.calibrate",
             List.of(
                     step("S01", "目标制定", "SET_TARGETS", "S02"),
                     step("S02", "员工确认", "CONFIRM_TARGETS", "S03"),
@@ -26,8 +29,11 @@ public enum Phase11Process {
             Set.of("CONFIRM_TARGETS", "SUBMIT_APPEAL_DECISION"),
             Set.of("CALIBRATE", "RESOLVE_APPEAL")),
     P012(
-            "晋升与任职发展", "hr.promotion_request", "EMP-P012-F01",
-            "p012.promotion.review", "p012.promotion.appoint",
+            "晋升与任职发展",
+            "hr.promotion_request",
+            "EMP-P012-F01",
+            "p012.promotion.review",
+            "p012.promotion.appoint",
             List.of(
                     step("S01", "提名提交", "SUBMIT_NOMINATION", "S02"),
                     step("S02", "资格校验", "PASS_ELIGIBILITY", "S03"),
@@ -42,8 +48,11 @@ public enum Phase11Process {
             Set.of("CONFIRM_APPOINTMENT"),
             Set.of("APPROVE_PROMOTION", "COMPLETE_NOTICE", "COMPLETE_VALIDATION", "ACTIVATE_APPOINTMENT")),
     P013(
-            "奖励与认可", "reward.reward_case", "EMP-P013-F01",
-            "p013.reward.review", "p013.reward.execute",
+            "奖励与认可",
+            "reward.reward_case",
+            "EMP-P013-F01",
+            "p013.reward.review",
+            "p013.reward.execute",
             List.of(
                     step("S01", "贡献事实登记", "REGISTER_CONTRIBUTION", "S02"),
                     step("S02", "证据核验", "VERIFY_EVIDENCE", "S03"),
@@ -57,8 +66,11 @@ public enum Phase11Process {
             Set.of(),
             Set.of("APPROVE_REWARD", "EXECUTE_REWARD", "NOTIFY_EMPLOYEE", "RECORD_RECEIPTS", "ARCHIVE")),
     P014(
-            "纪律责任与申诉", "reward.discipline_case", "CTR-P014-F01",
-            "p014.discipline.investigate", "p014.discipline.decide",
+            "纪律责任与申诉",
+            "reward.discipline_case",
+            "CTR-P014-F01",
+            "p014.discipline.investigate",
+            "p014.discipline.decide",
             List.of(
                     step("S01", "线索登记", "REGISTER_LEAD", "S02"),
                     step("S02", "先行止险", "APPLY_SAFETY_MEASURE", "S03"),
@@ -73,10 +85,20 @@ public enum Phase11Process {
                     step("S11", "观察整改", "COMPLETE_OBSERVATION", "S12"),
                     step("S12", "归档", "ARCHIVE", "END")),
             Set.of("SUBMIT_DEFENSE", "ACKNOWLEDGE_SERVICE"),
-            Set.of("COMPLETE_RESPONSIBILITY_REVIEW", "APPROVE_DECISION", "EXECUTE_IMPACTS", "RESOLVE_APPEAL", "CLOSE_CORE_CASE", "COMPLETE_OBSERVATION", "ARCHIVE")),
+            Set.of(
+                    "COMPLETE_RESPONSIBILITY_REVIEW",
+                    "APPROVE_DECISION",
+                    "EXECUTE_IMPACTS",
+                    "RESOLVE_APPEAL",
+                    "CLOSE_CORE_CASE",
+                    "COMPLETE_OBSERVATION",
+                    "ARCHIVE")),
     P015(
-            "成长积分与荣誉积分", "reward.point_transaction", "CTR-P015-F01",
-            "p015.points.review", "p015.points.reverse",
+            "成长积分与荣誉积分",
+            "reward.point_transaction",
+            "CTR-P015-F01",
+            "p015.points.review",
+            "p015.points.reverse",
             List.of(
                     step("S01", "事件登记", "REGISTER_EVENT", "S02"),
                     step("S02", "来源校验", "VALIDATE_SOURCE", "S03"),
@@ -91,8 +113,11 @@ public enum Phase11Process {
             Set.of(),
             Set.of("ADJUST_OR_REVERSE", "RECALCULATE_BALANCE")),
     P016(
-            "福利关怀与台账", "welfare.care_case", "EMP-P016-F01",
-            "p016.care.review", "p016.care.execute",
+            "福利关怀与台账",
+            "welfare.care_case",
+            "EMP-P016-F01",
+            "p016.care.review",
+            "p016.care.execute",
             List.of(
                     step("S01", "关怀事项登记", "REGISTER_CARE_CASE", "S02"),
                     step("S02", "资格核验", "VERIFY_ELIGIBILITY", "S03"),
@@ -116,8 +141,15 @@ public enum Phase11Process {
     private final Set<String> ownerActions;
     private final Set<String> specialistActions;
 
-    Phase11Process(String label, String table, String initialFormCode, String managerPermission,
-            String specialistPermission, List<Step> steps, Set<String> ownerActions, Set<String> specialistActions) {
+    Phase11Process(
+            String label,
+            String table,
+            String initialFormCode,
+            String managerPermission,
+            String specialistPermission,
+            List<Step> steps,
+            Set<String> ownerActions,
+            Set<String> specialistActions) {
         this.label = label;
         this.table = table;
         this.initialFormCode = initialFormCode;
@@ -134,19 +166,40 @@ public enum Phase11Process {
                 throw new IllegalArgumentException(name() + " has inconsistent labels for " + step.node());
             }
             Step previous = transitions.put(transitionKey(step.node(), step.action()), step);
-            if (previous != null) throw new IllegalArgumentException(name() + " has duplicate transition " + step.action());
+            if (previous != null)
+                throw new IllegalArgumentException(name() + " has duplicate transition " + step.action());
         }
         this.byTransition = Map.copyOf(transitions);
         this.labelsByNode = Map.copyOf(nodeLabels);
     }
 
-    public String code() { return name(); }
-    public String label() { return label; }
-    public String table() { return table; }
-    public String initialFormCode() { return initialFormCode; }
-    public String managerPermission() { return managerPermission; }
-    public String specialistPermission() { return specialistPermission; }
-    public String initialAction() { return steps.getFirst().action(); }
+    public String code() {
+        return name();
+    }
+
+    public String label() {
+        return label;
+    }
+
+    public String table() {
+        return table;
+    }
+
+    public String initialFormCode() {
+        return initialFormCode;
+    }
+
+    public String managerPermission() {
+        return managerPermission;
+    }
+
+    public String specialistPermission() {
+        return specialistPermission;
+    }
+
+    public String initialAction() {
+        return steps.getFirst().action();
+    }
 
     public String labelFor(String node) {
         if ("END".equals(node)) return this == P014 ? "已归档" : "已关闭";
@@ -161,12 +214,29 @@ public enum Phase11Process {
         return step;
     }
 
-    public boolean ownerAction(String action) { return ownerActions.contains(action); }
-    public boolean specialistAction(String action) { return specialistActions.contains(action); }
-    public List<Step> steps() { return steps; }
+    public boolean ownerAction(String action) {
+        return ownerActions.contains(action);
+    }
 
-    private ProcessRejectedException rejected(String message) { return new ProcessRejectedException(code() + " " + message); }
-    private static String transitionKey(String node, String action) { return node + '\u0000' + action; }
-    private static Step step(String node, String label, String action, String targetNode) { return new Step(node, label, action, targetNode); }
+    public boolean specialistAction(String action) {
+        return specialistActions.contains(action);
+    }
+
+    public List<Step> steps() {
+        return steps;
+    }
+
+    private ProcessRejectedException rejected(String message) {
+        return new ProcessRejectedException(code() + " " + message);
+    }
+
+    private static String transitionKey(String node, String action) {
+        return node + '\u0000' + action;
+    }
+
+    private static Step step(String node, String label, String action, String targetNode) {
+        return new Step(node, label, action, targetNode);
+    }
+
     public record Step(String node, String label, String action, String targetNode) {}
 }

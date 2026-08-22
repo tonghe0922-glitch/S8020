@@ -8,7 +8,7 @@ import java.util.UUID;
 import org.springframework.stereotype.Component;
 
 @Component
-public final class CoreWorkflowIdempotency implements WorkflowIdempotency {
+public class CoreWorkflowIdempotency implements WorkflowIdempotency {
     private static final Duration RETENTION = Duration.ofDays(7);
     private final IdempotencyRegistry registry;
 
@@ -17,10 +17,11 @@ public final class CoreWorkflowIdempotency implements WorkflowIdempotency {
     }
 
     @Override
-    public Claim claim(UUID tenantId, UUID actorId, String key, String requestHash, String resourceType, UUID proposedResourceId) {
+    public Claim claim(
+            UUID tenantId, UUID actorId, String key, String requestHash, String resourceType, UUID proposedResourceId) {
         try {
-            IdempotencyClaim claim = registry.claim(
-                    tenantId, actorId, key, requestHash, resourceType, proposedResourceId, RETENTION);
+            IdempotencyClaim claim =
+                    registry.claim(tenantId, actorId, key, requestHash, resourceType, proposedResourceId, RETENTION);
             return new Claim(claim.resourceId(), claim.existing());
         } catch (ProcessRejectedException ex) {
             throw new WorkflowException(WorkflowException.Code.CONFLICT, ex.getMessage(), ex);

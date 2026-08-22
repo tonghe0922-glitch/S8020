@@ -14,7 +14,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 @Service
-public final class LoginService {
+public class LoginService {
     private final IdentityDirectoryService identities;
     private final SessionService sessions;
     private final PasswordEncoder passwordEncoder;
@@ -35,23 +35,21 @@ public final class LoginService {
     }
 
     public LoginOutcome login(
-            String tenantCode,
-            String loginName,
-            String password,
-            UUID requestedIdentityId,
-            String mfaCode) {
+            String tenantCode, String loginName, String password, UUID requestedIdentityId, String mfaCode) {
         validateCredentials(tenantCode, loginName, password);
-        UUID tenantId = identities.resolveTenant(tenantCode.strip())
+        UUID tenantId = identities
+                .resolveTenant(tenantCode.strip())
                 .orElseThrow(() -> rejected(LoginRejectedException.Reason.INVALID_CREDENTIALS));
-        UserAccountRecord account = identities.findAccount(tenantId, loginName.strip()).orElse(null);
+        UserAccountRecord account =
+                identities.findAccount(tenantId, loginName.strip()).orElse(null);
         requireValidAccount(tenantId, account, password);
         requireValidMfa(tenantId, account, mfaCode);
 
         List<IdentityRecord> activeIdentities = identities.activeIdentities(tenantId, account.id());
         IdentityRecord selected = selectIdentity(activeIdentities, requestedIdentityId);
-        AppointmentRecord appointment = identities.activeAppointment(tenantId, selected)
-                .orElseThrow(() -> new SessionRejectedException(
-                        SessionRejectedException.Reason.APPOINTMENT_INACTIVE));
+        AppointmentRecord appointment = identities
+                .activeAppointment(tenantId, selected)
+                .orElseThrow(() -> new SessionRejectedException(SessionRejectedException.Reason.APPOINTMENT_INACTIVE));
         SessionTokens issued = sessions.issue(selected, appointment);
         completeLogin(tenantId, account.id(), issued);
         return new LoginOutcome(issued, List.copyOf(activeIdentities));
@@ -67,8 +65,7 @@ public final class LoginService {
         }
         UserAccountRecord account = identities.findAccountById(tenantId, userId).orElse(null);
         if (account == null || !account.active() || !matches(password, account.passwordHash())) {
-            audit.recordSecurityEvent(
-                    tenantId, userId, null, "P001_REAUTH_REJECTED", "WARN", "INVALID_CREDENTIALS");
+            audit.recordSecurityEvent(tenantId, userId, null, "P001_REAUTH_REJECTED", "WARN", "INVALID_CREDENTIALS");
             throw rejected(LoginRejectedException.Reason.INVALID_CREDENTIALS);
         }
     }
@@ -87,24 +84,13 @@ public final class LoginService {
     private void requireValidAccount(UUID tenantId, UserAccountRecord account, String password) {
         if (account != null && account.active() && matches(password, account.passwordHash())) return;
         audit.recordSecurityEvent(
-                tenantId,
-                account == null ? null : account.id(),
-                null,
-                "LOGIN_REJECTED",
-                "WARN",
-                "INVALID_CREDENTIALS");
+                tenantId, account == null ? null : account.id(), null, "LOGIN_REJECTED", "WARN", "INVALID_CREDENTIALS");
         throw rejected(LoginRejectedException.Reason.INVALID_CREDENTIALS);
     }
 
     private void requireValidMfa(UUID tenantId, UserAccountRecord account, String mfaCode) {
         if (totp.verifyLogin(tenantId, account.id(), account.mfaLevel(), mfaCode)) return;
-        audit.recordSecurityEvent(
-                tenantId,
-                account.id(),
-                null,
-                "LOGIN_REJECTED",
-                "WARN",
-                "MFA_REQUIRED_OR_INVALID");
+        audit.recordSecurityEvent(tenantId, account.id(), null, "LOGIN_REJECTED", "WARN", "MFA_REQUIRED_OR_INVALID");
         throw rejected(LoginRejectedException.Reason.MFA_REQUIRED_OR_INVALID);
     }
 

@@ -25,7 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/phase05/data-imports")
-public final class DataImportController {
+public class DataImportController {
     private static final String READ = "phase05.p018.read";
     private static final String WRITE = "phase05.p018.write";
 
@@ -57,8 +57,7 @@ public final class DataImportController {
 
     @GetMapping("/{id}")
     public DataImportService.DataImportJob get(
-            @AuthenticationPrincipal SessionPrincipal principal,
-            @PathVariable UUID id) {
+            @AuthenticationPrincipal SessionPrincipal principal, @PathVariable UUID id) {
         require(authorization.authorizeAction(principal.context(), READ));
         return imports.find(context(principal), id)
                 .orElseThrow(() -> new IllegalArgumentException("data import job not found"));
@@ -66,8 +65,7 @@ public final class DataImportController {
 
     @GetMapping("/{id}/items")
     public List<DataImportService.ImportItem> items(
-            @AuthenticationPrincipal SessionPrincipal principal,
-            @PathVariable UUID id) {
+            @AuthenticationPrincipal SessionPrincipal principal, @PathVariable UUID id) {
         require(authorization.authorizeAction(principal.context(), READ));
         return imports.items(context(principal), id);
     }
@@ -106,15 +104,14 @@ public final class DataImportController {
 
     private String hash(Object value) {
         try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(mapper.writeValueAsBytes(value)));
+            return HexFormat.of()
+                    .formatHex(MessageDigest.getInstance("SHA-256").digest(mapper.writeValueAsBytes(value)));
         } catch (JsonProcessingException | NoSuchAlgorithmException ex) {
             throw new IllegalArgumentException("request cannot be hashed", ex);
         }
     }
 
-    public record AdvanceRequest(int expectedVersion, String requestedStatus) {
-    }
+    public record AdvanceRequest(int expectedVersion, String requestedStatus) {}
 
-    public record PreviewRequest(int expectedVersion, DataImportService.ValidationPreview preview) {
-    }
+    public record PreviewRequest(int expectedVersion, DataImportService.ValidationPreview preview) {}
 }

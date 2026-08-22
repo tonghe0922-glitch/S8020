@@ -1,10 +1,6 @@
 package cn.shangjingu.platform.iam.authorization;
 
-public record AuthorizationDecision(
-        boolean allowed,
-        Reason reason,
-        String permissionCode,
-        String dataScopeCode) {
+public record AuthorizationDecision(boolean allowed, Reason reason, String permissionCode, String dataScopeCode) {
     public enum Reason {
         ALLOWED,
         NO_PERMISSION,

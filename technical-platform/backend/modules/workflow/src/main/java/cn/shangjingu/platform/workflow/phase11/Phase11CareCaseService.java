@@ -26,7 +26,7 @@ import org.springframework.stereotype.Service;
 
 /** P016 PHASE-11 adapter over the pre-existing welfare.care_case kernel. */
 @Service
-public final class Phase11CareCaseService {
+public class Phase11CareCaseService {
     private static final Phase11Process PROCESS = Phase11Process.P016;
     private static final Duration IDEMPOTENCY_TTL = Duration.ofHours(24);
     private static final Set<String> REQUIRED_CLOSE_FACTS = Set.of(
@@ -66,10 +66,7 @@ public final class Phase11CareCaseService {
     }
 
     public Phase11CareCaseView create(
-            DatabaseSecurityContext actor,
-            String idempotencyKey,
-            String requestHash,
-            CreateCommand command) {
+            DatabaseSecurityContext actor, String idempotencyKey, String requestHash, CreateCommand command) {
         requireActor(actor);
         validateCreate(command);
         return transactions.required(actor, () -> {
@@ -103,23 +100,35 @@ public final class Phase11CareCaseService {
                             command.impactLevel().trim(),
                             null));
 
-            JdbcCareCaseRepository.CanonicalCase existing = repository.findCanonical(actor.tenantId(), base.id())
+            JdbcCareCaseRepository.CanonicalCase existing = repository
+                    .findCanonical(actor.tenantId(), base.id())
                     .orElseThrow(() -> rejected("canonical care case was not persisted"));
             if (existing.workflowInstanceId() != null) {
                 return toView(existing);
             }
 
             Phase11CreateData createData = new Phase11CreateData(
-                    existing.subject(), existing.reason(), existing.priority(), existing.riskLevel(),
-                    existing.ownerCenterId(), existing.ownerEmployeeId(), existing.businessDate(),
-                    existing.factOccurredAt(), existing.factSummary(), trimToNull(command.contentVersion()),
+                    existing.subject(),
+                    existing.reason(),
+                    existing.priority(),
+                    existing.riskLevel(),
+                    existing.ownerCenterId(),
+                    existing.ownerEmployeeId(),
+                    existing.businessDate(),
+                    existing.factOccurredAt(),
+                    existing.factSummary(),
+                    trimToNull(command.contentVersion()),
                     trimToNull(command.periodNo()));
             Phase11Record draft = toWorkflowRecord(existing, "S01");
-            Phase11WorkflowCoordinator.Started started = workflow.start(
-                    actor, PROCESS, draft, createData, idempotencyKey);
+            Phase11WorkflowCoordinator.Started started =
+                    workflow.start(actor, PROCESS, draft, createData, idempotencyKey);
             if (repository.bindWorkflow(
-                            actor.tenantId(), existing.id(), existing.versionNo(), started.workflowInstanceId(),
-                            started.currentNodeCode(), actor.employeeId())
+                            actor.tenantId(),
+                            existing.id(),
+                            existing.versionNo(),
+                            started.workflowInstanceId(),
+                            started.currentNodeCode(),
+                            actor.employeeId())
                     != 1) {
                 throw rejected("concurrent care-case workflow binding conflict");
             }
@@ -142,8 +151,13 @@ public final class Phase11CareCaseService {
         return transactions.required(actor, () -> {
             Phase11CareCaseView current = required(actor.tenantId(), caseId);
             IdempotencyClaim claim = idempotency.claim(
-                    actor.tenantId(), actor.employeeId(), idempotencyKey, requestHash,
-                    PROCESS.table() + ".action." + action.toLowerCase(Locale.ROOT), caseId, IDEMPOTENCY_TTL);
+                    actor.tenantId(),
+                    actor.employeeId(),
+                    idempotencyKey,
+                    requestHash,
+                    PROCESS.table() + ".action." + action.toLowerCase(Locale.ROOT),
+                    caseId,
+                    IDEMPOTENCY_TTL);
             if (claim.existing()) return required(actor.tenantId(), caseId);
             if (current.versionNo() != command.expectedVersion()) throw rejected("version conflict");
             Phase11Process.Step step = PROCESS.requireTransition(current.currentNodeCode(), action);
@@ -165,8 +179,13 @@ public final class Phase11CareCaseService {
             }
 
             if (repository.insertFact(
-                            actor.tenantId(), caseId, factType, summary, evidenceReference,
-                            actor.employeeId(), actor.userId())
+                            actor.tenantId(),
+                            caseId,
+                            factType,
+                            summary,
+                            evidenceReference,
+                            actor.employeeId(),
+                            actor.userId())
                     != 1) {
                 throw rejected("business fact already exists for action " + action);
             }
@@ -179,8 +198,15 @@ public final class Phase11CareCaseService {
             }
             boolean close = "END".equals(step.targetNode());
             if (repository.advanceCanonical(
-                            actor.tenantId(), caseId, current.versionNo(), current.currentNodeCode(),
-                            step.targetNode(), summary, "EXECUTE_BENEFIT".equals(action), close, actor.employeeId())
+                            actor.tenantId(),
+                            caseId,
+                            current.versionNo(),
+                            current.currentNodeCode(),
+                            step.targetNode(),
+                            summary,
+                            "EXECUTE_BENEFIT".equals(action),
+                            close,
+                            actor.employeeId())
                     != 1) {
                 throw rejected("concurrent care-case aggregate transition conflict");
             }
@@ -192,7 +218,8 @@ public final class Phase11CareCaseService {
 
     public Optional<Phase11CareCaseView> find(DatabaseSecurityContext actor, UUID caseId) {
         requireActor(actor);
-        return transactions.required(actor, () -> repository.findCanonical(actor.tenantId(), caseId).map(this::toView));
+        return transactions.required(
+                actor, () -> repository.findCanonical(actor.tenantId(), caseId).map(this::toView));
     }
 
     public List<Phase11CareCaseView> list(DatabaseSecurityContext actor) {
@@ -203,15 +230,19 @@ public final class Phase11CareCaseService {
     }
 
     private void requireCloseFacts(Phase11CareCaseView current) {
-        Set<String> present = current.facts().stream().map(Phase11CareCaseView.FactView::factType)
+        Set<String> present = current.facts().stream()
+                .map(Phase11CareCaseView.FactView::factType)
                 .collect(java.util.stream.Collectors.toSet());
         if (!present.containsAll(REQUIRED_CLOSE_FACTS)) {
-            throw rejected("care case cannot archive before eligibility, privacy, approval, execution, receipt and reconciliation facts exist");
+            throw rejected(
+                    "care case cannot archive before eligibility, privacy, approval, execution, receipt and reconciliation facts exist");
         }
     }
 
     private Phase11CareCaseView required(UUID tenantId, UUID caseId) {
-        return repository.findCanonical(tenantId, caseId).map(this::toView)
+        return repository
+                .findCanonical(tenantId, caseId)
+                .map(this::toView)
                 .orElseThrow(() -> rejected("care workflow case not found"));
     }
 
@@ -221,27 +252,90 @@ public final class Phase11CareCaseService {
                         f.id(), f.factType(), f.summary(), f.evidenceReference(), f.actorEmployeeId(), f.occurredAt()))
                 .toList();
         return new Phase11CareCaseView(
-                c.id(), c.tenantId(), PROCESS.code(), c.businessNo(), c.workflowInstanceId(), c.currentNodeCode(),
-                c.status(), c.versionNo(), c.subject(), c.reason(), c.priority(), c.riskLevel(),
-                c.ownerCenterId(), c.ownerDepartmentId(), c.ownerEmployeeId(), c.businessDate(), c.benefitAmount(),
-                c.budgetItemId(), c.costCenterId(), c.currency(), c.factOccurredAt(), c.factSummary(), c.impactLevel(),
-                c.resultSummary(), c.actualStartAt(), c.actualEndAt(), c.closedAt(), c.createdAt(), c.updatedAt(), facts);
+                c.id(),
+                c.tenantId(),
+                PROCESS.code(),
+                c.businessNo(),
+                c.workflowInstanceId(),
+                c.currentNodeCode(),
+                c.status(),
+                c.versionNo(),
+                c.subject(),
+                c.reason(),
+                c.priority(),
+                c.riskLevel(),
+                c.ownerCenterId(),
+                c.ownerDepartmentId(),
+                c.ownerEmployeeId(),
+                c.businessDate(),
+                c.benefitAmount(),
+                c.budgetItemId(),
+                c.costCenterId(),
+                c.currency(),
+                c.factOccurredAt(),
+                c.factSummary(),
+                c.impactLevel(),
+                c.resultSummary(),
+                c.actualStartAt(),
+                c.actualEndAt(),
+                c.closedAt(),
+                c.createdAt(),
+                c.updatedAt(),
+                facts);
     }
 
     private Phase11Record toWorkflowRecord(Phase11CareCaseView c) {
         return new Phase11Record(
-                c.id(), c.tenantId(), PROCESS.code(), c.businessNo(), c.workflowInstanceId(), null,
-                c.currentNodeCode(), c.status(), c.versionNo(), c.subject(), c.reason(), c.priority(), c.riskLevel(),
-                c.ownerCenterId(), c.ownerEmployeeId(), c.businessDate(), c.factOccurredAt(), c.factSummary(),
-                c.resultSummary(), c.createdAt(), c.updatedAt(), c.closedAt(), mapper.createObjectNode());
+                c.id(),
+                c.tenantId(),
+                PROCESS.code(),
+                c.businessNo(),
+                c.workflowInstanceId(),
+                null,
+                c.currentNodeCode(),
+                c.status(),
+                c.versionNo(),
+                c.subject(),
+                c.reason(),
+                c.priority(),
+                c.riskLevel(),
+                c.ownerCenterId(),
+                c.ownerEmployeeId(),
+                c.businessDate(),
+                c.factOccurredAt(),
+                c.factSummary(),
+                c.resultSummary(),
+                c.createdAt(),
+                c.updatedAt(),
+                c.closedAt(),
+                mapper.createObjectNode());
     }
 
     private Phase11Record toWorkflowRecord(JdbcCareCaseRepository.CanonicalCase c, String nodeCode) {
         return new Phase11Record(
-                c.id(), c.tenantId(), PROCESS.code(), c.businessNo(), null, null,
-                nodeCode, PROCESS.labelFor(nodeCode), c.versionNo(), c.subject(), c.reason(), c.priority(), c.riskLevel(),
-                c.ownerCenterId(), c.ownerEmployeeId(), c.businessDate(), c.factOccurredAt(), c.factSummary(),
-                c.resultSummary(), c.createdAt(), c.updatedAt(), c.closedAt(), mapper.createObjectNode());
+                c.id(),
+                c.tenantId(),
+                PROCESS.code(),
+                c.businessNo(),
+                null,
+                null,
+                nodeCode,
+                PROCESS.labelFor(nodeCode),
+                c.versionNo(),
+                c.subject(),
+                c.reason(),
+                c.priority(),
+                c.riskLevel(),
+                c.ownerCenterId(),
+                c.ownerEmployeeId(),
+                c.businessDate(),
+                c.factOccurredAt(),
+                c.factSummary(),
+                c.resultSummary(),
+                c.createdAt(),
+                c.updatedAt(),
+                c.closedAt(),
+                mapper.createObjectNode());
     }
 
     private void emit(DatabaseSecurityContext actor, Phase11CareCaseView record, String action) {
@@ -251,10 +345,17 @@ public final class Phase11CareCaseService {
         payload.put("businessNo", record.businessNo());
         payload.put("action", action);
         if (record.currentNodeCode() != null) payload.put("nodeCode", record.currentNodeCode());
-        if (record.ownerEmployeeId() != null) payload.put("ownerEmployeeId", record.ownerEmployeeId().toString());
+        if (record.ownerEmployeeId() != null)
+            payload.put("ownerEmployeeId", record.ownerEmployeeId().toString());
         outbox.enqueue(new TransactionalOutboxService.Command(
-                actor.tenantId(), actor.employeeId(), "P016_CARE", record.id(), "P016_PROCESS_EVENT", 1,
-                json(payload), "p016:" + record.id() + ":" + record.versionNo()));
+                actor.tenantId(),
+                actor.employeeId(),
+                "P016_CARE",
+                record.id(),
+                "P016_PROCESS_EVENT",
+                1,
+                json(payload),
+                "p016:" + record.id() + ":" + record.versionNo()));
     }
 
     private String json(ObjectNode payload) {
@@ -267,13 +368,15 @@ public final class Phase11CareCaseService {
 
     static void validateActionActor(Phase11CareCaseView current, String action, UUID actorEmployeeId) {
         if (PROCESS.ownerAction(action)
-                && (current.ownerEmployeeId() == null || !current.ownerEmployeeId().equals(actorEmployeeId))) {
+                && (current.ownerEmployeeId() == null
+                        || !current.ownerEmployeeId().equals(actorEmployeeId))) {
             throw rejected("only the care recipient may perform " + action);
         }
     }
 
     private static boolean requiresEvidenceReference(String action) {
-        return Set.of("AUTHORIZE_PRIVACY", "EXECUTE_BENEFIT", "CONFIRM_RECEIPT", "RECONCILE").contains(action);
+        return Set.of("AUTHORIZE_PRIVACY", "EXECUTE_BENEFIT", "CONFIRM_RECEIPT", "RECONCILE")
+                .contains(action);
     }
 
     private static String factType(String action) {
@@ -307,8 +410,13 @@ public final class Phase11CareCaseService {
     }
 
     private static void requireActor(DatabaseSecurityContext actor) {
-        if (actor == null || actor.tenantId() == null || actor.userId() == null || actor.identityId() == null
-                || actor.employeeId() == null || actor.orgId() == null || actor.positionId() == null) {
+        if (actor == null
+                || actor.tenantId() == null
+                || actor.userId() == null
+                || actor.identityId() == null
+                || actor.employeeId() == null
+                || actor.orgId() == null
+                || actor.positionId() == null) {
             throw rejected("authenticated employee context is required");
         }
     }

@@ -39,9 +39,11 @@ public class WorkflowCandidateResolver {
 
         UUID orgId = uuid(candidateRule, "orgId");
         UUID positionId = uuid(candidateRule, "positionId");
-        var organization = orgDirectory.findOrganization(tenantId, orgId)
+        var organization = orgDirectory
+                .findOrganization(tenantId, orgId)
                 .orElseThrow(() -> invalidDefinition("candidate rule organization does not exist"));
-        var position = orgDirectory.findPosition(tenantId, positionId)
+        var position = orgDirectory
+                .findPosition(tenantId, positionId)
                 .orElseThrow(() -> invalidDefinition("candidate rule position does not exist"));
         if (!orgId.equals(position.orgId())) {
             throw invalidDefinition("candidate rule position does not belong to configured organization");
@@ -57,13 +59,15 @@ public class WorkflowCandidateResolver {
         Set<UUID> excluded = exclusions(initiatorId, contextSnapshot);
         excluded.addAll(uuidArray(candidateRule.get("excludedEmployeeIds"), "excludedEmployeeIds", true));
 
-        List<UUID> candidates = orgDirectory.findActiveAppointmentsByOrgAndPosition(tenantId, organization.id(), position.id()).stream()
-                .map(AppointmentRecord::employeeId)
-                .distinct()
-                .filter(employeeId -> !excluded.contains(employeeId))
-                .filter(employeeId -> orgDirectory.findEmployee(tenantId, employeeId).isPresent())
-                .sorted(Comparator.comparing(UUID::toString))
-                .toList();
+        List<UUID> candidates =
+                orgDirectory.findActiveAppointmentsByOrgAndPosition(tenantId, organization.id(), position.id()).stream()
+                        .map(AppointmentRecord::employeeId)
+                        .distinct()
+                        .filter(employeeId -> !excluded.contains(employeeId))
+                        .filter(employeeId ->
+                                orgDirectory.findEmployee(tenantId, employeeId).isPresent())
+                        .sorted(Comparator.comparing(UUID::toString))
+                        .toList();
         if (candidates.isEmpty()) {
             throw noApprover("candidate rule resolved no eligible approver after self-approval and recusal exclusions");
         }
@@ -83,7 +87,8 @@ public class WorkflowCandidateResolver {
         excluded.addAll(uuidArray(candidateRule.get("excludedEmployeeIds"), "excludedEmployeeIds", true));
         List<UUID> candidates = uuidArray(contextSnapshot.get(field), field, false).stream()
                 .filter(employeeId -> !excluded.contains(employeeId))
-                .filter(employeeId -> orgDirectory.findEmployee(tenantId, employeeId).isPresent())
+                .filter(employeeId ->
+                        orgDirectory.findEmployee(tenantId, employeeId).isPresent())
                 .sorted(Comparator.comparing(UUID::toString))
                 .toList();
         if (candidates.isEmpty()) {

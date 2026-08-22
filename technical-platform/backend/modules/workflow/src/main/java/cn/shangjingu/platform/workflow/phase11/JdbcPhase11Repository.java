@@ -28,7 +28,8 @@ public class JdbcPhase11Repository implements Phase11Repository {
 
     @Override
     public Optional<UUID> latestPublishedWorkflowVersion(UUID tenantId, String processCode) {
-        return jdbc.query(
+        return jdbc
+                .query(
                         """
                         select v.id
                         from workflow.wf_version v
@@ -49,9 +50,9 @@ public class JdbcPhase11Repository implements Phase11Repository {
     }
 
     @Override
-    public Optional<FormRef> latestPublishedForm(
-            UUID tenantId, String formCode, String processCode, String nodeCode) {
-        return jdbc.query(
+    public Optional<FormRef> latestPublishedForm(UUID tenantId, String formCode, String processCode, String nodeCode) {
+        return jdbc
+                .query(
                         """
                         select id,version_no
                         from workflow.wf_form_definition
@@ -68,15 +69,13 @@ public class JdbcPhase11Repository implements Phase11Repository {
                                 "formCode", formCode,
                                 "processCode", processCode,
                                 "nodeCode", nodeCode),
-                        (rs, rowNum) -> new FormRef(
-                                rs.getObject("id", UUID.class), rs.getInt("version_no")))
+                        (rs, rowNum) -> new FormRef(rs.getObject("id", UUID.class), rs.getInt("version_no")))
                 .stream()
                 .findFirst();
     }
 
     @Override
-    public List<UUID> permissionCandidates(
-            UUID tenantId, String permissionCode, UUID orgId) {
+    public List<UUID> permissionCandidates(UUID tenantId, String permissionCode, UUID orgId) {
         return jdbc.query(
                 """
                 select distinct ui.employee_id
@@ -136,11 +135,7 @@ public class JdbcPhase11Repository implements Phase11Repository {
     }
 
     @Override
-    public void insert(
-            Phase11Process process,
-            Phase11Record record,
-            Phase11CreateData data,
-            UUID actorId) {
+    public void insert(Phase11Process process, Phase11Record record, Phase11CreateData data, UUID actorId) {
         if (process != Phase11Process.P011) {
             throw unsupported(process);
         }
@@ -237,29 +232,23 @@ public class JdbcPhase11Repository implements Phase11Repository {
                         "actorId", actorId)
                 .addValue("summary", trimToNull(data.summary()))
                 .addValue("score1000", data.score1000())
-                .addValue(
-                        "appealStatus",
-                        Boolean.TRUE.equals(data.appealRequested()) ? "SUBMITTED" : "NO_APPEAL")
+                .addValue("appealStatus", Boolean.TRUE.equals(data.appealRequested()) ? "SUBMITTED" : "NO_APPEAL")
                 .addValue("appealReason", trimToNull(data.appealReason()))
                 .addValue("decision", trimToNull(data.decision()));
-        String domainSet = switch (action) {
-            case "CONFIRM_TARGETS" ->
-                    "employee_confirmed_at=coalesce(employee_confirmed_at,now()),";
-            case "RECORD_COACHING" -> "coaching_summary=:summary,";
-            case "COLLECT_FACTS" -> "authoritative_data_summary=:summary,";
-            case "CALCULATE_SCORE" -> "score_1000=:score1000,";
-            case "CALIBRATE" -> "calibrated_score_1000=:score1000,";
-            case "SUBMIT_APPEAL_DECISION" ->
-                    "appeal_status=:appealStatus,appeal_reason=:appealReason,feedback_confirmed_at=now(),";
-            case "RESOLVE_APPEAL" ->
-                    "appeal_reviewer_id=:actorId,appeal_decision=:decision,appeal_status='RESOLVED',";
-            case "EXECUTE_IMPACT" ->
-                    "impact_executed_at=coalesce(impact_executed_at,now()),";
-            case "ARCHIVE" ->
-                    "archived_at=coalesce(archived_at,now()),closed_at=coalesce(closed_at,now()),"
+        String domainSet =
+                switch (action) {
+                    case "CONFIRM_TARGETS" -> "employee_confirmed_at=coalesce(employee_confirmed_at,now()),";
+                    case "RECORD_COACHING" -> "coaching_summary=:summary,";
+                    case "COLLECT_FACTS" -> "authoritative_data_summary=:summary,";
+                    case "CALCULATE_SCORE" -> "score_1000=:score1000,";
+                    case "CALIBRATE" -> "calibrated_score_1000=:score1000,";
+                    case "SUBMIT_APPEAL_DECISION" -> "appeal_status=:appealStatus,appeal_reason=:appealReason,feedback_confirmed_at=now(),";
+                    case "RESOLVE_APPEAL" -> "appeal_reviewer_id=:actorId,appeal_decision=:decision,appeal_status='RESOLVED',";
+                    case "EXECUTE_IMPACT" -> "impact_executed_at=coalesce(impact_executed_at,now()),";
+                    case "ARCHIVE" -> "archived_at=coalesce(archived_at,now()),closed_at=coalesce(closed_at,now()),"
                             + "actual_end_at=coalesce(actual_end_at,now()),";
-            default -> "";
-        };
+                    default -> "";
+                };
         return jdbc.update(
                 "update performance.performance_cycle set "
                         + domainSet
@@ -273,12 +262,12 @@ public class JdbcPhase11Repository implements Phase11Repository {
     }
 
     @Override
-    public Optional<Phase11Record> find(
-            Phase11Process process, UUID tenantId, UUID recordId) {
+    public Optional<Phase11Record> find(Phase11Process process, UUID tenantId, UUID recordId) {
         if (process != Phase11Process.P011) {
             throw unsupported(process);
         }
-        return jdbc.query(
+        return jdbc
+                .query(
                         selectPerformance("and p.id=:recordId"),
                         params("tenantId", tenantId, "recordId", recordId),
                         this::mapPerformance)
@@ -306,13 +295,14 @@ public class JdbcPhase11Repository implements Phase11Repository {
             long score1000,
             String evidenceSummary,
             UUID actorId) {
-        String column = switch (scoreType) {
-            case "EMPLOYEE" -> "employee_score_1000";
-            case "SUPERVISOR" -> "supervisor_score_1000";
-            case "AUTHORITATIVE" -> "authoritative_score_1000";
-            case "CALIBRATED" -> "calibrated_score_1000";
-            default -> throw new ProcessRejectedException("P011 unsupported score type");
-        };
+        String column =
+                switch (scoreType) {
+                    case "EMPLOYEE" -> "employee_score_1000";
+                    case "SUPERVISOR" -> "supervisor_score_1000";
+                    case "AUTHORITATIVE" -> "authoritative_score_1000";
+                    case "CALIBRATED" -> "calibrated_score_1000";
+                    default -> throw new ProcessRejectedException("P011 unsupported score type");
+                };
         MapSqlParameterSource parameters = params(
                         "id", UUID.randomUUID(),
                         "tenantId", tenantId,
@@ -336,8 +326,7 @@ public class JdbcPhase11Repository implements Phase11Repository {
                 """,
                 parameters);
         if (inserted != 1) {
-            throw new ProcessRejectedException(
-                    "P011 score source already exists and cannot be overwritten");
+            throw new ProcessRejectedException("P011 score source already exists and cannot be overwritten");
         }
         return jdbc.update(
                 "update performance.performance_cycle set "
@@ -407,7 +396,8 @@ public class JdbcPhase11Repository implements Phase11Repository {
                   on wi.tenant_id=p.tenant_id and wi.id=p.workflow_instance_id and not wi.is_deleted
                 where p.tenant_id=:tenantId
                   and p.employee_event_type='P011_PERFORMANCE' and not p.is_deleted
-                """ + suffix;
+                """
+                + suffix;
     }
 
     private Phase11Record mapPerformance(ResultSet rs, int rowNum) throws SQLException {
@@ -441,8 +431,7 @@ public class JdbcPhase11Repository implements Phase11Repository {
         try {
             return value == null ? mapper.nullNode() : mapper.readTree(value);
         } catch (Exception exception) {
-            throw new ProcessRejectedException(
-                    "PHASE-11 database JSON projection is invalid", exception);
+            throw new ProcessRejectedException("PHASE-11 database JSON projection is invalid", exception);
         }
     }
 
@@ -488,7 +477,6 @@ public class JdbcPhase11Repository implements Phase11Repository {
     }
 
     private static ProcessRejectedException unsupported(Phase11Process process) {
-        return new ProcessRejectedException(
-                process.code() + " repository checkpoint is not implemented yet");
+        return new ProcessRejectedException(process.code() + " repository checkpoint is not implemented yet");
     }
 }

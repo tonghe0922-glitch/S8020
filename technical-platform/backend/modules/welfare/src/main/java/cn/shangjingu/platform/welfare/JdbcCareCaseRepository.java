@@ -21,7 +21,8 @@ public class JdbcCareCaseRepository implements CareCaseService.Repository {
 
     @Override
     public void insert(CareCaseService.CareCase c, UUID actorId) {
-        jdbc.update("""
+        jdbc.update(
+                """
                 insert into welfare.care_case(
                     id,tenant_id,business_no,status,version_no,created_by,updated_by,
                     source_channel,business_date,subject,reason,priority,risk_level,
@@ -30,23 +31,51 @@ public class JdbcCareCaseRepository implements CareCaseService.Repository {
                     impact_effective_date,impact_level,points_delta)
                 values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                 """,
-                c.id(), c.tenantId(), c.businessNo(), c.status(), c.versionNo(), actorId, actorId,
-                c.sourceChannel(), c.businessDate(), c.subject(), c.reason(), valueOr(c.priority(), "NORMAL"), c.riskLevel(),
-                c.ownerCenterId(), c.ownerDepartmentId(), c.ownerEmployeeId(), c.benefitAmount(), c.budgetItemId(),
-                c.costCenterId(), c.currency(), c.employeeEventType(), c.factOccurredAt(), c.factSummary(),
-                c.impactEffectiveDate(), c.impactLevel(), c.pointsDelta());
+                c.id(),
+                c.tenantId(),
+                c.businessNo(),
+                c.status(),
+                c.versionNo(),
+                actorId,
+                actorId,
+                c.sourceChannel(),
+                c.businessDate(),
+                c.subject(),
+                c.reason(),
+                valueOr(c.priority(), "NORMAL"),
+                c.riskLevel(),
+                c.ownerCenterId(),
+                c.ownerDepartmentId(),
+                c.ownerEmployeeId(),
+                c.benefitAmount(),
+                c.budgetItemId(),
+                c.costCenterId(),
+                c.currency(),
+                c.employeeEventType(),
+                c.factOccurredAt(),
+                c.factSummary(),
+                c.impactEffectiveDate(),
+                c.impactLevel(),
+                c.pointsDelta());
     }
 
     @Override
     public Optional<CareCaseService.CareCase> find(UUID tenantId, UUID id) {
-        return jdbc.query("""
+        return jdbc
+                .query(
+                        """
                 select id,tenant_id,business_no,status,version_no,source_channel,business_date,subject,reason,
                        priority,risk_level,owner_center_id,owner_department_id,owner_employee_id,benefit_amount,
                        budget_item_id,cost_center_id,currency,employee_event_type,fact_occurred_at,fact_summary,
                        impact_effective_date,impact_level,points_delta,result_summary,actual_start_at,actual_end_at,closed_at
                 from welfare.care_case
                 where tenant_id=? and id=? and not is_deleted
-                """, (rs, n) -> map(rs), tenantId, id).stream().findFirst();
+                """,
+                        (rs, n) -> map(rs),
+                        tenantId,
+                        id)
+                .stream()
+                .findFirst();
     }
 
     @Override
@@ -60,38 +89,52 @@ public class JdbcCareCaseRepository implements CareCaseService.Repository {
             Instant actualEndAt,
             Instant closedAt,
             UUID actorId) {
-        return jdbc.update("""
+        return jdbc.update(
+                """
                 update welfare.care_case
                 set status=?,version_no=version_no+1,result_summary=coalesce(?,result_summary),
                     actual_start_at=coalesce(?,actual_start_at),actual_end_at=coalesce(?,actual_end_at),
                     closed_at=coalesce(?,closed_at),updated_by=?,updated_at=now()
                 where tenant_id=? and id=? and version_no=? and not is_deleted
-                """, status, resultSummary, actualStartAt, actualEndAt, closedAt, actorId, tenantId, id, expectedVersion);
+                """,
+                status,
+                resultSummary,
+                actualStartAt,
+                actualEndAt,
+                closedAt,
+                actorId,
+                tenantId,
+                id,
+                expectedVersion);
     }
 
     public Optional<CanonicalCase> findCanonical(UUID tenantId, UUID id) {
-        return jdbc.query(canonicalSelect("and c.id=?"), (rs, n) -> mapCanonical(rs), tenantId, id)
-                .stream().findFirst();
+        return jdbc.query(canonicalSelect("and c.id=?"), (rs, n) -> mapCanonical(rs), tenantId, id).stream()
+                .findFirst();
     }
 
     public List<CanonicalCase> listCanonical(UUID tenantId) {
-        return jdbc.query(canonicalSelect("order by c.created_at desc,c.id desc"), (rs, n) -> mapCanonical(rs), tenantId);
+        return jdbc.query(
+                canonicalSelect("order by c.created_at desc,c.id desc"), (rs, n) -> mapCanonical(rs), tenantId);
     }
 
     public int bindWorkflow(
-            UUID tenantId,
-            UUID id,
-            int expectedVersion,
-            UUID workflowInstanceId,
-            String nodeCode,
-            UUID actorId) {
-        return jdbc.update("""
+            UUID tenantId, UUID id, int expectedVersion, UUID workflowInstanceId, String nodeCode, UUID actorId) {
+        return jdbc.update(
+                """
                 update welfare.care_case
                 set workflow_instance_id=?,current_node_code=?,status=?,version_no=version_no+1,
                     updated_by=?,updated_at=now()
                 where tenant_id=? and id=? and version_no=?
                   and employee_event_type='P016_CARE' and not is_deleted
-                """, workflowInstanceId, nodeCode, nodeCode, actorId, tenantId, id, expectedVersion);
+                """,
+                workflowInstanceId,
+                nodeCode,
+                nodeCode,
+                actorId,
+                tenantId,
+                id,
+                expectedVersion);
     }
 
     public int advanceCanonical(
@@ -104,7 +147,8 @@ public class JdbcCareCaseRepository implements CareCaseService.Repository {
             boolean markStarted,
             boolean close,
             UUID actorId) {
-        return jdbc.update("""
+        return jdbc.update(
+                """
                 update welfare.care_case
                 set current_node_code=?,status=?,version_no=version_no+1,
                     result_summary=coalesce(?,result_summary),
@@ -115,9 +159,17 @@ public class JdbcCareCaseRepository implements CareCaseService.Repository {
                 where tenant_id=? and id=? and version_no=? and current_node_code=?
                   and employee_event_type='P016_CARE' and not is_deleted
                 """,
-                targetNode, close ? "CLOSED" : targetNode, trimToNull(resultSummary),
-                markStarted, close, close, actorId,
-                tenantId, id, expectedVersion, expectedNode);
+                targetNode,
+                close ? "CLOSED" : targetNode,
+                trimToNull(resultSummary),
+                markStarted,
+                close,
+                close,
+                actorId,
+                tenantId,
+                id,
+                expectedVersion,
+                expectedNode);
     }
 
     public int insertFact(
@@ -128,29 +180,40 @@ public class JdbcCareCaseRepository implements CareCaseService.Repository {
             String evidenceReference,
             UUID actorEmployeeId,
             UUID actorId) {
-        return jdbc.update("""
+        return jdbc.update(
+                """
                 insert into welfare.care_case_fact(
                     id,tenant_id,care_case_id,fact_type,summary,evidence_reference,
                     actor_employee_id,occurred_at,created_by,created_at)
                 values (gen_random_uuid(),?,?,?,?,?,?,now(),?,now())
                 on conflict (tenant_id,care_case_id,fact_type) do nothing
                 """,
-                tenantId, careCaseId, factType, summary, trimToNull(evidenceReference), actorEmployeeId, actorId);
+                tenantId,
+                careCaseId,
+                factType,
+                summary,
+                trimToNull(evidenceReference),
+                actorEmployeeId,
+                actorId);
     }
 
     public List<CareFact> facts(UUID tenantId, UUID careCaseId) {
-        return jdbc.query("""
+        return jdbc.query(
+                """
                 select id,fact_type,summary,evidence_reference,actor_employee_id,occurred_at
                 from welfare.care_case_fact
                 where tenant_id=? and care_case_id=?
                 order by occurred_at,id
-                """, (rs, n) -> new CareFact(
+                """,
+                (rs, n) -> new CareFact(
                         rs.getObject("id", UUID.class),
                         rs.getString("fact_type"),
                         rs.getString("summary"),
                         rs.getString("evidence_reference"),
                         rs.getObject("actor_employee_id", UUID.class),
-                        instant(rs, "occurred_at")), tenantId, careCaseId);
+                        instant(rs, "occurred_at")),
+                tenantId,
+                careCaseId);
     }
 
     private static String canonicalSelect(String suffix) {
@@ -163,7 +226,8 @@ public class JdbcCareCaseRepository implements CareCaseService.Repository {
                        c.created_at,c.updated_at
                 from welfare.care_case c
                 where c.tenant_id=? and c.employee_event_type='P016_CARE' and not c.is_deleted
-                """ + suffix;
+                """
+                + suffix;
     }
 
     private static CareCaseService.CareCase map(ResultSet rs) throws SQLException {

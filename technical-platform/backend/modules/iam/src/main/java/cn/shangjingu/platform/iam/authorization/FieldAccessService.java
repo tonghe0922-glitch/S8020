@@ -4,7 +4,7 @@ import cn.shangjingu.platform.iam.session.SessionContext;
 import org.springframework.stereotype.Service;
 
 @Service
-public final class FieldAccessService {
+public class FieldAccessService {
     private final AuthorizationService authorization;
 
     public FieldAccessService(AuthorizationService authorization) {

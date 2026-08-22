@@ -12,7 +12,8 @@ public final class PlatformTraceContextHolder {
 
     public static Scope open(PlatformTraceContext context) {
         PlatformTraceContext previous = CURRENT.get();
-        if (context == null) CURRENT.remove(); else CURRENT.set(context);
+        if (context == null) CURRENT.remove();
+        else CURRENT.set(context);
         return new Scope(previous);
     }
 
@@ -28,7 +29,8 @@ public final class PlatformTraceContextHolder {
         public void close() {
             if (closed) return;
             closed = true;
-            if (previous == null) CURRENT.remove(); else CURRENT.set(previous);
+            if (previous == null) CURRENT.remove();
+            else CURRENT.set(previous);
         }
     }
 }

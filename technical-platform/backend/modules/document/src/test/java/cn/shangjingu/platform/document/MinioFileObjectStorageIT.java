@@ -39,7 +39,10 @@ class MinioFileObjectStorageIT {
                 .waitingFor(Wait.forHttp("/minio/health/live").forPort(9000));
         minio.start();
         String endpoint = "http://" + minio.getHost() + ":" + minio.getMappedPort(9000);
-        client = MinioClient.builder().endpoint(endpoint).credentials(ACCESS_KEY, SECRET_KEY).build();
+        client = MinioClient.builder()
+                .endpoint(endpoint)
+                .credentials(ACCESS_KEY, SECRET_KEY)
+                .build();
         storage = new MinioFileObjectStorage(client);
     }
 
@@ -50,7 +53,8 @@ class MinioFileObjectStorageIT {
 
     @Test
     void putStatPresignAndRemoveUseRealMinio() throws Exception {
-        String bucket = "phase06-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12);
+        String bucket =
+                "phase06-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12);
         client.makeBucket(MakeBucketArgs.builder().bucket(bucket).build());
         String objectKey = "tenant/file-" + UUID.randomUUID();
         byte[] content = "phase06-real-minio".getBytes(StandardCharsets.UTF_8);
@@ -62,8 +66,8 @@ class MinioFileObjectStorageIT {
 
         String url = storage.presignGet(bucket, objectKey, Duration.ofSeconds(30));
         assertTrue(url.contains(objectKey));
-        HttpResponse<byte[]> response = HttpClient.newHttpClient().send(
-                HttpRequest.newBuilder(URI.create(url)).GET().build(), HttpResponse.BodyHandlers.ofByteArray());
+        HttpResponse<byte[]> response = HttpClient.newHttpClient()
+                .send(HttpRequest.newBuilder(URI.create(url)).GET().build(), HttpResponse.BodyHandlers.ofByteArray());
         assertEquals(200, response.statusCode());
         assertArrayEquals(content, response.body());
 

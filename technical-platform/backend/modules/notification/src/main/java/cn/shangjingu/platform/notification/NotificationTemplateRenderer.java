@@ -18,7 +18,8 @@ public final class NotificationTemplateRenderer {
         this.mapper = mapper;
     }
 
-    public Rendered render(String titleTemplate, String bodyTemplate, String variablesSchema, Map<String, String> variables) {
+    public Rendered render(
+            String titleTemplate, String bodyTemplate, String variablesSchema, Map<String, String> variables) {
         if (bodyTemplate == null) throw new IllegalArgumentException("body template is required");
         Map<String, String> safeVariables = variables == null ? Map.of() : Map.copyOf(variables);
         safeVariables.forEach((key, value) -> {
@@ -37,7 +38,8 @@ public final class NotificationTemplateRenderer {
                 JsonNode requiredNode = schema.path("required");
                 if (requiredNode.isArray()) {
                     requiredNode.forEach(node -> {
-                        if (!node.isTextual()) throw new IllegalArgumentException("notification required variable must be text");
+                        if (!node.isTextual())
+                            throw new IllegalArgumentException("notification required variable must be text");
                         required.add(node.asText());
                     });
                 }
@@ -48,11 +50,13 @@ public final class NotificationTemplateRenderer {
             }
         }
         for (String key : required) {
-            if (!safeVariables.containsKey(key)) throw new IllegalArgumentException("missing required notification variable: " + key);
+            if (!safeVariables.containsKey(key))
+                throw new IllegalArgumentException("missing required notification variable: " + key);
         }
         if (!declared.isEmpty()) {
             for (String key : safeVariables.keySet()) {
-                if (!declared.contains(key)) throw new IllegalArgumentException("undeclared notification variable: " + key);
+                if (!declared.contains(key))
+                    throw new IllegalArgumentException("undeclared notification variable: " + key);
             }
         }
 
@@ -60,7 +64,8 @@ public final class NotificationTemplateRenderer {
         collect(titleTemplate, placeholders);
         collect(bodyTemplate, placeholders);
         for (String key : placeholders) {
-            if (!safeVariables.containsKey(key)) throw new IllegalArgumentException("missing notification placeholder: " + key);
+            if (!safeVariables.containsKey(key))
+                throw new IllegalArgumentException("missing notification placeholder: " + key);
         }
         return new Rendered(replace(titleTemplate, safeVariables), replace(bodyTemplate, safeVariables));
     }
@@ -76,7 +81,8 @@ public final class NotificationTemplateRenderer {
         if (template == null) return null;
         Matcher matcher = PLACEHOLDER.matcher(template);
         StringBuffer result = new StringBuffer();
-        while (matcher.find()) matcher.appendReplacement(result, Matcher.quoteReplacement(variables.get(matcher.group(1))));
+        while (matcher.find())
+            matcher.appendReplacement(result, Matcher.quoteReplacement(variables.get(matcher.group(1))));
         matcher.appendTail(result);
         rejectMalformedToken(result.toString());
         return result.toString();

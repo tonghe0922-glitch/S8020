@@ -18,8 +18,11 @@ class Phase05ImportWorkerTest {
         DataImportService.ImportExecutor executor = mock(DataImportService.ImportExecutor.class);
         when(executor.importType()).thenReturn("SYNTHETIC");
         Phase05ImportWorker worker = new Phase05ImportWorker(
-                mock(TenantTransactionRunner.class), mock(JdbcTemplate.class), mock(DataImportService.class),
-                List.of(executor), mock(WorkerCriticalAuditService.class));
+                mock(TenantTransactionRunner.class),
+                mock(JdbcTemplate.class),
+                mock(DataImportService.class),
+                List.of(executor),
+                mock(WorkerCriticalAuditService.class));
         assertSame(executor, worker.resolveExecutor("SYNTHETIC"));
         assertThrows(ProcessRejectedException.class, () -> worker.resolveExecutor("OTHER"));
     }
@@ -31,8 +34,11 @@ class Phase05ImportWorkerTest {
         when(first.importType()).thenReturn("SYNTHETIC");
         when(second.importType()).thenReturn("SYNTHETIC");
         Phase05ImportWorker worker = new Phase05ImportWorker(
-                mock(TenantTransactionRunner.class), mock(JdbcTemplate.class), mock(DataImportService.class),
-                List.of(first, second), mock(WorkerCriticalAuditService.class));
+                mock(TenantTransactionRunner.class),
+                mock(JdbcTemplate.class),
+                mock(DataImportService.class),
+                List.of(first, second),
+                mock(WorkerCriticalAuditService.class));
         assertThrows(ProcessRejectedException.class, () -> worker.resolveExecutor("SYNTHETIC"));
     }
 }

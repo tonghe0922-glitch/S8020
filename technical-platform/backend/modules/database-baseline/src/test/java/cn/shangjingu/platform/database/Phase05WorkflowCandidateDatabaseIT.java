@@ -47,7 +47,8 @@ class Phase05WorkflowCandidateDatabaseIT {
                 .withPassword("phase05-candidate-test-only");
         postgres.start();
         migrate("postgres", "cluster", null);
-        try (Connection connection = connection("postgres"); Statement statement = connection.createStatement()) {
+        try (Connection connection = connection("postgres");
+                Statement statement = connection.createStatement()) {
             statement.execute("CREATE DATABASE sjg_oms");
         }
         migrate("sjg_oms", "oms", "oms");
@@ -63,19 +64,25 @@ class Phase05WorkflowCandidateDatabaseIT {
         Seed seed = seedCandidateTask(false);
         AssignmentRuntime runtime = assignmentRuntime();
 
-        WorkflowTaskAssignmentService.ClaimResult claimed = runtime.tx().execute(status -> runtime.service().claim(
-                new WorkflowTaskAssignmentService.ClaimCommand(TENANT_ID, seed.taskId(), seed.approverA())));
+        WorkflowTaskAssignmentService.ClaimResult claimed = runtime.tx().execute(status -> runtime.service()
+                .claim(new WorkflowTaskAssignmentService.ClaimCommand(TENANT_ID, seed.taskId(), seed.approverA())));
         assertNotNull(claimed);
         assertEquals(seed.approverA(), claimed.assigneeId());
         assertTrue(claimed.eligibleCandidateIds().contains(seed.approverA()));
         assertTrue(claimed.eligibleCandidateIds().contains(seed.approverB()));
         assertTrue(!claimed.eligibleCandidateIds().contains(seed.initiator()));
-        assertEquals(seed.approverA(), scalarUuid("select assignee_id from workflow.wf_task where id='" + seed.taskId() + "'"));
+        assertEquals(
+                seed.approverA(),
+                scalarUuid("select assignee_id from workflow.wf_task where id='" + seed.taskId() + "'"));
 
-        WorkflowException competing = assertThrows(WorkflowException.class, () -> runtime.tx().execute(status -> runtime.service().claim(
-                new WorkflowTaskAssignmentService.ClaimCommand(TENANT_ID, seed.taskId(), seed.approverB()))));
+        WorkflowException competing =
+                assertThrows(WorkflowException.class, () -> runtime.tx().execute(status -> runtime.service()
+                        .claim(new WorkflowTaskAssignmentService.ClaimCommand(
+                                TENANT_ID, seed.taskId(), seed.approverB()))));
         assertEquals(WorkflowException.Code.STALE_VERSION, competing.code());
-        assertEquals(seed.approverA(), scalarUuid("select assignee_id from workflow.wf_task where id='" + seed.taskId() + "'"));
+        assertEquals(
+                seed.approverA(),
+                scalarUuid("select assignee_id from workflow.wf_task where id='" + seed.taskId() + "'"));
     }
 
     @Test
@@ -83,10 +90,13 @@ class Phase05WorkflowCandidateDatabaseIT {
         Seed seed = seedCandidateTask(true);
         AssignmentRuntime runtime = assignmentRuntime();
 
-        WorkflowException noApprover = assertThrows(WorkflowException.class, () -> runtime.tx().execute(status -> runtime.service().claim(
-                new WorkflowTaskAssignmentService.ClaimCommand(TENANT_ID, seed.taskId(), seed.approverA()))));
+        WorkflowException noApprover =
+                assertThrows(WorkflowException.class, () -> runtime.tx().execute(status -> runtime.service()
+                        .claim(new WorkflowTaskAssignmentService.ClaimCommand(
+                                TENANT_ID, seed.taskId(), seed.approverA()))));
         assertEquals(WorkflowException.Code.NO_ELIGIBLE_APPROVER, noApprover.code());
-        assertEquals(null, scalarNullableUuid("select assignee_id from workflow.wf_task where id='" + seed.taskId() + "'"));
+        assertEquals(
+                null, scalarNullableUuid("select assignee_id from workflow.wf_task where id='" + seed.taskId() + "'"));
     }
 
     private static AssignmentRuntime assignmentRuntime() {
@@ -108,8 +118,8 @@ class Phase05WorkflowCandidateDatabaseIT {
     private static Seed seedCandidateTask(boolean recuseOnlyApprover) throws Exception {
         UUID orgId = UUID.randomUUID();
         UUID positionId = UUID.randomUUID();
-        execute("insert into org.organization(id,tenant_id,org_code,org_name,org_type,status) values ('"
-                + orgId + "','" + TENANT_ID + "','ORG-" + shortId() + "','Candidate Org','CENTER','ACTIVE')");
+        execute("insert into org.organization(id,tenant_id,org_code,org_name,org_type,status) values ('" + orgId + "','"
+                + TENANT_ID + "','ORG-" + shortId() + "','Candidate Org','CENTER','ACTIVE')");
         execute("insert into org.position(id,tenant_id,position_code,position_name,org_id,status) values ('"
                 + positionId + "','" + TENANT_ID + "','POS-" + shortId() + "','Approver','" + orgId + "','ACTIVE')");
 
@@ -123,50 +133,59 @@ class Phase05WorkflowCandidateDatabaseIT {
         appoint(approverA, orgId, positionId);
         if (!approverB.equals(approverA)) appoint(approverB, orgId, positionId);
 
-        UUID definitionId = scalarUuid("select id from workflow.wf_definition where tenant_id='" + TENANT_ID
-                + "' and process_code='P004'");
+        UUID definitionId = scalarUuid(
+                "select id from workflow.wf_definition where tenant_id='" + TENANT_ID + "' and process_code='P004'");
         UUID versionId = createPublishedVersion(definitionId, orgId, positionId);
         UUID instanceId = UUID.randomUUID();
         UUID taskId = UUID.randomUUID();
         String context = recuseOnlyApprover
                 ? "{\"amount\":500,\"riskLevel\":\"HIGH\",\"recusedEmployeeIds\":[\"" + approverA + "\"]}"
                 : "{\"amount\":500,\"riskLevel\":\"HIGH\"}";
-        execute("insert into workflow.wf_instance(id,tenant_id,instance_no,definition_id,version_id,process_code,business_object_type,title,initiator_id,current_node_code,status,priority,context_snapshot) values ('"
-                + instanceId + "','" + TENANT_ID + "','WFI-CAND-" + shortId() + "','" + definitionId + "','" + versionId
-                + "','P004','TEST','Candidate runtime','" + initiator + "','REVIEW','RUNNING','NORMAL','" + context.replace("'", "''") + "'::jsonb)");
+        execute(
+                "insert into workflow.wf_instance(id,tenant_id,instance_no,definition_id,version_id,process_code,business_object_type,title,initiator_id,current_node_code,status,priority,context_snapshot) values ('"
+                        + instanceId + "','" + TENANT_ID + "','WFI-CAND-" + shortId() + "','" + definitionId + "','"
+                        + versionId
+                        + "','P004','TEST','Candidate runtime','" + initiator + "','REVIEW','RUNNING','NORMAL','"
+                        + context.replace("'", "''") + "'::jsonb)");
         String rule = candidateRule(orgId, positionId);
-        execute("insert into workflow.wf_task(id,tenant_id,instance_id,task_no,node_code,task_type,candidate_rule,status,received_at) values ('"
-                + taskId + "','" + TENANT_ID + "','" + instanceId + "','WFT-CAND-" + shortId()
-                + "','REVIEW','APPROVAL','" + rule.replace("'", "''") + "'::jsonb,'PENDING',now())");
+        execute(
+                "insert into workflow.wf_task(id,tenant_id,instance_id,task_no,node_code,task_type,candidate_rule,status,received_at) values ('"
+                        + taskId + "','" + TENANT_ID + "','" + instanceId + "','WFT-CAND-" + shortId()
+                        + "','REVIEW','APPROVAL','" + rule.replace("'", "''") + "'::jsonb,'PENDING',now())");
         return new Seed(taskId, initiator, approverA, approverB);
     }
 
     private static UUID createEmployee(String employeeNo) throws SQLException {
         UUID id = UUID.randomUUID();
-        execute("insert into org.employee(id,tenant_id,employee_no,person_name,employment_status) values ('"
-                + id + "','" + TENANT_ID + "','" + employeeNo + "','Candidate Employee','ACTIVE')");
+        execute("insert into org.employee(id,tenant_id,employee_no,person_name,employment_status) values ('" + id
+                + "','" + TENANT_ID + "','" + employeeNo + "','Candidate Employee','ACTIVE')");
         return id;
     }
 
     private static void appoint(UUID employeeId, UUID orgId, UUID positionId) throws SQLException {
-        execute("insert into org.employee_position(id,tenant_id,employee_id,position_id,org_id,is_primary,effective_start_date,status) values ('"
-                + UUID.randomUUID() + "','" + TENANT_ID + "','" + employeeId + "','" + positionId + "','" + orgId
-                + "',false,current_date - 1,'ACTIVE')");
+        execute(
+                "insert into org.employee_position(id,tenant_id,employee_id,position_id,org_id,is_primary,effective_start_date,status) values ('"
+                        + UUID.randomUUID() + "','" + TENANT_ID + "','" + employeeId + "','" + positionId + "','"
+                        + orgId
+                        + "',false,current_date - 1,'ACTIVE')");
     }
 
     private static UUID createPublishedVersion(UUID definitionId, UUID orgId, UUID positionId) throws SQLException {
         UUID versionId = UUID.randomUUID();
         int versionNo = VERSION_SEQUENCE.incrementAndGet();
         String rule = candidateRule(orgId, positionId);
-        execute("insert into workflow.wf_version(id,tenant_id,definition_id,version_no,status,definition_json,checksum) values ('"
-                + versionId + "','" + TENANT_ID + "','" + definitionId + "'," + versionNo + ",'DRAFT','{}'::jsonb,'draft-candidate-" + shortId() + "')");
+        execute(
+                "insert into workflow.wf_version(id,tenant_id,definition_id,version_no,status,definition_json,checksum) values ('"
+                        + versionId + "','" + TENANT_ID + "','" + definitionId + "'," + versionNo
+                        + ",'DRAFT','{}'::jsonb,'draft-candidate-" + shortId() + "')");
         execute("insert into workflow.wf_node(id,tenant_id,version_id,node_code,node_name,node_type,sort_no) values ('"
                 + UUID.randomUUID() + "','" + TENANT_ID + "','" + versionId + "','START','Start','START',10)");
-        execute("insert into workflow.wf_node(id,tenant_id,version_id,node_code,node_name,node_type,actor_rule,sort_no) values ('"
-                + UUID.randomUUID() + "','" + TENANT_ID + "','" + versionId + "','REVIEW','Review','TASK','"
-                + rule.replace("'", "''") + "'::jsonb,20)");
-        execute("update workflow.wf_version set status='PUBLISHED',effective_at=now(),checksum='published-candidate-" + shortId()
-                + "' where id='" + versionId + "'");
+        execute(
+                "insert into workflow.wf_node(id,tenant_id,version_id,node_code,node_name,node_type,actor_rule,sort_no) values ('"
+                        + UUID.randomUUID() + "','" + TENANT_ID + "','" + versionId + "','REVIEW','Review','TASK','"
+                        + rule.replace("'", "''") + "'::jsonb,20)");
+        execute("update workflow.wf_version set status='PUBLISHED',effective_at=now(),checksum='published-candidate-"
+                + shortId() + "' where id='" + versionId + "'");
         return versionId;
     }
 
@@ -180,7 +199,8 @@ class Phase05WorkflowCandidateDatabaseIT {
     }
 
     private static void execute(String sql) throws SQLException {
-        try (Connection connection = connection("sjg_oms"); Statement statement = connection.createStatement()) {
+        try (Connection connection = connection("sjg_oms");
+                Statement statement = connection.createStatement()) {
             statement.execute(sql);
         }
     }
@@ -192,7 +212,9 @@ class Phase05WorkflowCandidateDatabaseIT {
     }
 
     private static UUID scalarNullableUuid(String sql) throws SQLException {
-        try (Connection c = connection("sjg_oms"); Statement s = c.createStatement(); ResultSet r = s.executeQuery(sql)) {
+        try (Connection c = connection("sjg_oms");
+                Statement s = c.createStatement();
+                ResultSet r = s.executeQuery(sql)) {
             assertTrue(r.next());
             return r.getObject(1, UUID.class);
         }
@@ -200,8 +222,12 @@ class Phase05WorkflowCandidateDatabaseIT {
 
     private static void migrate(String database, String generatedFolder, String overlayFolder) {
         var locations = new java.util.ArrayList<String>();
-        locations.add("filesystem:" + repoRoot.resolve("technical-platform/database/flyway").resolve(generatedFolder));
-        if (overlayFolder != null) locations.add("filesystem:" + repoRoot.resolve("technical-platform/database/flyway-overlays").resolve(overlayFolder));
+        locations.add("filesystem:"
+                + repoRoot.resolve("technical-platform/database/flyway").resolve(generatedFolder));
+        if (overlayFolder != null)
+            locations.add("filesystem:"
+                    + repoRoot.resolve("technical-platform/database/flyway-overlays")
+                            .resolve(overlayFolder));
         Flyway flyway = Flyway.configure()
                 .dataSource(jdbcUrl(database), postgres.getUsername(), postgres.getPassword())
                 .locations(locations.toArray(String[]::new))
@@ -209,7 +235,8 @@ class Phase05WorkflowCandidateDatabaseIT {
                         "sjg_tenant_id", TENANT_ID.toString(),
                         "sjg_tenant_code", "PHASE05_CANDIDATE",
                         "sjg_tenant_name", "PHASE-05 Candidate Test"))
-                .cleanDisabled(true).load();
+                .cleanDisabled(true)
+                .load();
         assertTrue(flyway.migrate().success);
         flyway.validate();
     }
@@ -229,7 +256,8 @@ class Phase05WorkflowCandidateDatabaseIT {
     private static Path findRepoRoot() {
         Path current = Path.of(System.getProperty("user.dir")).toAbsolutePath().normalize();
         while (current != null) {
-            if (Files.isRegularFile(current.resolve("AGENT.md")) && Files.isDirectory(current.resolve("Knowledge Base"))
+            if (Files.isRegularFile(current.resolve("AGENT.md"))
+                    && Files.isDirectory(current.resolve("Knowledge Base"))
                     && Files.isRegularFile(current.resolve("pom.xml"))) return current;
             current = current.getParent();
         }
@@ -237,5 +265,6 @@ class Phase05WorkflowCandidateDatabaseIT {
     }
 
     private record AssignmentRuntime(WorkflowTaskAssignmentService service, TransactionTemplate tx) {}
+
     private record Seed(UUID taskId, UUID initiator, UUID approverA, UUID approverB) {}
 }

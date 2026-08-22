@@ -28,7 +28,7 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 
 @Service
-public final class ProfileChangeService {
+public class ProfileChangeService {
     public static final String PROCESS_CODE = "P003";
     public static final String EVENT_TYPE = "P003_PROFILE_CHANGE_EVENT";
     public static final String AGGREGATE_TYPE = "P003_PROFILE_CHANGE";
@@ -68,28 +68,54 @@ public final class ProfileChangeService {
         List<PreparedChange> changes = prepare(command);
         return transactions.required(actor, () -> {
             UUID proposedId = UUID.randomUUID();
-            IdempotencyClaim claim = idempotency.claim(actor.tenantId(), actor.employeeId(), idempotencyKey, requestHash,
-                    "hr.employee_profile_change", proposedId, IDEMPOTENCY_TTL);
+            IdempotencyClaim claim = idempotency.claim(
+                    actor.tenantId(),
+                    actor.employeeId(),
+                    idempotencyKey,
+                    requestHash,
+                    "hr.employee_profile_change",
+                    proposedId,
+                    IDEMPOTENCY_TTL);
             if (claim.existing()) return required(actor.tenantId(), claim.resourceId());
 
-            UUID workflowVersion = repository.latestPublishedWorkflowVersion(actor.tenantId(), PROCESS_CODE)
-                    .orElseThrow(() -> new ProcessRejectedException("P003 published workflow version is not configured"));
+            UUID workflowVersion = repository
+                    .latestPublishedWorkflowVersion(actor.tenantId(), PROCESS_CODE)
+                    .orElseThrow(
+                            () -> new ProcessRejectedException("P003 published workflow version is not configured"));
             List<UUID> reviewers = repository.permissionCandidates(
                     actor.tenantId(), "p003.change.review", actor.orgId(), true, actor.employeeId());
             List<UUID> appliers = repository.permissionCandidates(
                     actor.tenantId(), "p003.change.apply", null, false, actor.employeeId());
             if (reviewers.stream().distinct().count() < 2) {
-                throw new ProcessRejectedException("P003 requires two distinct eligible reviewers for critical review nodes");
+                throw new ProcessRejectedException(
+                        "P003 requires two distinct eligible reviewers for critical review nodes");
             }
-            if (appliers.isEmpty()) throw new ProcessRejectedException("P003 has no eligible authoritative profile applier");
+            if (appliers.isEmpty())
+                throw new ProcessRejectedException("P003 has no eligible authoritative profile applier");
 
             String businessNo = numbers.next(actor.tenantId(), actor.employeeId(), PROCESS_CODE);
             ProfileChange created = new ProfileChange(
-                    claim.resourceId(), actor.tenantId(), businessNo, null, label("S03"), 0,
-                    normalize(command.sourceChannel(), "PORTAL"), command.businessDate(), command.subject().trim(),
-                    trimToNull(command.reason()), normalize(command.priority(), "NORMAL"), risk(changes),
-                    actor.orgId(), null, actor.employeeId(), command.expectedEffectiveAt(), command.knownImpact(),
-                    null, null, null, List.of());
+                    claim.resourceId(),
+                    actor.tenantId(),
+                    businessNo,
+                    null,
+                    label("S03"),
+                    0,
+                    normalize(command.sourceChannel(), "PORTAL"),
+                    command.businessDate(),
+                    command.subject().trim(),
+                    trimToNull(command.reason()),
+                    normalize(command.priority(), "NORMAL"),
+                    risk(changes),
+                    actor.orgId(),
+                    null,
+                    actor.employeeId(),
+                    command.expectedEffectiveAt(),
+                    command.knownImpact(),
+                    null,
+                    null,
+                    null,
+                    List.of());
             repository.insert(created, actor.employeeId());
             repository.insertChanges(created.tenantId(), created.id(), actor.employeeId(), changes);
 
@@ -99,20 +125,49 @@ public final class ProfileChangeService {
             context.put("riskLevel", created.riskLevel());
             context.set("reviewCandidateIds", uuidArray(reviewers));
             context.set("applyCandidateIds", uuidArray(appliers));
-            context.set("changedFieldCodes", textArray(changes.stream().map(PreparedChange::fieldCode).toList()));
+            context.set(
+                    "changedFieldCodes",
+                    textArray(changes.stream().map(PreparedChange::fieldCode).toList()));
 
             WorkflowRuntimeService.Result started = workflow.start(new WorkflowRuntimeService.StartCommand(
-                    actor.tenantId(), actor.employeeId(), actor.identityId(), workflowVersion,
-                    "hr.employee_profile_change", created.id(), created.businessNo(), created.subject(), created.priority(),
-                    context, scopedKey(idempotencyKey, "start")));
+                    actor.tenantId(),
+                    actor.employeeId(),
+                    actor.identityId(),
+                    workflowVersion,
+                    "hr.employee_profile_change",
+                    created.id(),
+                    created.businessNo(),
+                    created.subject(),
+                    created.priority(),
+                    context,
+                    scopedKey(idempotencyKey, "start")));
             WorkflowRuntimeService.Result submitted = workflow.act(new WorkflowRuntimeService.ActionCommand(
-                    actor.tenantId(), actor.employeeId(), actor.identityId(), started.instance().id(), null,
-                    "S03", "SUBMIT", created.reason(), scopedKey(idempotencyKey, "submit")));
-            int changed = repository.bindWorkflowAndMove(actor.tenantId(), created.id(), 0, submitted.instance().id(),
-                    label(submitted.instance().currentNodeCode()), actor.employeeId());
+                    actor.tenantId(),
+                    actor.employeeId(),
+                    actor.identityId(),
+                    started.instance().id(),
+                    null,
+                    "S03",
+                    "SUBMIT",
+                    created.reason(),
+                    scopedKey(idempotencyKey, "submit")));
+            int changed = repository.bindWorkflowAndMove(
+                    actor.tenantId(),
+                    created.id(),
+                    0,
+                    submitted.instance().id(),
+                    label(submitted.instance().currentNodeCode()),
+                    actor.employeeId());
             if (changed != 1) throw new ProcessRejectedException("P003 concurrent create transition conflict");
-            emit(actor.tenantId(), actor.employeeId(), created.id(), created.businessNo(), "SUBMITTED",
-                    submitted.instance().currentNodeCode(), reviewers, changes.stream().map(PreparedChange::fieldCode).toList());
+            emit(
+                    actor.tenantId(),
+                    actor.employeeId(),
+                    created.id(),
+                    created.businessNo(),
+                    "SUBMITTED",
+                    submitted.instance().currentNodeCode(),
+                    reviewers,
+                    changes.stream().map(PreparedChange::fieldCode).toList());
             return required(actor.tenantId(), created.id());
         });
     }
@@ -122,8 +177,14 @@ public final class ProfileChangeService {
         requireActor(actor);
         Objects.requireNonNull(command, "review command");
         return transactions.required(actor, () -> {
-            IdempotencyClaim claim = idempotency.claim(actor.tenantId(), actor.employeeId(), idempotencyKey, requestHash,
-                    "hr.employee_profile_change.review", id, IDEMPOTENCY_TTL);
+            IdempotencyClaim claim = idempotency.claim(
+                    actor.tenantId(),
+                    actor.employeeId(),
+                    idempotencyKey,
+                    requestHash,
+                    "hr.employee_profile_change.review",
+                    id,
+                    IDEMPOTENCY_TTL);
             if (claim.existing()) return required(actor.tenantId(), id);
             ProfileChange current = required(actor.tenantId(), id);
             requireVersion(current, command.expectedVersion());
@@ -135,8 +196,9 @@ public final class ProfileChangeService {
             if (!Set.of("S04", "S05").contains(node) || runtime.task() == null) {
                 throw new ProcessRejectedException("P003 profile change is not at a reviewable source node");
             }
-            if ("S05".equals(node) && repository.approvedAtNode(
-                    actor.tenantId(), current.workflowInstanceId(), "S04", actor.employeeId())) {
+            if ("S05".equals(node)
+                    && repository.approvedAtNode(
+                            actor.tenantId(), current.workflowInstanceId(), "S04", actor.employeeId())) {
                 throw new ProcessRejectedException("P003 critical review nodes require distinct employees");
             }
             String decision = normalize(command.decision(), "").toUpperCase(Locale.ROOT);
@@ -146,14 +208,34 @@ public final class ProfileChangeService {
             taskAssignment.claim(new WorkflowTaskAssignmentService.ClaimCommand(
                     actor.tenantId(), runtime.task().id(), actor.employeeId()));
             WorkflowRuntimeService.Result result = workflow.act(new WorkflowRuntimeService.ActionCommand(
-                    actor.tenantId(), actor.employeeId(), actor.identityId(), current.workflowInstanceId(), runtime.task().id(),
-                    node, decision, command.reason(), scopedKey(idempotencyKey, "workflow")));
-            int changed = repository.moveStatus(actor.tenantId(), id, current.versionNo(),
-                    label(result.instance().currentNodeCode()), command.reason(), result.instance().finishedAt(), actor.employeeId());
+                    actor.tenantId(),
+                    actor.employeeId(),
+                    actor.identityId(),
+                    current.workflowInstanceId(),
+                    runtime.task().id(),
+                    node,
+                    decision,
+                    command.reason(),
+                    scopedKey(idempotencyKey, "workflow")));
+            int changed = repository.moveStatus(
+                    actor.tenantId(),
+                    id,
+                    current.versionNo(),
+                    label(result.instance().currentNodeCode()),
+                    command.reason(),
+                    result.instance().finishedAt(),
+                    actor.employeeId());
             if (changed != 1) throw new ProcessRejectedException("P003 concurrent review conflict");
             ProfileChange updated = required(actor.tenantId(), id);
-            emit(actor.tenantId(), actor.employeeId(), id, current.businessNo(), "REVIEWED",
-                    result.instance().currentNodeCode(), recipients(result), fieldCodes(updated));
+            emit(
+                    actor.tenantId(),
+                    actor.employeeId(),
+                    id,
+                    current.businessNo(),
+                    "REVIEWED",
+                    result.instance().currentNodeCode(),
+                    recipients(result),
+                    fieldCodes(updated));
             return updated;
         });
     }
@@ -163,8 +245,14 @@ public final class ProfileChangeService {
         requireActor(actor);
         Objects.requireNonNull(command, "apply command");
         return transactions.required(actor, () -> {
-            IdempotencyClaim claim = idempotency.claim(actor.tenantId(), actor.employeeId(), idempotencyKey, requestHash,
-                    "hr.employee_profile_change.apply", id, IDEMPOTENCY_TTL);
+            IdempotencyClaim claim = idempotency.claim(
+                    actor.tenantId(),
+                    actor.employeeId(),
+                    idempotencyKey,
+                    requestHash,
+                    "hr.employee_profile_change.apply",
+                    id,
+                    IDEMPOTENCY_TTL);
             if (claim.existing()) return required(actor.tenantId(), id);
             ProfileChange current = required(actor.tenantId(), id);
             requireVersion(current, command.expectedVersion());
@@ -177,14 +265,29 @@ public final class ProfileChangeService {
             repository.applyAuthoritativeChanges(actor.tenantId(), id, current.ownerEmployeeId(), actor.employeeId());
 
             WorkflowRuntimeService.Result applied = workflow.act(new WorkflowRuntimeService.ActionCommand(
-                    actor.tenantId(), actor.employeeId(), actor.identityId(), current.workflowInstanceId(), runtime.task().id(),
-                    "S06", "APPLY", command.reason(), scopedKey(idempotencyKey, "apply")));
+                    actor.tenantId(),
+                    actor.employeeId(),
+                    actor.identityId(),
+                    current.workflowInstanceId(),
+                    runtime.task().id(),
+                    "S06",
+                    "APPLY",
+                    command.reason(),
+                    scopedKey(idempotencyKey, "apply")));
             int version = current.versionNo();
-            if (repository.moveStatus(actor.tenantId(), id, version, label("S07"), command.reason(), null, actor.employeeId()) != 1)
-                throw new ProcessRejectedException("P003 concurrent apply conflict");
+            if (repository.moveStatus(
+                            actor.tenantId(), id, version, label("S07"), command.reason(), null, actor.employeeId())
+                    != 1) throw new ProcessRejectedException("P003 concurrent apply conflict");
             version++;
-            emit(actor.tenantId(), actor.employeeId(), id, current.businessNo(), "APPLIED", "S07",
-                    recipients(applied), fieldCodes(current));
+            emit(
+                    actor.tenantId(),
+                    actor.employeeId(),
+                    id,
+                    current.businessNo(),
+                    "APPLIED",
+                    "S07",
+                    recipients(applied),
+                    fieldCodes(current));
 
             WorkflowRuntimeService.Result syncRuntime = workflow.get(actor.tenantId(), current.workflowInstanceId());
             if (!"S07".equals(syncRuntime.instance().currentNodeCode()) || syncRuntime.task() == null)
@@ -192,13 +295,28 @@ public final class ProfileChangeService {
             taskAssignment.claim(new WorkflowTaskAssignmentService.ClaimCommand(
                     actor.tenantId(), syncRuntime.task().id(), actor.employeeId()));
             WorkflowRuntimeService.Result synced = workflow.act(new WorkflowRuntimeService.ActionCommand(
-                    actor.tenantId(), actor.employeeId(), actor.identityId(), current.workflowInstanceId(), syncRuntime.task().id(),
-                    "S07", "SYNC", command.reason(), scopedKey(idempotencyKey, "sync")));
-            if (repository.moveStatus(actor.tenantId(), id, version, label("S08"), command.reason(), null, actor.employeeId()) != 1)
-                throw new ProcessRejectedException("P003 concurrent projection synchronization conflict");
+                    actor.tenantId(),
+                    actor.employeeId(),
+                    actor.identityId(),
+                    current.workflowInstanceId(),
+                    syncRuntime.task().id(),
+                    "S07",
+                    "SYNC",
+                    command.reason(),
+                    scopedKey(idempotencyKey, "sync")));
+            if (repository.moveStatus(
+                            actor.tenantId(), id, version, label("S08"), command.reason(), null, actor.employeeId())
+                    != 1) throw new ProcessRejectedException("P003 concurrent projection synchronization conflict");
             version++;
-            emit(actor.tenantId(), actor.employeeId(), id, current.businessNo(), "SYNCED", "S08",
-                    recipients(synced), fieldCodes(current));
+            emit(
+                    actor.tenantId(),
+                    actor.employeeId(),
+                    id,
+                    current.businessNo(),
+                    "SYNCED",
+                    "S08",
+                    recipients(synced),
+                    fieldCodes(current));
 
             WorkflowRuntimeService.Result closeRuntime = workflow.get(actor.tenantId(), current.workflowInstanceId());
             if (!"S08".equals(closeRuntime.instance().currentNodeCode()) || closeRuntime.task() == null)
@@ -206,13 +324,34 @@ public final class ProfileChangeService {
             taskAssignment.claim(new WorkflowTaskAssignmentService.ClaimCommand(
                     actor.tenantId(), closeRuntime.task().id(), actor.employeeId()));
             WorkflowRuntimeService.Result closed = workflow.act(new WorkflowRuntimeService.ActionCommand(
-                    actor.tenantId(), actor.employeeId(), actor.identityId(), current.workflowInstanceId(), closeRuntime.task().id(),
-                    "S08", "CLOSE", command.reason(), scopedKey(idempotencyKey, "close")));
-            if (repository.moveStatus(actor.tenantId(), id, version, label("END"), command.reason(), closed.instance().finishedAt(), actor.employeeId()) != 1)
-                throw new ProcessRejectedException("P003 concurrent close conflict");
+                    actor.tenantId(),
+                    actor.employeeId(),
+                    actor.identityId(),
+                    current.workflowInstanceId(),
+                    closeRuntime.task().id(),
+                    "S08",
+                    "CLOSE",
+                    command.reason(),
+                    scopedKey(idempotencyKey, "close")));
+            if (repository.moveStatus(
+                            actor.tenantId(),
+                            id,
+                            version,
+                            label("END"),
+                            command.reason(),
+                            closed.instance().finishedAt(),
+                            actor.employeeId())
+                    != 1) throw new ProcessRejectedException("P003 concurrent close conflict");
             ProfileChange result = required(actor.tenantId(), id);
-            emit(actor.tenantId(), actor.employeeId(), id, current.businessNo(), "CLOSED", "END",
-                    List.of(current.ownerEmployeeId()), fieldCodes(result));
+            emit(
+                    actor.tenantId(),
+                    actor.employeeId(),
+                    id,
+                    current.businessNo(),
+                    "CLOSED",
+                    "END",
+                    List.of(current.ownerEmployeeId()),
+                    fieldCodes(result));
             return result;
         });
     }
@@ -228,13 +367,18 @@ public final class ProfileChangeService {
     }
 
     private ProfileChange required(UUID tenantId, UUID id) {
-        return repository.find(tenantId, id).orElseThrow(() -> new ProcessRejectedException("P003 profile change not found"));
+        return repository
+                .find(tenantId, id)
+                .orElseThrow(() -> new ProcessRejectedException("P003 profile change not found"));
     }
 
     private static List<PreparedChange> prepare(CreateCommand command) {
         Objects.requireNonNull(command, "create command");
-        if (command.businessDate() == null || command.subject() == null || command.subject().isBlank()
-                || command.changes() == null || command.changes().isEmpty()) {
+        if (command.businessDate() == null
+                || command.subject() == null
+                || command.subject().isBlank()
+                || command.changes() == null
+                || command.changes().isEmpty()) {
             throw new ProcessRejectedException("P003 required request fields are missing");
         }
         Set<String> unique = new HashSet<>();
@@ -242,11 +386,13 @@ public final class ProfileChangeService {
         for (FieldChange change : command.changes()) {
             if (change == null) throw new ProcessRejectedException("P003 change entry is required");
             ProfileFieldDefinition definition = ProfileFieldDefinition.fromCode(change.fieldCode());
-            if (!unique.add(definition.code())) throw new ProcessRejectedException("P003 duplicate field change: " + definition.code());
+            if (!unique.add(definition.code()))
+                throw new ProcessRejectedException("P003 duplicate field change: " + definition.code());
             String value = definition.normalize(change.proposedValue());
             String proof = trimToNull(change.proofReference());
             if (definition.proofRequired() && proof == null) {
-                throw new ProcessRejectedException("P003 proof is required for highly sensitive field: " + definition.code());
+                throw new ProcessRejectedException(
+                        "P003 proof is required for highly sensitive field: " + definition.code());
             }
             prepared.add(new PreparedChange(definition.code(), value, definition.sensitivity(), proof));
         }
@@ -261,15 +407,30 @@ public final class ProfileChangeService {
         if (result.task() == null || result.task().candidateRule() == null) return List.of();
         JsonNode field = result.task().candidateRule().get("field");
         if (field == null || !field.isTextual()) return List.of();
-        JsonNode values = result.instance().contextSnapshot() == null ? null : result.instance().contextSnapshot().get(field.textValue());
+        JsonNode values = result.instance().contextSnapshot() == null
+                ? null
+                : result.instance().contextSnapshot().get(field.textValue());
         if (values == null || !values.isArray()) return List.of();
         List<UUID> ids = new ArrayList<>();
-        values.forEach(value -> { if (value.isTextual()) try { ids.add(UUID.fromString(value.textValue())); } catch (IllegalArgumentException ignored) {} });
+        values.forEach(value -> {
+            if (value.isTextual())
+                try {
+                    ids.add(UUID.fromString(value.textValue()));
+                } catch (IllegalArgumentException ignored) {
+                }
+        });
         return List.copyOf(ids);
     }
 
-    private void emit(UUID tenantId, UUID actorId, UUID id, String businessNo, String event, String node,
-                      List<UUID> recipients, List<String> changedFields) {
+    private void emit(
+            UUID tenantId,
+            UUID actorId,
+            UUID id,
+            String businessNo,
+            String event,
+            String node,
+            List<UUID> recipients,
+            List<String> changedFields) {
         ObjectNode payload = mapper.createObjectNode();
         payload.put("requestId", id.toString());
         payload.put("businessNo", businessNo);
@@ -278,13 +439,22 @@ public final class ProfileChangeService {
         payload.set("recipientEmployeeIds", uuidArray(recipients));
         payload.set("changedFieldCodes", textArray(changedFields));
         outbox.enqueue(new TransactionalOutboxService.Command(
-                tenantId, actorId, AGGREGATE_TYPE, id, EVENT_TYPE, 1, json(payload),
+                tenantId,
+                actorId,
+                AGGREGATE_TYPE,
+                id,
+                EVENT_TYPE,
+                1,
+                json(payload),
                 "p003:" + id + ":" + event.toLowerCase(Locale.ROOT) + ":" + node));
     }
 
     private String json(JsonNode value) {
-        try { return mapper.writeValueAsString(value); }
-        catch (JsonProcessingException ex) { throw new ProcessRejectedException("P003 event payload cannot be serialized", ex); }
+        try {
+            return mapper.writeValueAsString(value);
+        } catch (JsonProcessingException ex) {
+            throw new ProcessRejectedException("P003 event payload cannot be serialized", ex);
+        }
     }
 
     private ArrayNode uuidArray(List<UUID> ids) {
@@ -304,14 +474,20 @@ public final class ProfileChangeService {
     }
 
     private static void requireActor(DatabaseSecurityContext actor) {
-        if (actor == null || actor.tenantId() == null || actor.userId() == null || actor.identityId() == null
-                || actor.employeeId() == null || actor.orgId() == null || actor.positionId() == null) {
+        if (actor == null
+                || actor.tenantId() == null
+                || actor.userId() == null
+                || actor.identityId() == null
+                || actor.employeeId() == null
+                || actor.orgId() == null
+                || actor.positionId() == null) {
             throw new ProcessRejectedException("P003 authenticated employee context is required");
         }
     }
 
     private static void requireVersion(ProfileChange change, int expectedVersion) {
-        if (change.versionNo() != expectedVersion) throw new ProcessRejectedException("P003 profile change version conflict");
+        if (change.versionNo() != expectedVersion)
+            throw new ProcessRejectedException("P003 profile change version conflict");
     }
 
     private static String label(String node) {
@@ -336,32 +512,82 @@ public final class ProfileChangeService {
     private static String normalize(String value, String fallback) {
         return value == null || value.isBlank() ? fallback : value.trim();
     }
-    private static String trimToNull(String value) { return value == null || value.isBlank() ? null : value.trim(); }
+
+    private static String trimToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
+    }
 
     public interface Repository {
         Optional<UUID> latestPublishedWorkflowVersion(UUID tenantId, String processCode);
-        List<UUID> permissionCandidates(UUID tenantId, String permissionCode, UUID orgId, boolean sameOrg, UUID excludedEmployeeId);
+
+        List<UUID> permissionCandidates(
+                UUID tenantId, String permissionCode, UUID orgId, boolean sameOrg, UUID excludedEmployeeId);
+
         void insert(ProfileChange change, UUID actorId);
+
         void insertChanges(UUID tenantId, UUID requestId, UUID actorId, List<PreparedChange> changes);
-        int bindWorkflowAndMove(UUID tenantId, UUID id, int expectedVersion, UUID workflowInstanceId, String status, UUID actorId);
-        int moveStatus(UUID tenantId, UUID id, int expectedVersion, String status, String resultSummary, Instant closedAt, UUID actorId);
+
+        int bindWorkflowAndMove(
+                UUID tenantId, UUID id, int expectedVersion, UUID workflowInstanceId, String status, UUID actorId);
+
+        int moveStatus(
+                UUID tenantId,
+                UUID id,
+                int expectedVersion,
+                String status,
+                String resultSummary,
+                Instant closedAt,
+                UUID actorId);
+
         boolean approvedAtNode(UUID tenantId, UUID workflowInstanceId, String nodeCode, UUID employeeId);
+
         void applyAuthoritativeChanges(UUID tenantId, UUID requestId, UUID employeeId, UUID actorId);
+
         Optional<ProfileChange> find(UUID tenantId, UUID id);
+
         List<ProfileChange> list(UUID tenantId);
     }
 
     public record FieldChange(String fieldCode, String proposedValue, String proofReference) {}
+
     public record PreparedChange(String fieldCode, String normalizedValue, String sensitivity, String proofReference) {}
+
     public record ChangeView(String fieldCode, String sensitivity, String proposedValueMasked, boolean proofProvided) {}
+
     public record CreateCommand(
-            String sourceChannel, LocalDate businessDate, String subject, String reason, String priority,
-            Instant expectedEffectiveAt, String knownImpact, List<FieldChange> changes) {}
+            String sourceChannel,
+            LocalDate businessDate,
+            String subject,
+            String reason,
+            String priority,
+            Instant expectedEffectiveAt,
+            String knownImpact,
+            List<FieldChange> changes) {}
+
     public record ReviewCommand(int expectedVersion, String decision, String reason) {}
+
     public record ApplyCommand(int expectedVersion, String reason) {}
+
     public record ProfileChange(
-            UUID id, UUID tenantId, String businessNo, UUID workflowInstanceId, String status, int versionNo,
-            String sourceChannel, LocalDate businessDate, String subject, String reason, String priority, String riskLevel,
-            UUID ownerCenterId, UUID ownerDepartmentId, UUID ownerEmployeeId, Instant expectedEffectiveAt,
-            String knownImpact, String resultSummary, Instant closedAt, Instant updatedAt, List<ChangeView> changes) {}
+            UUID id,
+            UUID tenantId,
+            String businessNo,
+            UUID workflowInstanceId,
+            String status,
+            int versionNo,
+            String sourceChannel,
+            LocalDate businessDate,
+            String subject,
+            String reason,
+            String priority,
+            String riskLevel,
+            UUID ownerCenterId,
+            UUID ownerDepartmentId,
+            UUID ownerEmployeeId,
+            Instant expectedEffectiveAt,
+            String knownImpact,
+            String resultSummary,
+            Instant closedAt,
+            Instant updatedAt,
+            List<ChangeView> changes) {}
 }

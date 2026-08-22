@@ -51,13 +51,15 @@ class Phase05WorkflowOrchestrationDatabaseIT {
                 .withPassword("phase05-orchestration-test-only");
         postgres.start();
         migrate("postgres", "cluster", null);
-        try (Connection connection = connection("postgres"); Statement statement = connection.createStatement()) {
+        try (Connection connection = connection("postgres");
+                Statement statement = connection.createStatement()) {
             statement.execute("CREATE DATABASE sjg_oms");
         }
         migrate("sjg_oms", "oms", "oms");
         execute("insert into core.sequence_rule(id,tenant_id,rule_code,prefix_template,current_value,step) "
                 + "select '" + UUID.randomUUID() + "','" + TENANT_ID + "','P120','P120-',1000,1 "
-                + "where not exists (select 1 from core.sequence_rule where tenant_id='" + TENANT_ID + "' and rule_code='P120' and not is_deleted)");
+                + "where not exists (select 1 from core.sequence_rule where tenant_id='" + TENANT_ID
+                + "' and rule_code='P120' and not is_deleted)");
     }
 
     @AfterAll
@@ -71,85 +73,159 @@ class Phase05WorkflowOrchestrationDatabaseIT {
         Runtime runtime = runtime();
         WorkflowOrchestrationService.PhysicalSourceFields source = source(seed.leadCenterId());
 
-        WorkflowOrchestrationService.Orchestration created = runtime.tx().execute(status -> runtime.service().create(
-                TENANT_ID, seed.actorId(), new WorkflowOrchestrationService.CreateCommand("P120", null, source)));
+        WorkflowOrchestrationService.Orchestration created = runtime.tx().execute(status -> runtime.service()
+                .create(
+                        TENANT_ID,
+                        seed.actorId(),
+                        new WorkflowOrchestrationService.CreateCommand("P120", null, source)));
         assertNotNull(created);
         assertEquals("DRAFT", created.status());
         assertTrue(created.businessNo().startsWith("P120-"));
         assertEquals(0, created.versionNo());
         assertEquals(0, created.masterChangeVersion());
 
-        WorkflowOrchestrationService.Orchestration withItem = runtime.tx().execute(status -> runtime.service().addItem(
-                TENANT_ID, seed.actorId(), created.id(), 0,
-                new WorkflowOrchestrationService.ItemCommand(
-                        "child_orders_tasks", 0, "CHILD-1", "Child task", "OPEN", null,
-                        null, "workflow_instance", seed.childInstanceId(), null, null, 10)));
+        WorkflowOrchestrationService.Orchestration withItem = runtime.tx().execute(status -> runtime.service()
+                .addItem(
+                        TENANT_ID,
+                        seed.actorId(),
+                        created.id(),
+                        0,
+                        new WorkflowOrchestrationService.ItemCommand(
+                                "child_orders_tasks",
+                                0,
+                                "CHILD-1",
+                                "Child task",
+                                "OPEN",
+                                null,
+                                null,
+                                "workflow_instance",
+                                seed.childInstanceId(),
+                                null,
+                                null,
+                                10)));
         assertNotNull(withItem);
         assertEquals(1, withItem.versionNo());
         assertEquals(1, withItem.masterChangeVersion());
-        assertEquals(1, scalarInt("select count(*) from workflow.wf_orchestration_instance_item where master_id='" + created.id() + "'"));
+        assertEquals(
+                1,
+                scalarInt("select count(*) from workflow.wf_orchestration_instance_item where master_id='"
+                        + created.id() + "'"));
 
-        WorkflowOrchestrationService.Orchestration withLink = runtime.tx().execute(status -> runtime.service().addLink(
-                TENANT_ID, seed.actorId(), created.id(), 1,
-                new WorkflowOrchestrationService.LinkCommand(
-                        "P004", seed.childInstanceId(), "SOURCE_DEFINED", "M1", "ACTIVE", true)));
+        WorkflowOrchestrationService.Orchestration withLink = runtime.tx().execute(status -> runtime.service()
+                .addLink(
+                        TENANT_ID,
+                        seed.actorId(),
+                        created.id(),
+                        1,
+                        new WorkflowOrchestrationService.LinkCommand(
+                                "P004", seed.childInstanceId(), "SOURCE_DEFINED", "M1", "ACTIVE", true)));
         assertNotNull(withLink);
         assertEquals(2, withLink.versionNo());
-        assertEquals(1, scalarInt("select count(*) from workflow.wf_orchestration_link where orchestration_id='" + created.id() + "'"));
+        assertEquals(
+                1,
+                scalarInt("select count(*) from workflow.wf_orchestration_link where orchestration_id='" + created.id()
+                        + "'"));
 
-        WorkflowException stale = assertThrows(WorkflowException.class, () -> runtime.tx().execute(status -> runtime.service().updateProgress(
-                TENANT_ID, seed.actorId(), created.id(), 1, "STALE", new BigDecimal("0.2"))));
+        WorkflowException stale =
+                assertThrows(WorkflowException.class, () -> runtime.tx().execute(status -> runtime.service()
+                        .updateProgress(TENANT_ID, seed.actorId(), created.id(), 1, "STALE", new BigDecimal("0.2"))));
         assertEquals(WorkflowException.Code.STALE_VERSION, stale.code());
 
-        WorkflowOrchestrationService.Orchestration progressed = runtime.tx().execute(status -> runtime.service().updateProgress(
-                TENANT_ID, seed.actorId(), created.id(), 2, "M2", new BigDecimal("0.5000")));
+        WorkflowOrchestrationService.Orchestration progressed = runtime.tx().execute(status -> runtime.service()
+                .updateProgress(TENANT_ID, seed.actorId(), created.id(), 2, "M2", new BigDecimal("0.5000")));
         assertNotNull(progressed);
         assertEquals(3, progressed.versionNo());
         assertEquals(new BigDecimal("0.5000"), progressed.completionRate());
 
-        WorkflowOrchestrationService.Orchestration active = runtime.tx().execute(status -> runtime.service().changeStatus(
-                TENANT_ID, seed.actorId(), created.id(), 3, "ACTIVE"));
+        WorkflowOrchestrationService.Orchestration active = runtime.tx().execute(status -> runtime.service()
+                .changeStatus(TENANT_ID, seed.actorId(), created.id(), 3, "ACTIVE"));
         assertNotNull(active);
         assertEquals(4, active.versionNo());
         assertEquals("ACTIVE", active.status());
 
         Instant closedAt = source.actualStartAt().plusSeconds(3600);
-        WorkflowOrchestrationService.Orchestration closed = runtime.tx().execute(status -> runtime.service().close(
-                TENANT_ID, seed.actorId(), created.id(), 4, closedAt));
+        WorkflowOrchestrationService.Orchestration closed = runtime.tx()
+                .execute(status -> runtime.service().close(TENANT_ID, seed.actorId(), created.id(), 4, closedAt));
         assertNotNull(closed);
         assertEquals(5, closed.versionNo());
         assertEquals(5, closed.masterChangeVersion());
         assertEquals("CLOSED", closed.status());
-        assertEquals(closedAt, scalarInstant("select actual_end_at from workflow.wf_orchestration_instance where id='" + created.id() + "'"));
+        assertEquals(
+                closedAt,
+                scalarInstant("select actual_end_at from workflow.wf_orchestration_instance where id='" + created.id()
+                        + "'"));
     }
 
     @Test
     void childProcessMismatchAndStaleDuplicateMutationFailClosed() throws Exception {
         Seed seed = seed();
         Runtime runtime = runtime();
-        WorkflowOrchestrationService.Orchestration created = runtime.tx().execute(status -> runtime.service().create(
-                TENANT_ID, seed.actorId(), new WorkflowOrchestrationService.CreateCommand("P120", null, source(seed.leadCenterId()))));
+        WorkflowOrchestrationService.Orchestration created = runtime.tx().execute(status -> runtime.service()
+                .create(
+                        TENANT_ID,
+                        seed.actorId(),
+                        new WorkflowOrchestrationService.CreateCommand("P120", null, source(seed.leadCenterId()))));
         assertNotNull(created);
 
-        WorkflowException mismatch = assertThrows(WorkflowException.class, () -> runtime.tx().execute(status -> runtime.service().addLink(
-                TENANT_ID, seed.actorId(), created.id(), 0,
-                new WorkflowOrchestrationService.LinkCommand("P005", seed.childInstanceId(), "SOURCE_DEFINED", null, "ACTIVE", true))));
+        WorkflowException mismatch =
+                assertThrows(WorkflowException.class, () -> runtime.tx().execute(status -> runtime.service()
+                        .addLink(
+                                TENANT_ID,
+                                seed.actorId(),
+                                created.id(),
+                                0,
+                                new WorkflowOrchestrationService.LinkCommand(
+                                        "P005", seed.childInstanceId(), "SOURCE_DEFINED", null, "ACTIVE", true))));
         assertEquals(WorkflowException.Code.INVALID_DEFINITION, mismatch.code());
-        assertEquals(0, scalarInt("select version_no from workflow.wf_orchestration_instance where id='" + created.id() + "'"));
+        assertEquals(
+                0,
+                scalarInt("select version_no from workflow.wf_orchestration_instance where id='" + created.id() + "'"));
 
-        WorkflowOrchestrationService.Orchestration firstItem = runtime.tx().execute(status -> runtime.service().addItem(
-                TENANT_ID, seed.actorId(), created.id(), 0,
-                new WorkflowOrchestrationService.ItemCommand(
-                        "critical_dependencies", 0, "DEP-1", "Dependency", null, null,
-                        new ObjectMapper().createObjectNode().put("source", "approved-field"), null, null, null, null, 0)));
+        WorkflowOrchestrationService.Orchestration firstItem = runtime.tx().execute(status -> runtime.service()
+                .addItem(
+                        TENANT_ID,
+                        seed.actorId(),
+                        created.id(),
+                        0,
+                        new WorkflowOrchestrationService.ItemCommand(
+                                "critical_dependencies",
+                                0,
+                                "DEP-1",
+                                "Dependency",
+                                null,
+                                null,
+                                new ObjectMapper().createObjectNode().put("source", "approved-field"),
+                                null,
+                                null,
+                                null,
+                                null,
+                                0)));
         assertNotNull(firstItem);
-        WorkflowException stale = assertThrows(WorkflowException.class, () -> runtime.tx().execute(status -> runtime.service().addItem(
-                TENANT_ID, seed.actorId(), created.id(), 0,
-                new WorkflowOrchestrationService.ItemCommand(
-                        "critical_dependencies", 1, "DEP-2", "Stale dependency", "X", null,
-                        null, null, null, null, null, 1))));
+        WorkflowException stale =
+                assertThrows(WorkflowException.class, () -> runtime.tx().execute(status -> runtime.service()
+                        .addItem(
+                                TENANT_ID,
+                                seed.actorId(),
+                                created.id(),
+                                0,
+                                new WorkflowOrchestrationService.ItemCommand(
+                                        "critical_dependencies",
+                                        1,
+                                        "DEP-2",
+                                        "Stale dependency",
+                                        "X",
+                                        null,
+                                        null,
+                                        null,
+                                        null,
+                                        null,
+                                        null,
+                                        1))));
         assertEquals(WorkflowException.Code.STALE_VERSION, stale.code());
-        assertEquals(1, scalarInt("select count(*) from workflow.wf_orchestration_instance_item where master_id='" + created.id() + "'"));
+        assertEquals(
+                1,
+                scalarInt("select count(*) from workflow.wf_orchestration_instance_item where master_id='"
+                        + created.id() + "'"));
     }
 
     private static Runtime runtime() {
@@ -163,65 +239,108 @@ class Phase05WorkflowOrchestrationDatabaseIT {
 
     private static Seed seed() throws Exception {
         UUID actorId = UUID.randomUUID();
-        execute("insert into org.employee(id,tenant_id,employee_no,person_name,employment_status) values ('"
-                + actorId + "','" + TENANT_ID + "','ORCH-" + shortId() + "','Orchestration Actor','ACTIVE')");
+        execute("insert into org.employee(id,tenant_id,employee_no,person_name,employment_status) values ('" + actorId
+                + "','" + TENANT_ID + "','ORCH-" + shortId() + "','Orchestration Actor','ACTIVE')");
         UUID leadCenterId = UUID.randomUUID();
-        execute("insert into org.organization(id,tenant_id,org_code,org_name,org_type,status) values ('"
-                + leadCenterId + "','" + TENANT_ID + "','CENTER-" + shortId() + "','Lead Center','CENTER','ACTIVE')");
+        execute("insert into org.organization(id,tenant_id,org_code,org_name,org_type,status) values ('" + leadCenterId
+                + "','" + TENANT_ID + "','CENTER-" + shortId() + "','Lead Center','CENTER','ACTIVE')");
 
-        UUID definitionId = scalarUuid("select id from workflow.wf_definition where tenant_id='" + TENANT_ID
-                + "' and process_code='P004'");
+        UUID definitionId = scalarUuid(
+                "select id from workflow.wf_definition where tenant_id='" + TENANT_ID + "' and process_code='P004'");
         UUID versionId = UUID.randomUUID();
         int versionNo = VERSION_SEQUENCE.incrementAndGet();
-        execute("insert into workflow.wf_version(id,tenant_id,definition_id,version_no,status,definition_json,checksum) values ('"
-                + versionId + "','" + TENANT_ID + "','" + definitionId + "'," + versionNo
-                + ",'DRAFT','{}'::jsonb,'orchestration-child-draft-" + shortId() + "')");
+        execute(
+                "insert into workflow.wf_version(id,tenant_id,definition_id,version_no,status,definition_json,checksum) values ('"
+                        + versionId + "','" + TENANT_ID + "','" + definitionId + "'," + versionNo
+                        + ",'DRAFT','{}'::jsonb,'orchestration-child-draft-" + shortId() + "')");
         execute("insert into workflow.wf_node(id,tenant_id,version_id,node_code,node_name,node_type,sort_no) values ('"
                 + UUID.randomUUID() + "','" + TENANT_ID + "','" + versionId + "','START','Start','START',10)");
-        execute("update workflow.wf_version set status='PUBLISHED',effective_at=now(),checksum='orchestration-child-published-"
-                + shortId() + "' where id='" + versionId + "'");
+        execute(
+                "update workflow.wf_version set status='PUBLISHED',effective_at=now(),checksum='orchestration-child-published-"
+                        + shortId() + "' where id='" + versionId + "'");
         UUID childInstanceId = UUID.randomUUID();
-        execute("insert into workflow.wf_instance(id,tenant_id,instance_no,definition_id,version_id,process_code,business_object_type,title,initiator_id,current_node_code,status,priority,context_snapshot) values ('"
-                + childInstanceId + "','" + TENANT_ID + "','WFI-ORCH-" + shortId() + "','" + definitionId + "','" + versionId
-                + "','P004','TEST','Child workflow','" + actorId + "','START','RUNNING','NORMAL','{}'::jsonb)");
+        execute(
+                "insert into workflow.wf_instance(id,tenant_id,instance_no,definition_id,version_id,process_code,business_object_type,title,initiator_id,current_node_code,status,priority,context_snapshot) values ('"
+                        + childInstanceId + "','" + TENANT_ID + "','WFI-ORCH-" + shortId() + "','" + definitionId
+                        + "','" + versionId
+                        + "','P004','TEST','Child workflow','" + actorId + "','START','RUNNING','NORMAL','{}'::jsonb)");
         return new Seed(actorId, leadCenterId, childInstanceId);
     }
 
     private static WorkflowOrchestrationService.PhysicalSourceFields source(UUID leadCenterId) {
         ObjectMapper mapper = new ObjectMapper();
         return new WorkflowOrchestrationService.PhysicalSourceFields(
-                "MASTER-001", leadCenterId, mapper.createArrayNode().add(leadCenterId.toString()), "M0",
-                mapper.createArrayNode().add("SOURCE-CRITICAL"), mapper.createObjectNode().put("source", "RACI"),
-                new BigDecimal("123.45"), null, Instant.parse("2026-08-08T00:00:00Z"), LocalDate.of(2026, 8, 8),
-                "Contact", "CONTENT-001", "Content title", "SOURCE_TYPE", "CUST-001", "Customer",
-                "Guest team", "AREA-001", "PATROL-001", "SOURCE_INCIDENT", "ASSET-001", "Asset",
-                "Person", "PERSON-001", "PROGRAM-001", "LEVEL-1", "TEAM-001", "Source result",
-                "SESSION-001", Instant.parse("2026-08-08T01:00:00Z"), "MODEL-001", "JOB-001");
+                "MASTER-001",
+                leadCenterId,
+                mapper.createArrayNode().add(leadCenterId.toString()),
+                "M0",
+                mapper.createArrayNode().add("SOURCE-CRITICAL"),
+                mapper.createObjectNode().put("source", "RACI"),
+                new BigDecimal("123.45"),
+                null,
+                Instant.parse("2026-08-08T00:00:00Z"),
+                LocalDate.of(2026, 8, 8),
+                "Contact",
+                "CONTENT-001",
+                "Content title",
+                "SOURCE_TYPE",
+                "CUST-001",
+                "Customer",
+                "Guest team",
+                "AREA-001",
+                "PATROL-001",
+                "SOURCE_INCIDENT",
+                "ASSET-001",
+                "Asset",
+                "Person",
+                "PERSON-001",
+                "PROGRAM-001",
+                "LEVEL-1",
+                "TEAM-001",
+                "Source result",
+                "SESSION-001",
+                Instant.parse("2026-08-08T01:00:00Z"),
+                "MODEL-001",
+                "JOB-001");
     }
 
     private static final class TestStateProvider implements WorkflowOrchestrationService.StateTransitionCapability {
-        @Override public boolean supports(String processCode) { return "P120".equals(processCode); }
-        @Override public void requireAllowed(String processCode, String currentStatus, String targetStatus, boolean closing) {
+        @Override
+        public boolean supports(String processCode) {
+            return "P120".equals(processCode);
+        }
+
+        @Override
+        public void requireAllowed(String processCode, String currentStatus, String targetStatus, boolean closing) {
             if (closing) {
                 if (!"ACTIVE".equals(currentStatus) || !"CLOSED".equals(targetStatus)) {
-                    throw new WorkflowException(WorkflowException.Code.ILLEGAL_ACTION, "test close transition rejected");
+                    throw new WorkflowException(
+                            WorkflowException.Code.ILLEGAL_ACTION, "test close transition rejected");
                 }
             } else if (!"DRAFT".equals(currentStatus) || !"ACTIVE".equals(targetStatus)) {
                 throw new WorkflowException(WorkflowException.Code.ILLEGAL_ACTION, "test transition rejected");
             }
         }
-        @Override public String closingStatus(String processCode, String currentStatus) { return "CLOSED"; }
+
+        @Override
+        public String closingStatus(String processCode, String currentStatus) {
+            return "CLOSED";
+        }
     }
 
     private static int scalarInt(String sql) throws SQLException {
-        try (Connection c = connection("sjg_oms"); Statement s = c.createStatement(); ResultSet r = s.executeQuery(sql)) {
+        try (Connection c = connection("sjg_oms");
+                Statement s = c.createStatement();
+                ResultSet r = s.executeQuery(sql)) {
             assertTrue(r.next());
             return r.getInt(1);
         }
     }
 
     private static UUID scalarUuid(String sql) throws SQLException {
-        try (Connection c = connection("sjg_oms"); Statement s = c.createStatement(); ResultSet r = s.executeQuery(sql)) {
+        try (Connection c = connection("sjg_oms");
+                Statement s = c.createStatement();
+                ResultSet r = s.executeQuery(sql)) {
             assertTrue(r.next());
             UUID value = r.getObject(1, UUID.class);
             assertNotNull(value);
@@ -230,22 +349,29 @@ class Phase05WorkflowOrchestrationDatabaseIT {
     }
 
     private static Instant scalarInstant(String sql) throws SQLException {
-        try (Connection c = connection("sjg_oms"); Statement s = c.createStatement(); ResultSet r = s.executeQuery(sql)) {
+        try (Connection c = connection("sjg_oms");
+                Statement s = c.createStatement();
+                ResultSet r = s.executeQuery(sql)) {
             assertTrue(r.next());
             return r.getTimestamp(1).toInstant();
         }
     }
 
     private static void execute(String sql) throws SQLException {
-        try (Connection connection = connection("sjg_oms"); Statement statement = connection.createStatement()) {
+        try (Connection connection = connection("sjg_oms");
+                Statement statement = connection.createStatement()) {
             statement.execute(sql);
         }
     }
 
     private static void migrate(String database, String generatedFolder, String overlayFolder) {
         var locations = new java.util.ArrayList<String>();
-        locations.add("filesystem:" + repoRoot.resolve("technical-platform/database/flyway").resolve(generatedFolder));
-        if (overlayFolder != null) locations.add("filesystem:" + repoRoot.resolve("technical-platform/database/flyway-overlays").resolve(overlayFolder));
+        locations.add("filesystem:"
+                + repoRoot.resolve("technical-platform/database/flyway").resolve(generatedFolder));
+        if (overlayFolder != null)
+            locations.add("filesystem:"
+                    + repoRoot.resolve("technical-platform/database/flyway-overlays")
+                            .resolve(overlayFolder));
         Flyway flyway = Flyway.configure()
                 .dataSource(jdbcUrl(database), postgres.getUsername(), postgres.getPassword())
                 .locations(locations.toArray(String[]::new))
@@ -253,7 +379,8 @@ class Phase05WorkflowOrchestrationDatabaseIT {
                         "sjg_tenant_id", TENANT_ID.toString(),
                         "sjg_tenant_code", "PHASE05_ORCH",
                         "sjg_tenant_name", "PHASE-05 Orchestration Test"))
-                .cleanDisabled(true).load();
+                .cleanDisabled(true)
+                .load();
         assertTrue(flyway.migrate().success);
         flyway.validate();
     }
@@ -277,15 +404,19 @@ class Phase05WorkflowOrchestrationDatabaseIT {
     private static Path findRepoRoot() {
         Path current = Path.of(System.getProperty("user.dir")).toAbsolutePath().normalize();
         while (current != null) {
-            if (Files.isRegularFile(current.resolve("AGENT.md")) && Files.isDirectory(current.resolve("Knowledge Base"))
+            if (Files.isRegularFile(current.resolve("AGENT.md"))
+                    && Files.isDirectory(current.resolve("Knowledge Base"))
                     && Files.isRegularFile(current.resolve("pom.xml"))) return current;
             current = current.getParent();
         }
         throw new IllegalStateException("repository root not found");
     }
 
-    private static String shortId() { return UUID.randomUUID().toString().substring(0, 8); }
+    private static String shortId() {
+        return UUID.randomUUID().toString().substring(0, 8);
+    }
 
     private record Seed(UUID actorId, UUID leadCenterId, UUID childInstanceId) {}
+
     private record Runtime(WorkflowOrchestrationService service, TransactionTemplate tx) {}
 }

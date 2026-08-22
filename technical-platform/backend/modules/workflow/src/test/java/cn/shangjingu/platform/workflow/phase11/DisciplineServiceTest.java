@@ -37,9 +37,11 @@ class DisciplineServiceTest {
                         "COMPLETE_OBSERVATION",
                         "ARCHIVE"),
                 process.steps().stream().map(Phase11Process.Step::action).toList());
-        assertEquals("S03", process.requireTransition("S02", "APPLY_SAFETY_MEASURE").targetNode());
+        assertEquals(
+                "S03", process.requireTransition("S02", "APPLY_SAFETY_MEASURE").targetNode());
         assertEquals("S10", process.requireTransition("S09", "RESOLVE_APPEAL").targetNode());
-        assertEquals("S12", process.requireTransition("S11", "COMPLETE_OBSERVATION").targetNode());
+        assertEquals(
+                "S12", process.requireTransition("S11", "COMPLETE_OBSERVATION").targetNode());
         assertEquals("END", process.requireTransition("S12", "ARCHIVE").targetNode());
     }
 
@@ -59,14 +61,10 @@ class DisciplineServiceTest {
 
     @Test
     void investigationDecisionAndAppealReviewEnforceSeparationOfDuty() {
-        assertThrows(
-                ProcessRejectedException.class,
-                () -> DisciplineService.validateInvestigator(SUBJECT, SUBJECT));
+        assertThrows(ProcessRejectedException.class, () -> DisciplineService.validateInvestigator(SUBJECT, SUBJECT));
         assertDoesNotThrow(() -> DisciplineService.validateInvestigator(SUBJECT, INVESTIGATOR));
 
-        assertThrows(
-                ProcessRejectedException.class,
-                () -> DisciplineService.validateDecisionMaker(SUBJECT, SUBJECT));
+        assertThrows(ProcessRejectedException.class, () -> DisciplineService.validateDecisionMaker(SUBJECT, SUBJECT));
         assertDoesNotThrow(() -> DisciplineService.validateDecisionMaker(SUBJECT, DECISION_MAKER));
 
         assertThrows(
@@ -75,12 +73,10 @@ class DisciplineServiceTest {
         assertThrows(
                 ProcessRejectedException.class,
                 () -> DisciplineService.validateAppealReviewer(SUBJECT, DECISION_MAKER, DECISION_MAKER));
-        assertDoesNotThrow(
-                () -> DisciplineService.validateAppealReviewer(SUBJECT, DECISION_MAKER, REVIEWER));
+        assertDoesNotThrow(() -> DisciplineService.validateAppealReviewer(SUBJECT, DECISION_MAKER, REVIEWER));
     }
 
-    private static DisciplineService.CreateCommand command(
-            String sourceType, String customerId, String customerName) {
+    private static DisciplineService.CreateCommand command(String sourceType, String customerId, String customerName) {
         return new DisciplineService.CreateCommand(
                 "discipline case",
                 "reason",

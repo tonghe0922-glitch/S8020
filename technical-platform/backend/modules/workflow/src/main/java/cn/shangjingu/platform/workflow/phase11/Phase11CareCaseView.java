@@ -45,10 +45,36 @@ public record Phase11CareCaseView(
 
     public Phase11CareCaseView metadataOnly() {
         return new Phase11CareCaseView(
-                id, tenantId, processCode, businessNo, workflowInstanceId, currentNodeCode, status, versionNo,
-                null, null, null, riskLevel, null, null, null, businessDate,
-                null, null, null, null, null, null, null, null,
-                actualStartAt, actualEndAt, closedAt, createdAt, updatedAt, List.of());
+                id,
+                tenantId,
+                processCode,
+                businessNo,
+                workflowInstanceId,
+                currentNodeCode,
+                status,
+                versionNo,
+                null,
+                null,
+                null,
+                riskLevel,
+                null,
+                null,
+                null,
+                businessDate,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                actualStartAt,
+                actualEndAt,
+                closedAt,
+                createdAt,
+                updatedAt,
+                List.of());
     }
 
     public record FactView(

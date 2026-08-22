@@ -8,7 +8,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 @Component
-public final class BusinessNumberService {
+public class BusinessNumberService {
     private final JdbcTemplate jdbc;
 
     public BusinessNumberService(JdbcTemplate jdbc) {
@@ -16,15 +16,23 @@ public final class BusinessNumberService {
     }
 
     public String next(UUID tenantId, UUID actorId, String ruleCode) {
-        Rule rule = jdbc.query("""
+        Rule rule = jdbc.query(
+                """
                 select id,prefix_template,date_pattern,current_value,step
                 from core.sequence_rule
                 where tenant_id=? and rule_code=? and not is_deleted
                 for update
-                """, rs -> rs.next()
-                ? new Rule(rs.getObject("id", UUID.class), rs.getString("prefix_template"), rs.getString("date_pattern"),
-                        rs.getLong("current_value"), rs.getInt("step"))
-                : null, tenantId, ruleCode);
+                """,
+                rs -> rs.next()
+                        ? new Rule(
+                                rs.getObject("id", UUID.class),
+                                rs.getString("prefix_template"),
+                                rs.getString("date_pattern"),
+                                rs.getLong("current_value"),
+                                rs.getInt("step"))
+                        : null,
+                tenantId,
+                ruleCode);
         if (rule == null) {
             throw new ProcessRejectedException("business number rule is not configured: " + ruleCode);
         }
@@ -32,11 +40,17 @@ public final class BusinessNumberService {
             throw new ProcessRejectedException("business number rule is invalid: " + ruleCode);
         }
         long next = Math.addExact(rule.current(), rule.step());
-        int updated = jdbc.update("""
+        int updated = jdbc.update(
+                """
                 update core.sequence_rule
                 set current_value=?,updated_by=?,updated_at=now()
                 where tenant_id=? and id=? and current_value=? and not is_deleted
-                """, next, actorId, tenantId, rule.id(), rule.current());
+                """,
+                next,
+                actorId,
+                tenantId,
+                rule.id(),
+                rule.current());
         if (updated != 1) {
             throw new ProcessRejectedException("business number rule concurrent update conflict: " + ruleCode);
         }
@@ -51,6 +65,5 @@ public final class BusinessNumberService {
         return rule.prefix() + date + next;
     }
 
-    private record Rule(UUID id, String prefix, String datePattern, long current, int step) {
-    }
+    private record Rule(UUID id, String prefix, String datePattern, long current, int step) {}
 }

@@ -51,12 +51,24 @@ public class WorkflowFormService {
             throw WorkflowException.invalid("fieldSchema is required");
         }
         int version = repository.nextVersionNo(
-                command.tenantId(), command.formCode().trim(), command.processCode().trim(), command.nodeCode().trim());
+                command.tenantId(),
+                command.formCode().trim(),
+                command.processCode().trim(),
+                command.nodeCode().trim());
         FormDefinition form = new FormDefinition(
-                UUID.randomUUID(), command.tenantId(), command.formCode().trim(), command.formName().trim(),
-                command.processCode().trim(), command.nodeCode().trim(), version, copy(command.fieldSchema()),
-                copy(command.layoutSchema()), copy(command.validationSchema()), copy(command.visibilityMatrix()),
-                copy(command.editMatrix()), false);
+                UUID.randomUUID(),
+                command.tenantId(),
+                command.formCode().trim(),
+                command.formName().trim(),
+                command.processCode().trim(),
+                command.nodeCode().trim(),
+                version,
+                copy(command.fieldSchema()),
+                copy(command.layoutSchema()),
+                copy(command.validationSchema()),
+                copy(command.visibilityMatrix()),
+                copy(command.editMatrix()),
+                false);
         try {
             repository.insertFormDefinition(form, command.actorId());
             return form;
@@ -71,47 +83,60 @@ public class WorkflowFormService {
         requireUuid(command.tenantId(), "tenantId");
         requireUuid(command.actorId(), "actorId");
         requireUuid(command.formDefinitionId(), "formDefinitionId");
-        FormDefinition form = repository.lockFormDefinition(command.tenantId(), command.formDefinitionId())
+        FormDefinition form = repository
+                .lockFormDefinition(command.tenantId(), command.formDefinitionId())
                 .orElseThrow(() -> WorkflowException.notFound("workflow form definition not found"));
         if (form.enabled()) {
             throw new WorkflowException(
-                    WorkflowException.Code.IMMUTABLE_PUBLISHED_VERSION,
-                    "published workflow form version is immutable");
+                    WorkflowException.Code.IMMUTABLE_PUBLISHED_VERSION, "published workflow form version is immutable");
         }
         int updated = repository.publishForm(command.tenantId(), command.formDefinitionId(), command.actorId());
         if (updated != 1) throw WorkflowException.conflict("workflow form version changed concurrently");
         return new FormDefinition(
-                form.id(), form.tenantId(), form.formCode(), form.formName(), form.processCode(), form.nodeCode(),
-                form.versionNo(), form.fieldSchema(), form.layoutSchema(), form.validationSchema(),
-                form.visibilityMatrix(), form.editMatrix(), true);
+                form.id(),
+                form.tenantId(),
+                form.formCode(),
+                form.formName(),
+                form.processCode(),
+                form.nodeCode(),
+                form.versionNo(),
+                form.fieldSchema(),
+                form.layoutSchema(),
+                form.validationSchema(),
+                form.visibilityMatrix(),
+                form.editMatrix(),
+                true);
     }
 
     @Transactional
     public Submission submit(SubmitForm command) {
         validateSubmit(command);
-        FormDefinition form = repository.findPublishedForm(command.tenantId(), command.formDefinitionId())
+        FormDefinition form = repository
+                .findPublishedForm(command.tenantId(), command.formDefinitionId())
                 .orElseThrow(() -> new WorkflowException(
                         WorkflowException.Code.INVALID_DEFINITION,
                         "submission requires a published workflow form version"));
         if (form.versionNo() != command.expectedFormVersion()) {
             throw new WorkflowException(
-                    WorkflowException.Code.STALE_VERSION,
-                    "workflow form version changed; refresh before submitting");
+                    WorkflowException.Code.STALE_VERSION, "workflow form version changed; refresh before submitting");
         }
-        InstanceBinding instance = repository.findInstance(command.tenantId(), command.instanceId())
+        InstanceBinding instance = repository
+                .findInstance(command.tenantId(), command.instanceId())
                 .orElseThrow(() -> WorkflowException.notFound("workflow instance not found"));
         TaskBinding task = null;
         String boundNode = instance.currentNodeCode();
         if (command.taskId() != null) {
-            task = repository.findTask(command.tenantId(), command.taskId())
+            task = repository
+                    .findTask(command.tenantId(), command.taskId())
                     .orElseThrow(() -> WorkflowException.notFound("workflow task not found"));
             if (!task.instanceId().equals(instance.id())) {
-                throw new WorkflowException(WorkflowException.Code.STALE_VERSION,
-                        "workflow form task does not belong to instance");
+                throw new WorkflowException(
+                        WorkflowException.Code.STALE_VERSION, "workflow form task does not belong to instance");
             }
             boundNode = task.nodeCode();
         }
-        if (!form.processCode().equals(instance.processCode()) || !form.nodeCode().equals(boundNode)) {
+        if (!form.processCode().equals(instance.processCode())
+                || !form.nodeCode().equals(boundNode)) {
             throw new WorkflowException(
                     WorkflowException.Code.INVALID_DEFINITION,
                     "workflow form is not bound to the instance process/current task node");
@@ -120,31 +145,63 @@ public class WorkflowFormService {
         String contentHash = submissionHash(form, instance, task, values);
         UUID proposedSubmissionId = UUID.randomUUID();
         String requestHash = hash(Map.of(
-                "operation", "FORM_SUBMIT",
-                "instanceId", instance.id().toString(),
-                "taskId", task == null ? "" : task.id().toString(),
-                "formDefinitionId", form.id().toString(),
-                "formVersion", form.versionNo(),
-                "contentHash", contentHash));
+                "operation",
+                "FORM_SUBMIT",
+                "instanceId",
+                instance.id().toString(),
+                "taskId",
+                task == null ? "" : task.id().toString(),
+                "formDefinitionId",
+                form.id().toString(),
+                "formVersion",
+                form.versionNo(),
+                "contentHash",
+                contentHash));
         WorkflowIdempotency.Claim claim = idempotency.claim(
-                command.tenantId(), command.submitterId(), command.idempotencyKey(), requestHash,
-                "WORKFLOW_FORM_SUBMISSION", proposedSubmissionId);
+                command.tenantId(),
+                command.submitterId(),
+                command.idempotencyKey(),
+                requestHash,
+                "WORKFLOW_FORM_SUBMISSION",
+                proposedSubmissionId);
         if (claim.existing()) {
-            return repository.findSubmission(command.tenantId(), claim.resourceId())
+            return repository
+                    .findSubmission(command.tenantId(), claim.resourceId())
                     .orElseThrow(() -> WorkflowException.conflict(
                             "idempotency record points to a missing workflow form submission"));
         }
 
         Instant now = Instant.now();
         Submission submission = new Submission(
-                claim.resourceId(), command.tenantId(), technicalNumber("WFS", claim.resourceId()), instance.id(),
-                task == null ? null : task.id(), form.id(), form.versionNo(), command.submitterId(), now, contentHash, SUBMITTED);
+                claim.resourceId(),
+                command.tenantId(),
+                technicalNumber("WFS", claim.resourceId()),
+                instance.id(),
+                task == null ? null : task.id(),
+                form.id(),
+                form.versionNo(),
+                command.submitterId(),
+                now,
+                contentHash,
+                SUBMITTED);
         repository.insertSubmission(submission, command.submitterId());
         repository.insertValues(command.tenantId(), submission.id(), values, command.submitterId());
-        repository.insertAction(new WorkflowRuntimeService.ActionLog(
-                UUID.randomUUID(), command.tenantId(), instance.id(), task == null ? null : task.id(),
-                "FORM_SUBMIT", boundNode, boundNode, command.submitterId(), command.operatorIdentityId(),
-                null, now, command.idempotencyKey(), contentHash), command.submitterId());
+        repository.insertAction(
+                new WorkflowRuntimeService.ActionLog(
+                        UUID.randomUUID(),
+                        command.tenantId(),
+                        instance.id(),
+                        task == null ? null : task.id(),
+                        "FORM_SUBMIT",
+                        boundNode,
+                        boundNode,
+                        command.submitterId(),
+                        command.operatorIdentityId(),
+                        null,
+                        now,
+                        command.idempotencyKey(),
+                        contentHash),
+                command.submitterId());
         return submission;
     }
 
@@ -163,7 +220,8 @@ public class WorkflowFormService {
             requireText(field, "fieldCode");
             returned.add(field.trim());
         }
-        Submission snapshot = repository.findSubmission(command.tenantId(), command.submissionId())
+        Submission snapshot = repository
+                .findSubmission(command.tenantId(), command.submissionId())
                 .orElseThrow(() -> WorkflowException.notFound("workflow form submission not found"));
         List<String> sortedFields = returned.stream().sorted().toList();
         ObjectNode evidence = objectMapper.createObjectNode();
@@ -172,58 +230,89 @@ public class WorkflowFormService {
         evidence.put("formVersion", snapshot.formVersion());
         ArrayNode fields = evidence.putArray("returnedFields");
         sortedFields.forEach(fields::add);
-        if (command.reason() != null && !command.reason().isBlank()) evidence.put("reason", command.reason().trim());
+        if (command.reason() != null && !command.reason().isBlank())
+            evidence.put("reason", command.reason().trim());
         String evidenceHash = hash(evidence);
         String requestHash = hash(Map.of(
-                "operation", "RETURN_FIELDS",
-                "submissionId", snapshot.id().toString(),
-                "evidenceHash", evidenceHash));
+                "operation", "RETURN_FIELDS", "submissionId", snapshot.id().toString(), "evidenceHash", evidenceHash));
         UUID proposedActionId = UUID.randomUUID();
         WorkflowIdempotency.Claim claim = idempotency.claim(
-                command.tenantId(), command.actorId(), command.idempotencyKey(), requestHash,
-                "WORKFLOW_FORM_RETURN", proposedActionId);
+                command.tenantId(),
+                command.actorId(),
+                command.idempotencyKey(),
+                requestHash,
+                "WORKFLOW_FORM_RETURN",
+                proposedActionId);
         if (claim.existing()) {
-            return repository.findSubmission(command.tenantId(), command.submissionId())
+            return repository
+                    .findSubmission(command.tenantId(), command.submissionId())
                     .orElseThrow(() -> WorkflowException.conflict("returned submission no longer exists"));
         }
 
-        Submission locked = repository.lockSubmission(command.tenantId(), command.submissionId())
+        Submission locked = repository
+                .lockSubmission(command.tenantId(), command.submissionId())
                 .orElseThrow(() -> WorkflowException.notFound("workflow form submission not found"));
         if (!SUBMITTED.equals(locked.status())) {
-            throw new WorkflowException(WorkflowException.Code.STALE_VERSION,
-                    "workflow form submission is no longer in SUBMITTED status");
+            throw new WorkflowException(
+                    WorkflowException.Code.STALE_VERSION, "workflow form submission is no longer in SUBMITTED status");
         }
         Set<String> existing = repository.listFieldCodes(command.tenantId(), locked.id());
         if (!existing.containsAll(returned)) {
-            throw new WorkflowException(WorkflowException.Code.INVALID_ARGUMENT,
+            throw new WorkflowException(
+                    WorkflowException.Code.INVALID_ARGUMENT,
                     "returned field list contains a field not present in the submitted version");
         }
         int updated = repository.updateSubmissionStatus(
                 command.tenantId(), locked.id(), SUBMITTED, RETURNED, command.actorId());
         if (updated != 1) {
-            throw new WorkflowException(WorkflowException.Code.STALE_VERSION,
-                    "workflow form submission changed concurrently");
+            throw new WorkflowException(
+                    WorkflowException.Code.STALE_VERSION, "workflow form submission changed concurrently");
         }
-        InstanceBinding instance = repository.findInstance(command.tenantId(), locked.instanceId())
+        InstanceBinding instance = repository
+                .findInstance(command.tenantId(), locked.instanceId())
                 .orElseThrow(() -> WorkflowException.conflict("workflow submission points to a missing instance"));
         String nodeCode = instance.currentNodeCode();
         if (locked.taskId() != null) {
-            nodeCode = repository.findTask(command.tenantId(), locked.taskId()).map(TaskBinding::nodeCode).orElse(nodeCode);
+            nodeCode = repository
+                    .findTask(command.tenantId(), locked.taskId())
+                    .map(TaskBinding::nodeCode)
+                    .orElse(nodeCode);
         }
         String reasonJson;
         try {
             reasonJson = objectMapper.writeValueAsString(canonical(evidence));
         } catch (Exception ex) {
-            throw new WorkflowException(WorkflowException.Code.INVALID_ARGUMENT, "cannot serialize return evidence", ex);
+            throw new WorkflowException(
+                    WorkflowException.Code.INVALID_ARGUMENT, "cannot serialize return evidence", ex);
         }
-        repository.insertAction(new WorkflowRuntimeService.ActionLog(
-                claim.resourceId(), command.tenantId(), locked.instanceId(), locked.taskId(), "RETURN_FIELDS",
-                nodeCode, nodeCode, command.actorId(), command.operatorIdentityId(), reasonJson, Instant.now(),
-                command.idempotencyKey(), evidenceHash), command.actorId());
+        repository.insertAction(
+                new WorkflowRuntimeService.ActionLog(
+                        claim.resourceId(),
+                        command.tenantId(),
+                        locked.instanceId(),
+                        locked.taskId(),
+                        "RETURN_FIELDS",
+                        nodeCode,
+                        nodeCode,
+                        command.actorId(),
+                        command.operatorIdentityId(),
+                        reasonJson,
+                        Instant.now(),
+                        command.idempotencyKey(),
+                        evidenceHash),
+                command.actorId());
         return new Submission(
-                locked.id(), locked.tenantId(), locked.submissionNo(), locked.instanceId(), locked.taskId(),
-                locked.formDefinitionId(), locked.formVersion(), locked.submitterId(), locked.submittedAt(),
-                locked.contentHash(), RETURNED);
+                locked.id(),
+                locked.tenantId(),
+                locked.submissionNo(),
+                locked.instanceId(),
+                locked.taskId(),
+                locked.formDefinitionId(),
+                locked.formVersion(),
+                locked.submitterId(),
+                locked.submittedAt(),
+                locked.contentHash(),
+                RETURNED);
     }
 
     private void validateSubmit(SubmitForm command) {
@@ -251,10 +340,21 @@ public class WorkflowFormService {
                 throw WorkflowException.invalid("unsupported workflow form value type " + type);
             }
             validateTypedSlots(type, value);
-            String sensitive = value.sensitiveLevel() == null || value.sensitiveLevel().isBlank()
-                    ? "P1" : value.sensitiveLevel().trim();
-            values.add(new FieldValue(code, type, value.valueText(), value.valueNumber(), value.valueDatetime(),
-                    value.valueBoolean(), copy(value.valueJson()), value.searchHash(), sensitive, value.encrypted()));
+            String sensitive =
+                    value.sensitiveLevel() == null || value.sensitiveLevel().isBlank()
+                            ? "P1"
+                            : value.sensitiveLevel().trim();
+            values.add(new FieldValue(
+                    code,
+                    type,
+                    value.valueText(),
+                    value.valueNumber(),
+                    value.valueDatetime(),
+                    value.valueBoolean(),
+                    copy(value.valueJson()),
+                    value.searchHash(),
+                    sensitive,
+                    value.encrypted()));
         }
         values.sort(Comparator.comparing(FieldValue::fieldCode));
         return List.copyOf(values);
@@ -268,18 +368,22 @@ public class WorkflowFormService {
         if (value.valueBoolean() != null) populated++;
         if (value.valueJson() != null && !value.valueJson().isNull()) populated++;
         if (populated > 1) throw WorkflowException.invalid("workflow form field has multiple typed value slots");
-        boolean wrong = switch (type) {
-            case "TEXT" -> populated == 1 && value.valueText() == null;
-            case "NUMBER" -> populated == 1 && value.valueNumber() == null;
-            case "DATETIME" -> populated == 1 && value.valueDatetime() == null;
-            case "BOOLEAN" -> populated == 1 && value.valueBoolean() == null;
-            case "JSON" -> populated == 1 && (value.valueJson() == null || value.valueJson().isNull());
-            default -> true;
-        };
-        if (wrong) throw WorkflowException.invalid("workflow form value is stored in a slot that does not match valueType");
+        boolean wrong =
+                switch (type) {
+                    case "TEXT" -> populated == 1 && value.valueText() == null;
+                    case "NUMBER" -> populated == 1 && value.valueNumber() == null;
+                    case "DATETIME" -> populated == 1 && value.valueDatetime() == null;
+                    case "BOOLEAN" -> populated == 1 && value.valueBoolean() == null;
+                    case "JSON" -> populated == 1
+                            && (value.valueJson() == null || value.valueJson().isNull());
+                    default -> true;
+                };
+        if (wrong)
+            throw WorkflowException.invalid("workflow form value is stored in a slot that does not match valueType");
     }
 
-    private String submissionHash(FormDefinition form, InstanceBinding instance, TaskBinding task, List<FieldValue> values) {
+    private String submissionHash(
+            FormDefinition form, InstanceBinding instance, TaskBinding task, List<FieldValue> values) {
         ObjectNode root = objectMapper.createObjectNode();
         root.put("instanceId", instance.id().toString());
         if (task != null) root.put("taskId", task.id().toString());
@@ -292,7 +396,8 @@ public class WorkflowFormService {
             item.put("valueType", value.valueType());
             if (value.valueText() != null) item.put("text", value.valueText());
             if (value.valueNumber() != null) item.put("number", value.valueNumber());
-            if (value.valueDatetime() != null) item.put("datetime", value.valueDatetime().toString());
+            if (value.valueDatetime() != null)
+                item.put("datetime", value.valueDatetime().toString());
             if (value.valueBoolean() != null) item.put("boolean", value.valueBoolean());
             if (value.valueJson() != null) item.set("json", canonical(value.valueJson()));
             if (value.searchHash() != null) item.put("searchHash", value.searchHash());
@@ -310,7 +415,8 @@ public class WorkflowFormService {
         } catch (NoSuchAlgorithmException ex) {
             throw new IllegalStateException("SHA-256 unavailable", ex);
         } catch (Exception ex) {
-            throw new WorkflowException(WorkflowException.Code.INVALID_ARGUMENT, "cannot hash workflow form evidence", ex);
+            throw new WorkflowException(
+                    WorkflowException.Code.INVALID_ARGUMENT, "cannot hash workflow form evidence", ex);
         }
     }
 
@@ -335,10 +441,22 @@ public class WorkflowFormService {
         return prefix + "-" + id.toString().replace("-", "");
     }
 
-    private static JsonNode copy(JsonNode node) { return node == null ? null : node.deepCopy(); }
-    private static void require(boolean valid, String message) { if (!valid) throw WorkflowException.invalid(message); }
-    private static void requireUuid(UUID value, String field) { if (value == null) throw WorkflowException.invalid(field + " is required"); }
-    private static void requireText(String value, String field) { if (value == null || value.isBlank()) throw WorkflowException.invalid(field + " is required"); }
+    private static JsonNode copy(JsonNode node) {
+        return node == null ? null : node.deepCopy();
+    }
+
+    private static void require(boolean valid, String message) {
+        if (!valid) throw WorkflowException.invalid(message);
+    }
+
+    private static void requireUuid(UUID value, String field) {
+        if (value == null) throw WorkflowException.invalid(field + " is required");
+    }
+
+    private static void requireText(String value, String field) {
+        if (value == null || value.isBlank()) throw WorkflowException.invalid(field + " is required");
+    }
+
     private static void requireIdempotency(String value) {
         requireText(value, "idempotencyKey");
         if (value.length() > 128) throw WorkflowException.invalid("idempotencyKey exceeds 128 characters");
@@ -346,43 +464,111 @@ public class WorkflowFormService {
 
     public interface Repository {
         int nextVersionNo(UUID tenantId, String formCode, String processCode, String nodeCode);
+
         void insertFormDefinition(FormDefinition form, UUID actorId);
+
         Optional<FormDefinition> lockFormDefinition(UUID tenantId, UUID formDefinitionId);
+
         Optional<FormDefinition> findPublishedForm(UUID tenantId, UUID formDefinitionId);
+
         int publishForm(UUID tenantId, UUID formDefinitionId, UUID actorId);
+
         Optional<InstanceBinding> findInstance(UUID tenantId, UUID instanceId);
+
         Optional<TaskBinding> findTask(UUID tenantId, UUID taskId);
+
         void insertSubmission(Submission submission, UUID actorId);
+
         void insertValues(UUID tenantId, UUID submissionId, List<FieldValue> values, UUID actorId);
+
         Optional<Submission> findSubmission(UUID tenantId, UUID submissionId);
+
         Optional<Submission> lockSubmission(UUID tenantId, UUID submissionId);
+
         Set<String> listFieldCodes(UUID tenantId, UUID submissionId);
-        int updateSubmissionStatus(UUID tenantId, UUID submissionId, String expectedStatus, String status, UUID actorId);
+
+        int updateSubmissionStatus(
+                UUID tenantId, UUID submissionId, String expectedStatus, String status, UUID actorId);
+
         void insertAction(WorkflowRuntimeService.ActionLog action, UUID actorId);
     }
 
     public record CreateForm(
-            UUID tenantId, UUID actorId, String formCode, String formName, String processCode, String nodeCode,
-            JsonNode fieldSchema, JsonNode layoutSchema, JsonNode validationSchema,
-            JsonNode visibilityMatrix, JsonNode editMatrix) {}
+            UUID tenantId,
+            UUID actorId,
+            String formCode,
+            String formName,
+            String processCode,
+            String nodeCode,
+            JsonNode fieldSchema,
+            JsonNode layoutSchema,
+            JsonNode validationSchema,
+            JsonNode visibilityMatrix,
+            JsonNode editMatrix) {}
+
     public record PublishForm(UUID tenantId, UUID actorId, UUID formDefinitionId) {}
+
     public record SubmitForm(
-            UUID tenantId, UUID submitterId, UUID operatorIdentityId, UUID instanceId, UUID taskId,
-            UUID formDefinitionId, int expectedFormVersion, List<FieldValue> values, String idempotencyKey) {}
+            UUID tenantId,
+            UUID submitterId,
+            UUID operatorIdentityId,
+            UUID instanceId,
+            UUID taskId,
+            UUID formDefinitionId,
+            int expectedFormVersion,
+            List<FieldValue> values,
+            String idempotencyKey) {}
+
     public record ReturnFields(
-            UUID tenantId, UUID actorId, UUID operatorIdentityId, UUID submissionId,
-            List<String> fieldCodes, String reason, String idempotencyKey) {}
+            UUID tenantId,
+            UUID actorId,
+            UUID operatorIdentityId,
+            UUID submissionId,
+            List<String> fieldCodes,
+            String reason,
+            String idempotencyKey) {}
 
     public record FormDefinition(
-            UUID id, UUID tenantId, String formCode, String formName, String processCode, String nodeCode,
-            int versionNo, JsonNode fieldSchema, JsonNode layoutSchema, JsonNode validationSchema,
-            JsonNode visibilityMatrix, JsonNode editMatrix, boolean enabled) {}
+            UUID id,
+            UUID tenantId,
+            String formCode,
+            String formName,
+            String processCode,
+            String nodeCode,
+            int versionNo,
+            JsonNode fieldSchema,
+            JsonNode layoutSchema,
+            JsonNode validationSchema,
+            JsonNode visibilityMatrix,
+            JsonNode editMatrix,
+            boolean enabled) {}
+
     public record InstanceBinding(UUID id, String processCode, String currentNodeCode) {}
+
     public record TaskBinding(UUID id, UUID instanceId, String nodeCode, UUID assigneeId, String status) {}
+
     public record Submission(
-            UUID id, UUID tenantId, String submissionNo, UUID instanceId, UUID taskId, UUID formDefinitionId,
-            int formVersion, UUID submitterId, Instant submittedAt, String contentHash, String status) {}
+            UUID id,
+            UUID tenantId,
+            String submissionNo,
+            UUID instanceId,
+            UUID taskId,
+            UUID formDefinitionId,
+            int formVersion,
+            UUID submitterId,
+            Instant submittedAt,
+            String contentHash,
+            String status) {}
+
     public record FieldValue(
-            String fieldCode, String valueType, String valueText, BigDecimal valueNumber, Instant valueDatetime,
-            Boolean valueBoolean, JsonNode valueJson, String searchHash, String sensitiveLevel, boolean encrypted) {}
+            String fieldCode,
+            String valueType,
+            String valueText,
+            BigDecimal valueNumber,
+            Instant valueDatetime,
+            Boolean valueBoolean,
+            JsonNode valueJson,
+            String searchHash,
+            String sensitiveLevel,
+            boolean encrypted) {}
 }

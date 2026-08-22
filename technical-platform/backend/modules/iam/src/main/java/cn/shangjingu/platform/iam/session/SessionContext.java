@@ -11,5 +11,4 @@ public record SessionContext(
         UUID appointmentId,
         UUID orgId,
         UUID positionId,
-        Instant issuedAt) {
-}
+        Instant issuedAt) {}

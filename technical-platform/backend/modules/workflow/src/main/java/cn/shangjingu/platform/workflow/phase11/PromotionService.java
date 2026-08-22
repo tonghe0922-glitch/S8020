@@ -25,17 +25,14 @@ import org.springframework.stereotype.Service;
 
 /** P012 promotion lifecycle. P011 score facts and appointment effects remain server authoritative. */
 @Service
-public final class PromotionService {
+public class PromotionService {
     private static final Phase11Process PROCESS = Phase11Process.P012;
     private static final Duration IDEMPOTENCY_TTL = Duration.ofHours(24);
     private static final Set<String> OWNER_ACTIONS = Set.of("CONFIRM_APPOINTMENT");
-    private static final Set<String> REVIEW_ACTIONS = Set.of(
-            "PASS_ELIGIBILITY",
-            "SUBMIT_ASSESSMENT",
-            "VERIFY_POSITION_BUDGET",
-            "COMPLETE_REVIEW");
-    private static final Set<String> APPOINT_ACTIONS = Set.of(
-            "APPROVE_PROMOTION", "COMPLETE_NOTICE", "COMPLETE_VALIDATION");
+    private static final Set<String> REVIEW_ACTIONS =
+            Set.of("PASS_ELIGIBILITY", "SUBMIT_ASSESSMENT", "VERIFY_POSITION_BUDGET", "COMPLETE_REVIEW");
+    private static final Set<String> APPOINT_ACTIONS =
+            Set.of("APPROVE_PROMOTION", "COMPLETE_NOTICE", "COMPLETE_VALIDATION");
 
     private final TenantTransactionRunner transactions;
     private final IdempotencyRegistry idempotency;
@@ -66,10 +63,7 @@ public final class PromotionService {
     }
 
     public Phase11Record create(
-            DatabaseSecurityContext actor,
-            String idempotencyKey,
-            String requestHash,
-            CreateCommand command) {
+            DatabaseSecurityContext actor, String idempotencyKey, String requestHash, CreateCommand command) {
         requireActor(actor);
         validateCreate(command);
         return transactions.required(actor, () -> {
@@ -115,8 +109,8 @@ public final class PromotionService {
 
             Phase11Record draft = draft(actor, claim.resourceId(), command, eligibility);
             promotions.insert(draft, command, eligibility, actor.employeeId());
-            Phase11WorkflowCoordinator.Started started = workflow.start(
-                    actor, PROCESS, draft, command.toCreateData(), idempotencyKey);
+            Phase11WorkflowCoordinator.Started started =
+                    workflow.start(actor, PROCESS, draft, command.toCreateData(), idempotencyKey);
             if (promotions.bindWorkflow(
                             actor.tenantId(),
                             draft.id(),
@@ -163,20 +157,18 @@ public final class PromotionService {
             Phase11Process.Step step = PROCESS.requireTransition(current.currentNodeCode(), action);
             validateActor(current, action, actor.employeeId());
             validateAction(current, action, command);
-            WorkflowRuntimeService.Result moved = workflow.advance(
-                    actor, PROCESS, current, action, command.reason(), idempotencyKey);
+            WorkflowRuntimeService.Result moved =
+                    workflow.advance(actor, PROCESS, current, action, command.reason(), idempotencyKey);
             if (!step.targetNode().equals(moved.instance().currentNodeCode())) {
                 throw rejected("workflow target does not match frozen contract");
             }
             UUID appointmentEffectId = null;
             if ("ACTIVATE_APPOINTMENT".equals(action)) {
                 UUID targetPositionId = uuid(current.details(), "targetPositionId");
-                if (!promotions.activeTargetPosition(
-                        current.tenantId(), current.ownerCenterId(), targetPositionId)) {
+                if (!promotions.activeTargetPosition(current.tenantId(), current.ownerCenterId(), targetPositionId)) {
                     throw rejected("target position is no longer active");
                 }
-                appointmentEffectId = promotions.activateAppointment(
-                        current, command, actor.employeeId());
+                appointmentEffectId = promotions.activateAppointment(current, command, actor.employeeId());
             }
             if (promotions.advance(
                             current,
@@ -217,8 +209,8 @@ public final class PromotionService {
         if (!"CLOSED".equals(fsmState)) {
             throw rejected("FSM_NOT_CLOSED");
         }
-        boolean timeboxReady = "FINISHED".equals(timeboxState)
-                || ("IN_PROGRESS".equals(timeboxState) && "QA_PASS".equals(qaState));
+        boolean timeboxReady =
+                "FINISHED".equals(timeboxState) || ("IN_PROGRESS".equals(timeboxState) && "QA_PASS".equals(qaState));
         if (!timeboxReady) {
             throw rejected("TIMEBOX_NOT_READY");
         }
@@ -238,7 +230,8 @@ public final class PromotionService {
             PromotionRepository.Eligibility eligibility) {
         Instant now = Instant.now();
         ObjectNode details = mapper.createObjectNode();
-        details.put("sourcePerformanceCycleId", command.sourcePerformanceCycleId().toString());
+        details.put(
+                "sourcePerformanceCycleId", command.sourcePerformanceCycleId().toString());
         put(details, "currentPositionId", command.currentPositionId());
         details.put("targetPositionId", command.targetPositionId().toString());
         details.put("fsmState", eligibility.fsmState());
@@ -249,7 +242,8 @@ public final class PromotionService {
         details.put("promotionThresholdScore", command.promotionThresholdScore());
         details.put("contentVersion", command.contentVersion());
         details.put("periodNo", command.periodNo());
-        details.put("appointmentEffectiveDate", command.appointmentEffectiveDate().toString());
+        details.put(
+                "appointmentEffectiveDate", command.appointmentEffectiveDate().toString());
         details.put("ceoMode", Boolean.TRUE.equals(command.ceoMode()));
         return new Phase11Record(
                 id,
@@ -277,8 +271,7 @@ public final class PromotionService {
                 details);
     }
 
-    private void validateAction(
-            Phase11Record current, String action, ActionCommand command) {
+    private void validateAction(Phase11Record current, String action, ActionCommand command) {
         if (!OWNER_ACTIONS.contains(action)) {
             requireText(command.summary(), "summary");
         }
@@ -308,8 +301,7 @@ public final class PromotionService {
         }
     }
 
-    private static void validateActor(
-            Phase11Record current, String action, UUID actorEmployeeId) {
+    private static void validateActor(Phase11Record current, String action, UUID actorEmployeeId) {
         boolean owner = actorEmployeeId.equals(current.ownerEmployeeId());
         if (OWNER_ACTIONS.contains(action) && !owner) {
             throw rejected("only the candidate employee may confirm the appointment");
@@ -334,31 +326,23 @@ public final class PromotionService {
         requireText(command.periodNo(), "periodNo");
         Objects.requireNonNull(command.ownerCenterId(), "P012 ownerCenterId is required");
         Objects.requireNonNull(command.ownerEmployeeId(), "P012 ownerEmployeeId is required");
-        Objects.requireNonNull(
-                command.sourcePerformanceCycleId(),
-                "P012 sourcePerformanceCycleId is required");
+        Objects.requireNonNull(command.sourcePerformanceCycleId(), "P012 sourcePerformanceCycleId is required");
         Objects.requireNonNull(command.targetPositionId(), "P012 targetPositionId is required");
         Objects.requireNonNull(command.factOccurredAt(), "P012 factOccurredAt is required");
-        Objects.requireNonNull(
-                command.appointmentEffectiveDate(),
-                "P012 appointmentEffectiveDate is required");
+        Objects.requireNonNull(command.appointmentEffectiveDate(), "P012 appointmentEffectiveDate is required");
         if (command.periodNo().length() > 32) {
             throw rejected("periodNo must not exceed 32 characters");
         }
-        if (command.promotionThresholdScore() < 0
-                || command.promotionThresholdScore() > 1000) {
+        if (command.promotionThresholdScore() < 0 || command.promotionThresholdScore() > 1000) {
             throw rejected("promotionThresholdScore must be between 0 and 1000");
         }
     }
 
     private Phase11Record required(UUID tenantId, UUID promotionId) {
-        return promotions
-                .find(tenantId, promotionId)
-                .orElseThrow(() -> rejected("promotion request not found"));
+        return promotions.find(tenantId, promotionId).orElseThrow(() -> rejected("promotion request not found"));
     }
 
-    private void emit(
-            DatabaseSecurityContext actor, Phase11Record record, String action) {
+    private void emit(DatabaseSecurityContext actor, Phase11Record record, String action) {
         ObjectNode payload = mapper.createObjectNode();
         payload.put("processCode", PROCESS.code());
         payload.put("recordId", record.id().toString());
@@ -468,9 +452,5 @@ public final class PromotionService {
     }
 
     public record ActionCommand(
-            int expectedVersion,
-            String summary,
-            String reason,
-            String decision,
-            LocalDate appointmentEffectiveDate) {}
+            int expectedVersion, String summary, String reason, String decision, LocalDate appointmentEffectiveDate) {}
 }

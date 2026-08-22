@@ -25,7 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/phase05/welfare/care-cases")
-public final class WelfareCareCaseController {
+public class WelfareCareCaseController {
     private static final String READ = "phase05.p016.read";
     private static final String WRITE = "phase05.p016.write";
 
@@ -51,18 +51,23 @@ public final class WelfareCareCaseController {
             @RequestHeader("Idempotency-Key") String idempotencyKey,
             @RequestBody CareCaseService.CreateCommand command) {
         require(authorization.authorizeAction(principal.context(), WRITE));
-        require(authorization.authorizeData(principal.context(), WRITE, new AuthorizationTarget(
-                principal.context().tenantId(), command.ownerEmployeeId(), command.ownerCenterId(), null,
-                command.ownerEmployeeId())));
+        require(authorization.authorizeData(
+                principal.context(),
+                WRITE,
+                new AuthorizationTarget(
+                        principal.context().tenantId(),
+                        command.ownerEmployeeId(),
+                        command.ownerCenterId(),
+                        null,
+                        command.ownerEmployeeId())));
         audit.recordOperation(principal.context(), "P016_CREATE_ATTEMPT", "welfare.care_case", null);
         return careCases.create(context(principal), idempotencyKey, hash(command), command);
     }
 
     @GetMapping("/{id}")
-    public CareCaseService.CareCase get(
-            @AuthenticationPrincipal SessionPrincipal principal,
-            @PathVariable UUID id) {
-        CareCaseService.CareCase careCase = careCases.find(context(principal), id)
+    public CareCaseService.CareCase get(@AuthenticationPrincipal SessionPrincipal principal, @PathVariable UUID id) {
+        CareCaseService.CareCase careCase = careCases
+                .find(context(principal), id)
                 .orElseThrow(() -> new IllegalArgumentException("care case not found"));
         require(authorization.authorizeData(principal.context(), READ, target(careCase)));
         return careCase;
@@ -73,12 +78,18 @@ public final class WelfareCareCaseController {
             @AuthenticationPrincipal SessionPrincipal principal,
             @PathVariable UUID id,
             @RequestBody AdvanceRequest request) {
-        CareCaseService.CareCase current = careCases.find(context(principal), id)
+        CareCaseService.CareCase current = careCases
+                .find(context(principal), id)
                 .orElseThrow(() -> new IllegalArgumentException("care case not found"));
         require(authorization.authorizeData(principal.context(), WRITE, target(current)));
         audit.recordOperation(principal.context(), "P016_ADVANCE_ATTEMPT", "welfare.care_case", id);
-        return careCases.advance(context(principal), id, request.expectedVersion(), request.requestedStatus(),
-                request.resultSummary(), request.closureChecklist());
+        return careCases.advance(
+                context(principal),
+                id,
+                request.expectedVersion(),
+                request.requestedStatus(),
+                request.resultSummary(),
+                request.closureChecklist());
     }
 
     @PostMapping("/{id}/invoice-evidence/validate")
@@ -86,7 +97,8 @@ public final class WelfareCareCaseController {
             @AuthenticationPrincipal SessionPrincipal principal,
             @PathVariable UUID id,
             @RequestBody CareCaseService.InvoiceEvidence invoice) {
-        CareCaseService.CareCase current = careCases.find(context(principal), id)
+        CareCaseService.CareCase current = careCases
+                .find(context(principal), id)
                 .orElseThrow(() -> new IllegalArgumentException("care case not found"));
         require(authorization.authorizeData(principal.context(), WRITE, target(current)));
         audit.recordOperation(principal.context(), "P016_INVOICE_VALIDATE_ATTEMPT", "welfare.care_case", id);
@@ -94,7 +106,11 @@ public final class WelfareCareCaseController {
     }
 
     private AuthorizationTarget target(CareCaseService.CareCase careCase) {
-        return new AuthorizationTarget(careCase.tenantId(), careCase.ownerEmployeeId(), careCase.ownerCenterId(), null,
+        return new AuthorizationTarget(
+                careCase.tenantId(),
+                careCase.ownerEmployeeId(),
+                careCase.ownerCenterId(),
+                null,
                 careCase.ownerEmployeeId());
     }
 
@@ -123,6 +139,5 @@ public final class WelfareCareCaseController {
             int expectedVersion,
             String requestedStatus,
             String resultSummary,
-            CareCaseService.ClosureChecklist closureChecklist) {
-    }
+            CareCaseService.ClosureChecklist closureChecklist) {}
 }

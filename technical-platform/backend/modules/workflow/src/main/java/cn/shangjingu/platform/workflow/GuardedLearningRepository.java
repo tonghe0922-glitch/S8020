@@ -30,8 +30,7 @@ public class GuardedLearningRepository implements LearningService.Repository {
     }
 
     @Autowired
-    public GuardedLearningRepository(
-            JdbcLearningRepository delegate, P010LearningInsertWriter insertWriter) {
+    public GuardedLearningRepository(JdbcLearningRepository delegate, P010LearningInsertWriter insertWriter) {
         this.delegate = delegate;
         this.insertWriter = insertWriter;
     }
@@ -47,16 +46,13 @@ public class GuardedLearningRepository implements LearningService.Repository {
     }
 
     @Override
-    public List<UUID> permissionCandidates(
-            UUID tenantId, String permission, UUID orgId) {
+    public List<UUID> permissionCandidates(UUID tenantId, String permission, UUID orgId) {
         return delegate.permissionCandidates(tenantId, permission, orgId);
     }
 
     @Override
-    public boolean activeEmployeeInCenter(
-            UUID tenantId, UUID employeeId, UUID orgId) {
-        return delegate.activeEmployeeInCenter(
-                tenantId, employeeId, orgId);
+    public boolean activeEmployeeInCenter(UUID tenantId, UUID employeeId, UUID orgId) {
+        return delegate.activeEmployeeInCenter(tenantId, employeeId, orgId);
     }
 
     @Override
@@ -71,30 +67,15 @@ public class GuardedLearningRepository implements LearningService.Repository {
             UUID actor) {
         if (insertWriter == null) {
             delegate.insert(
-                    record,
-                    reason,
-                    courseTeamName,
-                    riskLevel,
-                    learnerProfile,
-                    plannedStartAt,
-                    plannedFinishAt,
-                    actor);
+                    record, reason, courseTeamName, riskLevel, learnerProfile, plannedStartAt, plannedFinishAt, actor);
             return;
         }
         insertWriter.insert(
-                record,
-                reason,
-                courseTeamName,
-                riskLevel,
-                learnerProfile,
-                plannedStartAt,
-                plannedFinishAt,
-                actor);
+                record, reason, courseTeamName, riskLevel, learnerProfile, plannedStartAt, plannedFinishAt, actor);
     }
 
     @Override
-    public Optional<LearningService.LearningRecord> find(
-            UUID tenantId, UUID id) {
+    public Optional<LearningService.LearningRecord> find(UUID tenantId, UUID id) {
         return delegate.find(tenantId, id);
     }
 
@@ -104,50 +85,21 @@ public class GuardedLearningRepository implements LearningService.Repository {
     }
 
     @Override
-    public List<LearningService.Evidence> evidence(
-            UUID tenantId, UUID id) {
+    public List<LearningService.Evidence> evidence(UUID tenantId, UUID id) {
         return delegate.evidence(tenantId, id);
     }
 
     @Override
     public int bindWorkflow(
-            UUID tenantId,
-            UUID id,
-            int version,
-            UUID workflowId,
-            String node,
-            String status,
-            UUID actor) {
+            UUID tenantId, UUID id, int version, UUID workflowId, String node, String status, UUID actor) {
         return required(
-                delegate.bindWorkflow(
-                        tenantId,
-                        id,
-                        version,
-                        workflowId,
-                        node,
-                        status,
-                        actor),
-                "workflow binding");
+                delegate.bindWorkflow(tenantId, id, version, workflowId, node, status, actor), "workflow binding");
     }
 
     @Override
-    public int moveNode(
-            UUID tenantId,
-            UUID id,
-            int version,
-            String node,
-            String status,
-            Instant closed,
-            UUID actor) {
+    public int moveNode(UUID tenantId, UUID id, int version, String node, String status, Instant closed, UUID actor) {
         return required(
-                delegate.moveNode(
-                        tenantId,
-                        id,
-                        version,
-                        node,
-                        status,
-                        closed,
-                        actor),
+                delegate.moveNode(tenantId, id, version, node, status, closed, actor),
                 "workflow projection transition");
     }
 
@@ -162,123 +114,74 @@ public class GuardedLearningRepository implements LearningService.Repository {
             String practical,
             String text,
             JsonNode json) {
-        delegate.appendEvidence(
-                tenantId,
-                id,
-                type,
-                actor,
-                score,
-                progress,
-                practical,
-                text,
-                json);
+        delegate.appendEvidence(tenantId, id, type, actor, score, progress, practical, text, json);
     }
 
     @Override
-    public int updateProgress(
-            UUID tenantId, UUID id, BigDecimal progress, UUID actor) {
-        return required(
-                delegate.updateProgress(
-                        tenantId, id, progress, actor),
-                "learning progress update");
+    public int updateProgress(UUID tenantId, UUID id, BigDecimal progress, UUID actor) {
+        return required(delegate.updateProgress(tenantId, id, progress, actor), "learning progress update");
     }
 
     @Override
-    public int markLearningCompleted(
-            UUID tenantId, UUID id, UUID actor) {
-        return required(
-                delegate.markLearningCompleted(tenantId, id, actor),
-                "learning completion fact");
+    public int markLearningCompleted(UUID tenantId, UUID id, UUID actor) {
+        return required(delegate.markLearningCompleted(tenantId, id, actor), "learning completion fact");
     }
 
     @Override
-    public int updateExam(
-            UUID tenantId, UUID id, long score, UUID actor) {
-        return required(
-                delegate.updateExam(tenantId, id, score, actor),
-                "exam result update");
+    public int updateExam(UUID tenantId, UUID id, long score, UUID actor) {
+        return required(delegate.updateExam(tenantId, id, score, actor), "exam result update");
     }
 
     @Override
-    public int updatePractical(
-            UUID tenantId, UUID id, String result, UUID actor) {
-        return required(
-                delegate.updatePractical(
-                        tenantId, id, result, actor),
-                "practical result update");
+    public int updatePractical(UUID tenantId, UUID id, String result, UUID actor) {
+        return required(delegate.updatePractical(tenantId, id, result, actor), "practical result update");
     }
 
     @Override
-    public int markContentPublished(
-            UUID tenantId, UUID id, UUID actor) {
-        return required(
-                delegate.markContentPublished(tenantId, id, actor),
-                "content publication fact");
+    public int markContentPublished(UUID tenantId, UUID id, UUID actor) {
+        return required(delegate.markContentPublished(tenantId, id, actor), "content publication fact");
     }
 
     @Override
-    public int markRiskAssigned(
-            UUID tenantId, UUID id, UUID actor) {
-        return required(
-                delegate.markRiskAssigned(tenantId, id, actor),
-                "risk assignment fact");
+    public int markRiskAssigned(UUID tenantId, UUID id, UUID actor) {
+        return required(delegate.markRiskAssigned(tenantId, id, actor), "risk assignment fact");
     }
 
     @Override
-    public int markCertified(
-            UUID tenantId, UUID id, UUID actor) {
-        return required(
-                delegate.markCertified(tenantId, id, actor),
-                "professional certification fact");
+    public int markCertified(UUID tenantId, UUID id, UUID actor) {
+        return required(delegate.markCertified(tenantId, id, actor), "professional certification fact");
     }
 
     @Override
-    public int activateQualification(
-            UUID tenantId,
-            UUID id,
-            LocalDate effective,
-            LocalDate expire,
-            UUID actor) {
+    public int activateQualification(UUID tenantId, UUID id, LocalDate effective, LocalDate expire, UUID actor) {
         return required(
-                delegate.activateQualification(
-                        tenantId, id, effective, expire, actor),
+                delegate.activateQualification(tenantId, id, effective, expire, actor),
                 "qualification activation fact");
     }
 
     @Override
-    public List<UUID> linkPermissions(
-            UUID tenantId, UUID id, UUID actor) {
+    public List<UUID> linkPermissions(UUID tenantId, UUID id, UUID actor) {
         return delegate.linkPermissions(tenantId, id, actor);
     }
 
     @Override
-    public int markPermissionLinked(
-            UUID tenantId, UUID id, UUID actor) {
-        return required(
-                delegate.markPermissionLinked(tenantId, id, actor),
-                "permission linkage fact");
+    public int markPermissionLinked(UUID tenantId, UUID id, UUID actor) {
+        return required(delegate.markPermissionLinked(tenantId, id, actor), "permission linkage fact");
     }
 
     @Override
-    public int markRetrainingChecked(
-            UUID tenantId, UUID id, UUID actor) {
-        return required(
-                delegate.markRetrainingChecked(tenantId, id, actor),
-                "retraining check fact");
+    public int markRetrainingChecked(UUID tenantId, UUID id, UUID actor) {
+        return required(delegate.markRetrainingChecked(tenantId, id, actor), "retraining check fact");
     }
 
     @Override
-    public int markArchived(
-            UUID tenantId, UUID id, UUID actor) {
-        return required(
-                delegate.markArchived(tenantId, id, actor),
-                "archive fact");
+    public int markArchived(UUID tenantId, UUID id, UUID actor) {
+        return required(delegate.markArchived(tenantId, id, actor), "archive fact");
     }
 
     private static int required(int updated, String operation) {
         if (updated != 1) {
-            throw new ProcessRejectedException(
-                    "P010 " + operation + " failed closed");
+            throw new ProcessRejectedException("P010 " + operation + " failed closed");
         }
         return updated;
     }

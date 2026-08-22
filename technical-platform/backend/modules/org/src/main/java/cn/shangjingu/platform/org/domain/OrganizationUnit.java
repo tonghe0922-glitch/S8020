@@ -10,5 +10,4 @@ public record OrganizationUnit(
         String orgType,
         UUID parentId,
         String path,
-        String status) {
-}
+        String status) {}

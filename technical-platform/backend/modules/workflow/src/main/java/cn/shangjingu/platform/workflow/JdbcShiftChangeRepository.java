@@ -16,8 +16,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public class JdbcShiftChangeRepository
-        implements ShiftChangeService.Repository {
+public class JdbcShiftChangeRepository implements ShiftChangeService.Repository {
     private final JdbcTemplate jdbc;
 
     public JdbcShiftChangeRepository(JdbcTemplate jdbc) {
@@ -26,7 +25,8 @@ public class JdbcShiftChangeRepository
 
     @Override
     public Optional<UUID> workflowVersion(UUID tenantId) {
-        return jdbc.query(
+        return jdbc
+                .query(
                         """
                         select v.id
                         from workflow.wf_version v
@@ -49,7 +49,8 @@ public class JdbcShiftChangeRepository
 
     @Override
     public Optional<FormRef> form(UUID tenantId) {
-        return jdbc.query(
+        return jdbc
+                .query(
                         """
                         select id,version_no
                         from workflow.wf_form_definition
@@ -62,18 +63,14 @@ public class JdbcShiftChangeRepository
                         order by version_no desc
                         limit 1
                         """,
-                        (result, row) ->
-                                new FormRef(
-                                        result.getObject(1, UUID.class),
-                                        result.getInt(2)),
+                        (result, row) -> new FormRef(result.getObject(1, UUID.class), result.getInt(2)),
                         tenantId)
                 .stream()
                 .findFirst();
     }
 
     @Override
-    public List<UUID> permissionCandidates(
-            UUID tenantId, String permission, UUID orgId) {
+    public List<UUID> permissionCandidates(UUID tenantId, String permission, UUID orgId) {
         return jdbc.query(
                 """
                 select distinct ui.employee_id
@@ -110,11 +107,9 @@ public class JdbcShiftChangeRepository
     }
 
     @Override
-    public boolean isActiveEmployeeInOrg(
-            UUID tenantId, UUID orgId, UUID employeeId) {
-        Boolean active =
-                jdbc.queryForObject(
-                        """
+    public boolean isActiveEmployeeInOrg(UUID tenantId, UUID orgId, UUID employeeId) {
+        Boolean active = jdbc.queryForObject(
+                """
                         select exists(
                           select 1
                           from iam.user_identity ui
@@ -134,23 +129,17 @@ public class JdbcShiftChangeRepository
                             )
                         )
                         """,
-                        Boolean.class,
-                        tenantId,
-                        orgId,
-                        employeeId);
+                Boolean.class,
+                tenantId,
+                orgId,
+                employeeId);
         return Boolean.TRUE.equals(active);
     }
 
     @Override
-    public boolean hasOverlappingShift(
-            UUID tenantId,
-            UUID employeeId,
-            Instant start,
-            Instant end,
-            UUID excludeId) {
-        Boolean hit =
-                jdbc.queryForObject(
-                        """
+    public boolean hasOverlappingShift(UUID tenantId, UUID employeeId, Instant start, Instant end, UUID excludeId) {
+        Boolean hit = jdbc.queryForObject(
+                """
                         select exists(
                           select 1
                           from attendance.shift_change_request r
@@ -166,25 +155,20 @@ public class JdbcShiftChangeRepository
                                 && tstzrange(?,?,'[)')
                         )
                         """,
-                        Boolean.class,
-                        tenantId,
-                        excludeId,
-                        employeeId,
-                        employeeId,
-                        timestamp(start),
-                        timestamp(end));
+                Boolean.class,
+                tenantId,
+                excludeId,
+                employeeId,
+                employeeId,
+                timestamp(start),
+                timestamp(end));
         return Boolean.TRUE.equals(hit);
     }
 
     @Override
-    public boolean hasAttendanceConflict(
-            UUID tenantId,
-            UUID employeeId,
-            Instant start,
-            Instant end) {
-        Boolean hit =
-                jdbc.queryForObject(
-                        """
+    public boolean hasAttendanceConflict(UUID tenantId, UUID employeeId, Instant start, Instant end) {
+        Boolean hit = jdbc.queryForObject(
+                """
                         select (
                           exists(
                             select 1
@@ -208,23 +192,22 @@ public class JdbcShiftChangeRepository
                           )
                         )
                         """,
-                        Boolean.class,
-                        tenantId,
-                        employeeId,
-                        timestamp(start),
-                        timestamp(end),
-                        tenantId,
-                        employeeId,
-                        timestamp(start),
-                        timestamp(end));
+                Boolean.class,
+                tenantId,
+                employeeId,
+                timestamp(start),
+                timestamp(end),
+                tenantId,
+                employeeId,
+                timestamp(start),
+                timestamp(end));
         return Boolean.TRUE.equals(hit);
     }
 
     @Override
     public void insert(ShiftRecord record, UUID actor) {
-        int inserted =
-                jdbc.update(
-                        """
+        int inserted = jdbc.update(
+                """
                         insert into attendance.shift_change_request(
                           id,tenant_id,business_no,status,version_no,
                           created_by,updated_by,source_channel,business_date,
@@ -239,42 +222,33 @@ public class JdbcShiftChangeRepository
                           ?,?,?,?, ?,?,?
                         )
                         """,
-                        record.id(),
-                        record.tenantId(),
-                        record.businessNo(),
-                        record.status(),
-                        actor,
-                        actor,
-                        record.subject(),
-                        record.reason(),
-                        record.ownerCenterId(),
-                        record.ownerEmployeeId(),
-                        record.changeAction(),
-                        record.changeReason(),
-                        record.templateCode() == null
-                                ? "CURRENT"
-                                : record.templateCode(),
-                        record.durationHours(),
-                        timestamp(record.endAt()),
-                        record.periodOrCourseNo(),
-                        timestamp(record.startAt()),
-                        record.templateCode(),
-                        record.targetEmployeeId(),
-                        record.replacementEmployeeId());
+                record.id(),
+                record.tenantId(),
+                record.businessNo(),
+                record.status(),
+                actor,
+                actor,
+                record.subject(),
+                record.reason(),
+                record.ownerCenterId(),
+                record.ownerEmployeeId(),
+                record.changeAction(),
+                record.changeReason(),
+                record.templateCode() == null ? "CURRENT" : record.templateCode(),
+                record.durationHours(),
+                timestamp(record.endAt()),
+                record.periodOrCourseNo(),
+                timestamp(record.startAt()),
+                record.templateCode(),
+                record.targetEmployeeId(),
+                record.replacementEmployeeId());
         if (inserted != 1) {
-            throw new ProcessRejectedException(
-                    "P007 canonical shift record insert failed");
+            throw new ProcessRejectedException("P007 canonical shift record insert failed");
         }
     }
 
     @Override
-    public int bindAndMove(
-            UUID tenantId,
-            UUID id,
-            int version,
-            UUID workflowId,
-            String status,
-            UUID actor) {
+    public int bindAndMove(UUID tenantId, UUID id, int version, UUID workflowId, String status, UUID actor) {
         return jdbc.update(
                 """
                 update attendance.shift_change_request
@@ -297,13 +271,7 @@ public class JdbcShiftChangeRepository
     }
 
     @Override
-    public int moveStatus(
-            UUID tenantId,
-            UUID id,
-            int version,
-            String status,
-            Instant closed,
-            UUID actor) {
+    public int moveStatus(UUID tenantId, UUID id, int version, String status, Instant closed, UUID actor) {
         return jdbc.update(
                 """
                 update attendance.shift_change_request
@@ -328,11 +296,7 @@ public class JdbcShiftChangeRepository
     }
 
     @Override
-    public int markValidated(
-            UUID tenantId,
-            UUID id,
-            BigDecimal continuousHours,
-            UUID actor) {
+    public int markValidated(UUID tenantId, UUID id, BigDecimal continuousHours, UUID actor) {
         return jdbc.update(
                 """
                 update attendance.shift_change_request
@@ -393,11 +357,7 @@ public class JdbcShiftChangeRepository
     }
 
     @Override
-    public int setReplacement(
-            UUID tenantId,
-            UUID id,
-            UUID replacement,
-            UUID actor) {
+    public int setReplacement(UUID tenantId, UUID id, UUID replacement, UUID actor) {
         return jdbc.update(
                 """
                 update attendance.shift_change_request
@@ -483,7 +443,8 @@ public class JdbcShiftChangeRepository
 
     @Override
     public Optional<ShiftRecord> find(UUID tenantId, UUID id) {
-        return jdbc.query(
+        return jdbc
+                .query(
                         select(
                                 """
                                 where r.tenant_id=?
@@ -574,8 +535,7 @@ public class JdbcShiftChangeRepository
         return value == null ? null : Timestamp.from(value);
     }
 
-    private static Instant instant(ResultSet result, String column)
-            throws SQLException {
+    private static Instant instant(ResultSet result, String column) throws SQLException {
         Object value = result.getObject(column);
         if (value == null) {
             return null;

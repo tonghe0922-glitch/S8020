@@ -48,12 +48,12 @@ public class WorkflowRuntimeService {
     @Transactional
     public Result start(StartCommand command) {
         validateStart(command);
-        RuntimeVersion version = repository.findPublishedVersion(command.tenantId(), command.versionId())
+        RuntimeVersion version = repository
+                .findPublishedVersion(command.tenantId(), command.versionId())
                 .orElseThrow(() -> new WorkflowException(
                         WorkflowException.Code.INVALID_DEFINITION,
                         "workflow instance can start only from an effective published version"));
-        List<RuntimeNode> startNodes = repository.listNodesByType(
-                command.tenantId(), command.versionId(), START_NODE);
+        List<RuntimeNode> startNodes = repository.listNodesByType(command.tenantId(), command.versionId(), START_NODE);
         if (startNodes.size() != 1) {
             throw new WorkflowException(
                     WorkflowException.Code.INVALID_DEFINITION,
@@ -65,33 +65,70 @@ public class WorkflowRuntimeService {
                 "operation", "START",
                 "versionId", command.versionId().toString(),
                 "businessObjectType", command.businessObjectType(),
-                "businessObjectId", command.businessObjectId() == null ? "" : command.businessObjectId().toString(),
+                "businessObjectId",
+                        command.businessObjectId() == null
+                                ? ""
+                                : command.businessObjectId().toString(),
                 "businessObjectNo", value(command.businessObjectNo()),
                 "title", command.title(),
                 "priority", normalizedPriority(command.priority()),
                 "context", canonical(command.contextSnapshot())));
         WorkflowIdempotency.Claim claim = idempotency.claim(
-                command.tenantId(), command.actorId(), command.idempotencyKey(), requestHash,
-                "WORKFLOW_INSTANCE", proposedInstanceId);
+                command.tenantId(),
+                command.actorId(),
+                command.idempotencyKey(),
+                requestHash,
+                "WORKFLOW_INSTANCE",
+                proposedInstanceId);
         if (claim.existing()) {
-            Instance existing = repository.findInstance(command.tenantId(), claim.resourceId())
-                    .orElseThrow(() -> WorkflowException.conflict("idempotency record points to a missing workflow instance"));
-            ActionLog action = repository.findActionByRequestId(command.tenantId(), command.idempotencyKey()).orElse(null);
-            Task task = repository.findCurrentTask(command.tenantId(), existing.id(), existing.currentNodeCode()).orElse(null);
+            Instance existing = repository
+                    .findInstance(command.tenantId(), claim.resourceId())
+                    .orElseThrow(() ->
+                            WorkflowException.conflict("idempotency record points to a missing workflow instance"));
+            ActionLog action = repository
+                    .findActionByRequestId(command.tenantId(), command.idempotencyKey())
+                    .orElse(null);
+            Task task = repository
+                    .findCurrentTask(command.tenantId(), existing.id(), existing.currentNodeCode())
+                    .orElse(null);
             return new Result(existing, task, action, true);
         }
 
         Instant now = Instant.now();
         Instance instance = new Instance(
-                claim.resourceId(), command.tenantId(), technicalNumber("WFI", claim.resourceId()),
-                version.definitionId(), version.versionId(), version.processCode(), command.businessObjectType().trim(),
-                command.businessObjectId(), blankToNull(command.businessObjectNo()), command.title().trim(), command.actorId(),
-                startNode.nodeCode(), RUNNING, normalizedPriority(command.priority()), now, null, null,
+                claim.resourceId(),
+                command.tenantId(),
+                technicalNumber("WFI", claim.resourceId()),
+                version.definitionId(),
+                version.versionId(),
+                version.processCode(),
+                command.businessObjectType().trim(),
+                command.businessObjectId(),
+                blankToNull(command.businessObjectNo()),
+                command.title().trim(),
+                command.actorId(),
+                startNode.nodeCode(),
+                RUNNING,
+                normalizedPriority(command.priority()),
+                now,
+                null,
+                null,
                 copy(command.contextSnapshot()));
         repository.insertInstance(instance, command.actorId());
         ActionLog action = new ActionLog(
-                UUID.randomUUID(), command.tenantId(), instance.id(), null, "START", null, startNode.nodeCode(),
-                command.actorId(), command.operatorIdentityId(), null, now, command.idempotencyKey(), requestHash);
+                UUID.randomUUID(),
+                command.tenantId(),
+                instance.id(),
+                null,
+                "START",
+                null,
+                startNode.nodeCode(),
+                command.actorId(),
+                command.operatorIdentityId(),
+                null,
+                now,
+                command.idempotencyKey(),
+                requestHash);
         repository.insertAction(action, command.actorId());
         return new Result(instance, null, action, false);
     }
@@ -99,7 +136,8 @@ public class WorkflowRuntimeService {
     @Transactional
     public Result act(ActionCommand command) {
         validateAction(command);
-        Instance snapshot = repository.findInstance(command.tenantId(), command.instanceId())
+        Instance snapshot = repository
+                .findInstance(command.tenantId(), command.instanceId())
                 .orElseThrow(() -> WorkflowException.notFound("workflow instance not found"));
         String requestHash = hash(Map.of(
                 "operation", "ACTION",
@@ -110,68 +148,91 @@ public class WorkflowRuntimeService {
                 "reason", value(command.reason())));
         UUID proposedActionId = UUID.randomUUID();
         WorkflowIdempotency.Claim claim = idempotency.claim(
-                command.tenantId(), command.actorId(), command.idempotencyKey(), requestHash,
-                "WORKFLOW_ACTION", proposedActionId);
+                command.tenantId(),
+                command.actorId(),
+                command.idempotencyKey(),
+                requestHash,
+                "WORKFLOW_ACTION",
+                proposedActionId);
         if (claim.existing()) {
-            ActionLog action = repository.findAction(command.tenantId(), claim.resourceId())
-                    .orElseThrow(() -> WorkflowException.conflict("idempotency record points to a missing workflow action"));
-            Instance existing = repository.findInstance(command.tenantId(), action.instanceId())
-                    .orElseThrow(() -> WorkflowException.conflict("workflow action points to a missing workflow instance"));
-            Task task = repository.findCurrentTask(command.tenantId(), existing.id(), existing.currentNodeCode()).orElse(null);
+            ActionLog action = repository
+                    .findAction(command.tenantId(), claim.resourceId())
+                    .orElseThrow(
+                            () -> WorkflowException.conflict("idempotency record points to a missing workflow action"));
+            Instance existing = repository
+                    .findInstance(command.tenantId(), action.instanceId())
+                    .orElseThrow(
+                            () -> WorkflowException.conflict("workflow action points to a missing workflow instance"));
+            Task task = repository
+                    .findCurrentTask(command.tenantId(), existing.id(), existing.currentNodeCode())
+                    .orElse(null);
             return new Result(existing, task, action, true);
         }
 
-        Instance instance = repository.lockInstance(command.tenantId(), command.instanceId())
+        Instance instance = repository
+                .lockInstance(command.tenantId(), command.instanceId())
                 .orElseThrow(() -> WorkflowException.notFound("workflow instance not found"));
         if (!RUNNING.equals(instance.status())) {
-            throw new WorkflowException(WorkflowException.Code.ILLEGAL_ACTION,
-                    "workflow instance is not running");
+            throw new WorkflowException(WorkflowException.Code.ILLEGAL_ACTION, "workflow instance is not running");
         }
         if (!command.expectedNodeCode().trim().equals(instance.currentNodeCode())) {
-            throw new WorkflowException(WorkflowException.Code.STALE_VERSION,
+            throw new WorkflowException(
+                    WorkflowException.Code.STALE_VERSION,
                     "workflow current node changed; refresh before retrying the action");
         }
-        RuntimeNode current = repository.findNode(command.tenantId(), instance.versionId(), instance.currentNodeCode())
-                .orElseThrow(() -> new WorkflowException(WorkflowException.Code.INVALID_DEFINITION,
+        RuntimeNode current = repository
+                .findNode(command.tenantId(), instance.versionId(), instance.currentNodeCode())
+                .orElseThrow(() -> new WorkflowException(
+                        WorkflowException.Code.INVALID_DEFINITION,
                         "current workflow node is missing from bound version"));
         if (END_NODE.equalsIgnoreCase(current.nodeType())) {
-            throw new WorkflowException(WorkflowException.Code.ILLEGAL_ACTION,
-                    "terminal workflow node does not accept actions");
+            throw new WorkflowException(
+                    WorkflowException.Code.ILLEGAL_ACTION, "terminal workflow node does not accept actions");
         }
 
         Task currentTask = authorizeCurrentTask(command, instance, current);
         if (is(command.actionCode(), "WITHDRAW") && !command.actorId().equals(instance.initiatorId())) {
-            throw new WorkflowException(WorkflowException.Code.FORBIDDEN,
-                    "only the workflow initiator may withdraw the instance");
+            throw new WorkflowException(
+                    WorkflowException.Code.FORBIDDEN, "only the workflow initiator may withdraw the instance");
         }
 
         List<RuntimeTransition> matching = new ArrayList<>();
         for (RuntimeTransition transition : repository.listTransitions(
-                command.tenantId(), instance.versionId(), current.nodeCode(), command.actionCode().trim())) {
+                command.tenantId(),
+                instance.versionId(),
+                current.nodeCode(),
+                command.actionCode().trim())) {
             if (conditionEvaluator.matches(transition.conditionExpr(), instance.contextSnapshot())) {
                 matching.add(transition);
             }
         }
         if (matching.isEmpty()) {
-            throw new WorkflowException(WorkflowException.Code.ILLEGAL_ACTION,
-                    "action is not allowed from current workflow node");
+            throw new WorkflowException(
+                    WorkflowException.Code.ILLEGAL_ACTION, "action is not allowed from current workflow node");
         }
         if (matching.size() != 1) {
-            throw new WorkflowException(WorkflowException.Code.INVALID_DEFINITION,
+            throw new WorkflowException(
+                    WorkflowException.Code.INVALID_DEFINITION,
                     "workflow action resolves to multiple eligible transitions");
         }
         RuntimeTransition transition = matching.getFirst();
-        RuntimeNode target = repository.findNode(command.tenantId(), instance.versionId(), transition.toNodeCode())
-                .orElseThrow(() -> new WorkflowException(WorkflowException.Code.INVALID_DEFINITION,
+        RuntimeNode target = repository
+                .findNode(command.tenantId(), instance.versionId(), transition.toNodeCode())
+                .orElseThrow(() -> new WorkflowException(
+                        WorkflowException.Code.INVALID_DEFINITION,
                         "target workflow node is missing from bound version"));
 
         Instant now = Instant.now();
         if (currentTask != null) {
             int completed = repository.completeTask(
-                    command.tenantId(), currentTask.id(), command.actorId(), command.actionCode().trim(), command.reason(), now);
+                    command.tenantId(),
+                    currentTask.id(),
+                    command.actorId(),
+                    command.actionCode().trim(),
+                    command.reason(),
+                    now);
             if (completed != 1) {
-                throw new WorkflowException(WorkflowException.Code.STALE_VERSION,
-                        "workflow task changed concurrently");
+                throw new WorkflowException(WorkflowException.Code.STALE_VERSION, "workflow task changed concurrently");
             }
         }
 
@@ -179,32 +240,72 @@ public class WorkflowRuntimeService {
         String instanceStatus = terminal ? terminalStatus(command.actionCode()) : RUNNING;
         Instant finishedAt = terminal ? now : null;
         int updated = repository.moveInstance(
-                command.tenantId(), instance.id(), instance.currentNodeCode(), target.nodeCode(), instanceStatus,
-                finishedAt, command.actorId());
+                command.tenantId(),
+                instance.id(),
+                instance.currentNodeCode(),
+                target.nodeCode(),
+                instanceStatus,
+                finishedAt,
+                command.actorId());
         if (updated != 1) {
-            throw new WorkflowException(WorkflowException.Code.STALE_VERSION,
-                    "workflow instance changed concurrently");
+            throw new WorkflowException(WorkflowException.Code.STALE_VERSION, "workflow instance changed concurrently");
         }
 
         Task nextTask = null;
         if (!terminal && !START_NODE.equalsIgnoreCase(target.nodeType())) {
             UUID taskId = UUID.randomUUID();
             nextTask = new Task(
-                    taskId, command.tenantId(), instance.id(), technicalNumber("WFT", taskId), target.nodeCode(),
-                    target.nodeType(), null, copy(target.actorRule()), PENDING, now, null, null, null, null);
+                    taskId,
+                    command.tenantId(),
+                    instance.id(),
+                    technicalNumber("WFT", taskId),
+                    target.nodeCode(),
+                    target.nodeType(),
+                    null,
+                    copy(target.actorRule()),
+                    PENDING,
+                    now,
+                    null,
+                    null,
+                    null,
+                    null);
             repository.insertTask(nextTask, command.actorId());
         }
 
         ActionLog action = new ActionLog(
-                claim.resourceId(), command.tenantId(), instance.id(), currentTask == null ? null : currentTask.id(),
-                command.actionCode().trim(), current.nodeCode(), target.nodeCode(), command.actorId(),
-                command.operatorIdentityId(), blankToNull(command.reason()), now, command.idempotencyKey(), requestHash);
+                claim.resourceId(),
+                command.tenantId(),
+                instance.id(),
+                currentTask == null ? null : currentTask.id(),
+                command.actionCode().trim(),
+                current.nodeCode(),
+                target.nodeCode(),
+                command.actorId(),
+                command.operatorIdentityId(),
+                blankToNull(command.reason()),
+                now,
+                command.idempotencyKey(),
+                requestHash);
         repository.insertAction(action, command.actorId());
         Instance moved = new Instance(
-                instance.id(), instance.tenantId(), instance.instanceNo(), instance.definitionId(), instance.versionId(),
-                instance.processCode(), instance.businessObjectType(), instance.businessObjectId(), instance.businessObjectNo(),
-                instance.title(), instance.initiatorId(), target.nodeCode(), instanceStatus, instance.priority(),
-                instance.startedAt(), finishedAt, instance.dueAt(), instance.contextSnapshot());
+                instance.id(),
+                instance.tenantId(),
+                instance.instanceNo(),
+                instance.definitionId(),
+                instance.versionId(),
+                instance.processCode(),
+                instance.businessObjectType(),
+                instance.businessObjectId(),
+                instance.businessObjectNo(),
+                instance.title(),
+                instance.initiatorId(),
+                target.nodeCode(),
+                instanceStatus,
+                instance.priority(),
+                instance.startedAt(),
+                finishedAt,
+                instance.dueAt(),
+                instance.contextSnapshot());
         return new Result(moved, nextTask, action, false);
     }
 
@@ -212,9 +313,12 @@ public class WorkflowRuntimeService {
     public Result get(UUID tenantId, UUID instanceId) {
         requireUuid(tenantId, "tenantId");
         requireUuid(instanceId, "instanceId");
-        Instance instance = repository.findInstance(tenantId, instanceId)
+        Instance instance = repository
+                .findInstance(tenantId, instanceId)
                 .orElseThrow(() -> WorkflowException.notFound("workflow instance not found"));
-        Task task = repository.findCurrentTask(tenantId, instance.id(), instance.currentNodeCode()).orElse(null);
+        Task task = repository
+                .findCurrentTask(tenantId, instance.id(), instance.currentNodeCode())
+                .orElse(null);
         return new Result(instance, task, null, false);
     }
 
@@ -224,31 +328,31 @@ public class WorkflowRuntimeService {
                 throw WorkflowException.invalid("START node actions must not supply taskId");
             }
             if (!command.actorId().equals(instance.initiatorId())) {
-                throw new WorkflowException(WorkflowException.Code.FORBIDDEN,
-                        "only the workflow initiator may act on the START node");
+                throw new WorkflowException(
+                        WorkflowException.Code.FORBIDDEN, "only the workflow initiator may act on the START node");
             }
             return null;
         }
         if (command.taskId() == null) {
             throw WorkflowException.invalid("taskId is required for workflow task actions");
         }
-        Task task = repository.lockTask(command.tenantId(), command.taskId())
+        Task task = repository
+                .lockTask(command.tenantId(), command.taskId())
                 .orElseThrow(() -> WorkflowException.notFound("workflow task not found"));
         if (!task.instanceId().equals(instance.id()) || !task.nodeCode().equals(instance.currentNodeCode())) {
-            throw new WorkflowException(WorkflowException.Code.STALE_VERSION,
-                    "workflow task no longer belongs to the current node");
+            throw new WorkflowException(
+                    WorkflowException.Code.STALE_VERSION, "workflow task no longer belongs to the current node");
         }
         if (!PENDING.equals(task.status())) {
-            throw new WorkflowException(WorkflowException.Code.STALE_VERSION,
-                    "workflow task is no longer pending");
+            throw new WorkflowException(WorkflowException.Code.STALE_VERSION, "workflow task is no longer pending");
         }
         if (task.assigneeId() == null) {
-            throw new WorkflowException(WorkflowException.Code.NO_ELIGIBLE_APPROVER,
-                    "workflow task has no server-resolved assignee");
+            throw new WorkflowException(
+                    WorkflowException.Code.NO_ELIGIBLE_APPROVER, "workflow task has no server-resolved assignee");
         }
         if (!task.assigneeId().equals(command.actorId())) {
-            throw new WorkflowException(WorkflowException.Code.FORBIDDEN,
-                    "workflow task is assigned to a different actor");
+            throw new WorkflowException(
+                    WorkflowException.Code.FORBIDDEN, "workflow task is assigned to a different actor");
         }
         return task;
     }
@@ -280,7 +384,8 @@ public class WorkflowRuntimeService {
         requireUuid(command.instanceId(), "instanceId");
         requireText(command.expectedNodeCode(), "expectedNodeCode");
         requireText(command.actionCode(), "actionCode");
-        if (command.actionCode().trim().length() > 32) throw WorkflowException.invalid("actionCode exceeds 32 characters");
+        if (command.actionCode().trim().length() > 32)
+            throw WorkflowException.invalid("actionCode exceeds 32 characters");
         requireIdempotency(command.idempotencyKey());
     }
 
@@ -348,53 +453,126 @@ public class WorkflowRuntimeService {
 
     public interface Repository {
         Optional<RuntimeVersion> findPublishedVersion(UUID tenantId, UUID versionId);
+
         List<RuntimeNode> listNodesByType(UUID tenantId, UUID versionId, String nodeType);
+
         Optional<RuntimeNode> findNode(UUID tenantId, UUID versionId, String nodeCode);
+
         List<RuntimeTransition> listTransitions(UUID tenantId, UUID versionId, String fromNodeCode, String actionCode);
+
         void insertInstance(Instance instance, UUID actorId);
+
         Optional<Instance> findInstance(UUID tenantId, UUID instanceId);
+
         Optional<Instance> lockInstance(UUID tenantId, UUID instanceId);
-        int moveInstance(UUID tenantId, UUID instanceId, String expectedNodeCode, String targetNodeCode,
-                         String status, Instant finishedAt, UUID actorId);
+
+        int moveInstance(
+                UUID tenantId,
+                UUID instanceId,
+                String expectedNodeCode,
+                String targetNodeCode,
+                String status,
+                Instant finishedAt,
+                UUID actorId);
+
         void insertTask(Task task, UUID actorId);
+
         Optional<Task> findCurrentTask(UUID tenantId, UUID instanceId, String nodeCode);
+
         Optional<Task> lockTask(UUID tenantId, UUID taskId);
-        int completeTask(UUID tenantId, UUID taskId, UUID actorId, String resultCode, String comment, Instant completedAt);
+
+        int completeTask(
+                UUID tenantId, UUID taskId, UUID actorId, String resultCode, String comment, Instant completedAt);
+
         void insertAction(ActionLog action, UUID actorId);
+
         Optional<ActionLog> findAction(UUID tenantId, UUID actionId);
+
         Optional<ActionLog> findActionByRequestId(UUID tenantId, String requestId);
     }
 
     public record StartCommand(
-            UUID tenantId, UUID actorId, UUID operatorIdentityId, UUID versionId,
-            String businessObjectType, UUID businessObjectId, String businessObjectNo,
-            String title, String priority, JsonNode contextSnapshot, String idempotencyKey) {}
+            UUID tenantId,
+            UUID actorId,
+            UUID operatorIdentityId,
+            UUID versionId,
+            String businessObjectType,
+            UUID businessObjectId,
+            String businessObjectNo,
+            String title,
+            String priority,
+            JsonNode contextSnapshot,
+            String idempotencyKey) {}
 
     public record ActionCommand(
-            UUID tenantId, UUID actorId, UUID operatorIdentityId, UUID instanceId, UUID taskId,
-            String expectedNodeCode, String actionCode, String reason, String idempotencyKey) {}
+            UUID tenantId,
+            UUID actorId,
+            UUID operatorIdentityId,
+            UUID instanceId,
+            UUID taskId,
+            String expectedNodeCode,
+            String actionCode,
+            String reason,
+            String idempotencyKey) {}
 
     public record RuntimeVersion(UUID definitionId, UUID versionId, String processCode, String status) {}
+
     public record RuntimeNode(
             String nodeCode, String nodeName, String nodeType, JsonNode actorRule, UUID slaPolicyId, int sortNo) {}
+
     public record RuntimeTransition(
             String fromNodeCode, String actionCode, String toNodeCode, JsonNode conditionExpr, boolean rollback) {}
 
     public record Instance(
-            UUID id, UUID tenantId, String instanceNo, UUID definitionId, UUID versionId, String processCode,
-            String businessObjectType, UUID businessObjectId, String businessObjectNo, String title,
-            UUID initiatorId, String currentNodeCode, String status, String priority,
-            Instant startedAt, Instant finishedAt, Instant dueAt, JsonNode contextSnapshot) {}
+            UUID id,
+            UUID tenantId,
+            String instanceNo,
+            UUID definitionId,
+            UUID versionId,
+            String processCode,
+            String businessObjectType,
+            UUID businessObjectId,
+            String businessObjectNo,
+            String title,
+            UUID initiatorId,
+            String currentNodeCode,
+            String status,
+            String priority,
+            Instant startedAt,
+            Instant finishedAt,
+            Instant dueAt,
+            JsonNode contextSnapshot) {}
 
     public record Task(
-            UUID id, UUID tenantId, UUID instanceId, String taskNo, String nodeCode, String taskType,
-            UUID assigneeId, JsonNode candidateRule, String status, Instant receivedAt, Instant dueAt,
-            Instant completedAt, String resultCode, String comment) {}
+            UUID id,
+            UUID tenantId,
+            UUID instanceId,
+            String taskNo,
+            String nodeCode,
+            String taskType,
+            UUID assigneeId,
+            JsonNode candidateRule,
+            String status,
+            Instant receivedAt,
+            Instant dueAt,
+            Instant completedAt,
+            String resultCode,
+            String comment) {}
 
     public record ActionLog(
-            UUID id, UUID tenantId, UUID instanceId, UUID taskId, String actionCode,
-            String fromStatus, String toStatus, UUID operatorId, UUID operatorIdentityId,
-            String reason, Instant occurredAt, String requestId, String snapshotHash) {}
+            UUID id,
+            UUID tenantId,
+            UUID instanceId,
+            UUID taskId,
+            String actionCode,
+            String fromStatus,
+            String toStatus,
+            UUID operatorId,
+            UUID operatorIdentityId,
+            String reason,
+            Instant occurredAt,
+            String requestId,
+            String snapshotHash) {}
 
     public record Result(Instance instance, Task task, ActionLog action, boolean replayed) {}
 }

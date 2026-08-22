@@ -25,16 +25,32 @@ class PlatformOutboxWorkerTest {
     void duplicateEventHandlersFailClosed() {
         PlatformOutboxHandler first = handler("same-event", "consumer-a");
         PlatformOutboxHandler second = handler("same-event", "consumer-b");
-        assertThrows(IllegalArgumentException.class, () -> new PlatformOutboxWorker(
-                mock(TenantTransactionRunner.class), mock(JdbcTemplate.class), mock(PlatformInboxService.class),
-                List.of(first, second), 3, Duration.ofMillis(1), Duration.ofSeconds(1)));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new PlatformOutboxWorker(
+                        mock(TenantTransactionRunner.class),
+                        mock(JdbcTemplate.class),
+                        mock(PlatformInboxService.class),
+                        List.of(first, second),
+                        3,
+                        Duration.ofMillis(1),
+                        Duration.ofSeconds(1)));
     }
 
     private static PlatformOutboxHandler handler(String eventType, String consumerName) {
         return new PlatformOutboxHandler() {
-            @Override public String eventType() { return eventType; }
-            @Override public String consumerName() { return consumerName; }
-            @Override public void handle(cn.shangjingu.platform.core.event.PlatformOutboxEvent event) {}
+            @Override
+            public String eventType() {
+                return eventType;
+            }
+
+            @Override
+            public String consumerName() {
+                return consumerName;
+            }
+
+            @Override
+            public void handle(cn.shangjingu.platform.core.event.PlatformOutboxEvent event) {}
         };
     }
 }

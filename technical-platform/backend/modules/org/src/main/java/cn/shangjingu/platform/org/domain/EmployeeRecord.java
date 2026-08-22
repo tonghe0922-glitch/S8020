@@ -12,5 +12,4 @@ public record EmployeeRecord(
         LocalDate hireDate,
         LocalDate leaveDate,
         UUID primaryOrgId,
-        UUID primaryPositionId) {
-}
+        UUID primaryPositionId) {}

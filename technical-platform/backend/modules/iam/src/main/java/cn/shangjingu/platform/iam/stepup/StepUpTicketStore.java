@@ -29,10 +29,5 @@ public interface StepUpTicketStore {
     }
 
     record StoredStepUpTicket(
-            String ticketDigest,
-            SessionContext subject,
-            String purpose,
-            int requiredMfaLevel,
-            Instant expiresAt) {
-    }
+            String ticketDigest, SessionContext subject, String purpose, int requiredMfaLevel, Instant expiresAt) {}
 }

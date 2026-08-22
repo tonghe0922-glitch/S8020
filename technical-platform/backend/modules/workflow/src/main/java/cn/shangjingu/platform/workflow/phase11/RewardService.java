@@ -25,7 +25,7 @@ import org.springframework.stereotype.Service;
 
 /** P013 reward lifecycle with evidence uniqueness and exactly-once point effects. */
 @Service
-public final class RewardService {
+public class RewardService {
     private static final Phase11Process PROCESS = Phase11Process.P013;
     private static final Duration IDEMPOTENCY_TTL = Duration.ofHours(24);
 
@@ -58,10 +58,7 @@ public final class RewardService {
     }
 
     public Phase11Record create(
-            DatabaseSecurityContext actor,
-            String idempotencyKey,
-            String requestHash,
-            CreateCommand command) {
+            DatabaseSecurityContext actor, String idempotencyKey, String requestHash, CreateCommand command) {
         requireActor(actor);
         validateCreate(command);
         return transactions.required(actor, () -> {
@@ -69,7 +66,8 @@ public final class RewardService {
                     actor.tenantId(), command.ownerCenterId(), command.ownerEmployeeId())) {
                 throw rejected("reward recipient must be active in the owner center");
             }
-            if (!rewards.sourceFactAvailable(actor.tenantId(), command.sourceFactKey().trim())) {
+            if (!rewards.sourceFactAvailable(
+                    actor.tenantId(), command.sourceFactKey().trim())) {
                 throw rejected("source fact has already produced a reward case");
             }
             UUID proposedId = UUID.randomUUID();
@@ -86,8 +84,8 @@ public final class RewardService {
             }
             Phase11Record draft = draft(actor, claim.resourceId(), command);
             rewards.insert(draft, command, actor.employeeId());
-            Phase11WorkflowCoordinator.Started started = workflow.start(
-                    actor, PROCESS, draft, command.toCreateData(), idempotencyKey);
+            Phase11WorkflowCoordinator.Started started =
+                    workflow.start(actor, PROCESS, draft, command.toCreateData(), idempotencyKey);
             if (rewards.bindWorkflow(
                             actor.tenantId(),
                             draft.id(),
@@ -134,15 +132,15 @@ public final class RewardService {
             Phase11Process.Step step = PROCESS.requireTransition(current.currentNodeCode(), action);
             validateActor(current, actor.employeeId());
             validateAction(current, action, command);
-            WorkflowRuntimeService.Result moved = workflow.advance(
-                    actor, PROCESS, current, action, command.reason(), idempotencyKey);
+            WorkflowRuntimeService.Result moved =
+                    workflow.advance(actor, PROCESS, current, action, command.reason(), idempotencyKey);
             if (!step.targetNode().equals(moved.instance().currentNodeCode())) {
                 throw rejected("workflow target does not match frozen contract");
             }
             UUID pointEffectId = null;
             if ("EXECUTE_REWARD".equals(action)) {
-                pointEffectId = rewards.createPointEffect(
-                        current, command.summary().trim(), actor.employeeId());
+                pointEffectId =
+                        rewards.createPointEffect(current, command.summary().trim(), actor.employeeId());
             }
             if (rewards.advance(
                             current,
@@ -171,8 +169,7 @@ public final class RewardService {
         return transactions.required(actor, () -> rewards.list(actor.tenantId()));
     }
 
-    private void validateAction(
-            Phase11Record current, String action, ActionCommand command) {
+    private void validateAction(Phase11Record current, String action, ActionCommand command) {
         requireText(command.summary(), "summary");
         if ("APPROVE_REWARD".equals(action)) {
             requireText(command.decision(), "decision");
@@ -184,8 +181,7 @@ public final class RewardService {
         if ("EXECUTE_REWARD".equals(action)) {
             BigDecimal benefit = decimal(current.details(), "benefitAmount");
             if (benefit.signum() > 0
-                    && !rewards.paidFinanceReference(
-                            current.tenantId(), command.financeReferenceId(), benefit)) {
+                    && !rewards.paidFinanceReference(current.tenantId(), command.financeReferenceId(), benefit)) {
                 throw rejected("authoritative paid finance reference is required");
             }
             if (!rewards.executionEffectAbsent(current.tenantId(), current.id())) {
@@ -228,9 +224,7 @@ public final class RewardService {
         if (command.periodNo().length() > 32) {
             throw rejected("periodNo must not exceed 32 characters");
         }
-        BigDecimal benefit = command.benefitAmount() == null
-                ? BigDecimal.ZERO
-                : command.benefitAmount();
+        BigDecimal benefit = command.benefitAmount() == null ? BigDecimal.ZERO : command.benefitAmount();
         if (benefit.signum() < 0) {
             throw rejected("benefitAmount must not be negative");
         }
@@ -246,8 +240,7 @@ public final class RewardService {
         }
     }
 
-    private Phase11Record draft(
-            DatabaseSecurityContext actor, UUID id, CreateCommand command) {
+    private Phase11Record draft(DatabaseSecurityContext actor, UUID id, CreateCommand command) {
         Instant now = Instant.now();
         ObjectNode details = mapper.createObjectNode();
         details.put("sourceFactKey", command.sourceFactKey().trim());
@@ -287,8 +280,7 @@ public final class RewardService {
     }
 
     private Phase11Record required(UUID tenantId, UUID rewardId) {
-        return rewards.find(tenantId, rewardId)
-                .orElseThrow(() -> rejected("reward case not found"));
+        return rewards.find(tenantId, rewardId).orElseThrow(() -> rejected("reward case not found"));
     }
 
     private void emit(DatabaseSecurityContext actor, Phase11Record record, String action) {

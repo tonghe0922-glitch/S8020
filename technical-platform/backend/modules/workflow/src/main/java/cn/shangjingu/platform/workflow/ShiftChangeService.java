@@ -26,7 +26,7 @@ import org.springframework.stereotype.Service;
 
 /** P007 scheduling and employee shift-change lifecycle. */
 @Service
-public final class ShiftChangeService {
+public class ShiftChangeService {
     public static final String PROCESS_CODE = "P007";
     public static final String FORM_CODE = "CTR-P007-F01";
     public static final String MANAGE_PERMISSION = "p007.schedule.manage";
@@ -64,195 +64,148 @@ public final class ShiftChangeService {
         this.mapper = mapper;
     }
 
-    public Aggregate create(
-            DatabaseSecurityContext actor,
-            String key,
-            String hash,
-            CreateCommand command) {
+    public Aggregate create(DatabaseSecurityContext actor, String key, String hash, CreateCommand command) {
         requireActor(actor);
         validateCreate(command);
         String requestedAction = changeAction(command.changeAction());
         if (!actor.orgId().equals(command.ownerCenterId())) {
-            throw new ProcessRejectedException(
-                    "P007 owner center must equal authenticated center");
+            throw new ProcessRejectedException("P007 owner center must equal authenticated center");
         }
         return tx.required(actor, () -> {
-            IdempotencyClaim claim =
-                    idempotency.claim(
-                            actor.tenantId(),
-                            actor.employeeId(),
-                            key,
-                            hash,
-                            "attendance.shift_change_request",
-                            UUID.randomUUID(),
-                            IDEMPOTENCY_TTL);
+            IdempotencyClaim claim = idempotency.claim(
+                    actor.tenantId(),
+                    actor.employeeId(),
+                    key,
+                    hash,
+                    "attendance.shift_change_request",
+                    UUID.randomUUID(),
+                    IDEMPOTENCY_TTL);
             if (claim.existing()) {
                 return aggregate(actor.tenantId(), claim.resourceId());
             }
-            if (!repository.isActiveEmployeeInOrg(
-                    actor.tenantId(), actor.orgId(), command.targetEmployeeId())) {
-                throw new ProcessRejectedException(
-                        "P007 target employee must be active in authenticated center");
+            if (!repository.isActiveEmployeeInOrg(actor.tenantId(), actor.orgId(), command.targetEmployeeId())) {
+                throw new ProcessRejectedException("P007 target employee must be active in authenticated center");
             }
-            UUID version =
-                    repository.workflowVersion(actor.tenantId())
-                            .orElseThrow(
-                                    () ->
-                                            new ProcessRejectedException(
-                                                    "P007 workflow is not published"));
-            FormRef form =
-                    repository.form(actor.tenantId())
-                            .orElseThrow(
-                                    () ->
-                                            new ProcessRejectedException(
-                                                    "P007 form is not published"));
-            List<UUID> managers =
-                    repository.permissionCandidates(
-                            actor.tenantId(), MANAGE_PERMISSION, actor.orgId());
+            UUID version = repository
+                    .workflowVersion(actor.tenantId())
+                    .orElseThrow(() -> new ProcessRejectedException("P007 workflow is not published"));
+            FormRef form = repository
+                    .form(actor.tenantId())
+                    .orElseThrow(() -> new ProcessRejectedException("P007 form is not published"));
+            List<UUID> managers = repository.permissionCandidates(actor.tenantId(), MANAGE_PERMISSION, actor.orgId());
             if (managers.isEmpty()) {
-                throw new ProcessRejectedException(
-                        "P007 schedule manager candidate is missing");
+                throw new ProcessRejectedException("P007 schedule manager candidate is missing");
             }
 
             boolean employeeSelfService =
-                    actor.employeeId().equals(command.targetEmployeeId())
-                            && "SHIFT_CHANGE".equals(requestedAction);
+                    actor.employeeId().equals(command.targetEmployeeId()) && "SHIFT_CHANGE".equals(requestedAction);
             if (!employeeSelfService && !managers.contains(actor.employeeId())) {
-                throw new ProcessRejectedException(
-                        "P007 schedule creation requires an eligible manager candidate");
+                throw new ProcessRejectedException("P007 schedule creation requires an eligible manager candidate");
             }
 
             BigDecimal durationHours = hours(command.startAt(), command.endAt());
-            ShiftRecord record =
-                    new ShiftRecord(
-                            claim.resourceId(),
-                            actor.tenantId(),
-                            numbers.next(
-                                    actor.tenantId(), actor.employeeId(), PROCESS_CODE),
-                            null,
-                            null,
-                            "S01",
-                            label("S01"),
-                            0,
-                            command.subject().trim(),
-                            trim(command.reason()),
-                            actor.orgId(),
-                            actor.employeeId(),
-                            command.targetEmployeeId(),
-                            null,
-                            requestedAction,
-                            command.changeReason().trim(),
-                            trim(command.templateCode()),
-                            command.periodOrCourseNo().trim(),
-                            command.startAt(),
-                            command.endAt(),
-                            durationHours,
-                            null,
-                            null,
-                            null,
-                            null,
-                            null,
-                            null,
-                            null,
-                            null,
-                            null,
-                            null,
-                            Instant.now());
+            ShiftRecord record = new ShiftRecord(
+                    claim.resourceId(),
+                    actor.tenantId(),
+                    numbers.next(actor.tenantId(), actor.employeeId(), PROCESS_CODE),
+                    null,
+                    null,
+                    "S01",
+                    label("S01"),
+                    0,
+                    command.subject().trim(),
+                    trim(command.reason()),
+                    actor.orgId(),
+                    actor.employeeId(),
+                    command.targetEmployeeId(),
+                    null,
+                    requestedAction,
+                    command.changeReason().trim(),
+                    trim(command.templateCode()),
+                    command.periodOrCourseNo().trim(),
+                    command.startAt(),
+                    command.endAt(),
+                    durationHours,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    Instant.now());
             repository.insert(record, actor.employeeId());
 
             ObjectNode context = mapper.createObjectNode();
             context.put("ownerEmployeeId", actor.employeeId().toString());
             context.put("ownerCenterId", actor.orgId().toString());
             context.set("managerCandidateIds", uuidArray(managers));
-            context.set(
-                    "targetEmployeeIds",
-                    uuidArray(List.of(command.targetEmployeeId())));
+            context.set("targetEmployeeIds", uuidArray(List.of(command.targetEmployeeId())));
 
-            WorkflowRuntimeService.Result started =
-                    workflow.start(
-                            new WorkflowRuntimeService.StartCommand(
-                                    actor.tenantId(),
-                                    actor.employeeId(),
-                                    actor.identityId(),
-                                    version,
-                                    "attendance.shift_change_request",
-                                    record.id(),
-                                    record.businessNo(),
-                                    record.subject(),
-                                    "NORMAL",
-                                    context,
-                                    scope(key, "start")));
-            forms.submit(
-                    new WorkflowFormService.SubmitForm(
-                            actor.tenantId(),
-                            actor.employeeId(),
-                            actor.identityId(),
-                            started.instance().id(),
-                            null,
-                            form.id(),
-                            form.versionNo(),
-                            List.of(
-                                    text("subject", record.subject()),
-                                    text(
-                                            "target_employee_id",
-                                            record.targetEmployeeId().toString()),
-                                    text("start_at", record.startAt().toString()),
-                                    text("end_at", record.endAt().toString()),
-                                    text("change_action", record.changeAction())),
-                            scope(key, "form")));
-            WorkflowRuntimeService.Result moved =
-                    workflow.act(
-                            new WorkflowRuntimeService.ActionCommand(
-                                    actor.tenantId(),
-                                    actor.employeeId(),
-                                    actor.identityId(),
-                                    started.instance().id(),
-                                    null,
-                                    "S01",
-                                    "SUBMIT_DEMAND",
-                                    null,
-                                    scope(key, "s01")));
+            WorkflowRuntimeService.Result started = workflow.start(new WorkflowRuntimeService.StartCommand(
+                    actor.tenantId(),
+                    actor.employeeId(),
+                    actor.identityId(),
+                    version,
+                    "attendance.shift_change_request",
+                    record.id(),
+                    record.businessNo(),
+                    record.subject(),
+                    "NORMAL",
+                    context,
+                    scope(key, "start")));
+            forms.submit(new WorkflowFormService.SubmitForm(
+                    actor.tenantId(),
+                    actor.employeeId(),
+                    actor.identityId(),
+                    started.instance().id(),
+                    null,
+                    form.id(),
+                    form.versionNo(),
+                    List.of(
+                            text("subject", record.subject()),
+                            text("target_employee_id", record.targetEmployeeId().toString()),
+                            text("start_at", record.startAt().toString()),
+                            text("end_at", record.endAt().toString()),
+                            text("change_action", record.changeAction())),
+                    scope(key, "form")));
+            WorkflowRuntimeService.Result moved = workflow.act(new WorkflowRuntimeService.ActionCommand(
+                    actor.tenantId(),
+                    actor.employeeId(),
+                    actor.identityId(),
+                    started.instance().id(),
+                    null,
+                    "S01",
+                    "SUBMIT_DEMAND",
+                    null,
+                    scope(key, "s01")));
             required(
                     repository.bindAndMove(
-                            actor.tenantId(),
-                            record.id(),
-                            0,
-                            moved.instance().id(),
-                            label("S02"),
-                            actor.employeeId()),
+                            actor.tenantId(), record.id(), 0, moved.instance().id(), label("S02"), actor.employeeId()),
                     "P007 concurrent create conflict");
-            emit(
-                    actor,
-                    record,
-                    "SUBMIT_DEMAND",
-                    "S02",
-                    List.of(command.targetEmployeeId()));
+            emit(actor, record, "SUBMIT_DEMAND", "S02", List.of(command.targetEmployeeId()));
             return aggregate(actor.tenantId(), record.id());
         });
     }
 
     public Aggregate act(
-            DatabaseSecurityContext actor,
-            UUID id,
-            String actionCode,
-            String key,
-            String hash,
-            ActionCommand command) {
+            DatabaseSecurityContext actor, UUID id, String actionCode, String key, String hash, ActionCommand command) {
         requireActor(actor);
         Objects.requireNonNull(command, "P007 action command is required");
         String action = safe(actionCode);
         return tx.required(actor, () -> {
             Aggregate current = aggregate(actor.tenantId(), id);
-            IdempotencyClaim claim =
-                    idempotency.claim(
-                            actor.tenantId(),
-                            actor.employeeId(),
-                            key,
-                            hash,
-                            "attendance.shift_change_request.action."
-                                    + action.toLowerCase(Locale.ROOT),
-                            id,
-                            IDEMPOTENCY_TTL);
+            IdempotencyClaim claim = idempotency.claim(
+                    actor.tenantId(),
+                    actor.employeeId(),
+                    key,
+                    hash,
+                    "attendance.shift_change_request.action." + action.toLowerCase(Locale.ROOT),
+                    id,
+                    IDEMPOTENCY_TTL);
             if (claim.existing()) {
                 return current;
             }
@@ -279,23 +232,18 @@ public final class ShiftChangeService {
                 case "S04" -> require(action, "PUBLISH_SCHEDULE");
                 case "S05" -> {
                     require(action, "CONFIRM_SCHEDULE");
-                    if (!actor.employeeId().equals(
-                            current.record().targetEmployeeId())) {
-                        throw new ProcessRejectedException(
-                                "P007 only target employee may confirm schedule");
+                    if (!actor.employeeId().equals(current.record().targetEmployeeId())) {
+                        throw new ProcessRejectedException("P007 only target employee may confirm schedule");
                     }
                     required(
-                            repository.markConfirmed(
-                                    actor.tenantId(), id, actor.employeeId()),
+                            repository.markConfirmed(actor.tenantId(), id, actor.employeeId()),
                             "P007 employee schedule confirmation failed");
                     current = aggregate(actor.tenantId(), id);
                 }
                 case "S06" -> {
                     require(action, "SUBMIT_SHIFT_CHANGE");
-                    if (!actor.employeeId().equals(
-                            current.record().targetEmployeeId())) {
-                        throw new ProcessRejectedException(
-                                "P007 only target employee may submit shift change");
+                    if (!actor.employeeId().equals(current.record().targetEmployeeId())) {
+                        throw new ProcessRejectedException("P007 only target employee may submit shift change");
                     }
                     if (command.replacementEmployeeId() != null) {
                         if (command.replacementEmployeeId()
@@ -304,39 +252,27 @@ public final class ShiftChangeService {
                                     "P007 replacement employee must differ from target employee");
                         }
                         if (!repository.isActiveEmployeeInOrg(
-                                actor.tenantId(),
-                                current.record().ownerCenterId(),
-                                command.replacementEmployeeId())) {
-                            throw new ProcessRejectedException(
-                                    "P007 replacement employee is not active in center");
+                                actor.tenantId(), current.record().ownerCenterId(), command.replacementEmployeeId())) {
+                            throw new ProcessRejectedException("P007 replacement employee is not active in center");
                         }
                     }
                     required(
                             repository.setReplacement(
-                                    actor.tenantId(),
-                                    id,
-                                    command.replacementEmployeeId(),
-                                    actor.employeeId()),
+                                    actor.tenantId(), id, command.replacementEmployeeId(), actor.employeeId()),
                             "P007 shift-change submission failed");
                     current = aggregate(actor.tenantId(), id);
                 }
                 case "S07" -> {
-                    if (!"APPROVE_CHANGE".equals(action)
-                            && !"RETURN_CHANGE".equals(action)) {
-                        throw new ProcessRejectedException(
-                                "P007 review action invalid");
+                    if (!"APPROVE_CHANGE".equals(action) && !"RETURN_CHANGE".equals(action)) {
+                        throw new ProcessRejectedException("P007 review action invalid");
                     }
                     if ("APPROVE_CHANGE".equals(action)) {
-                        ShiftRecord refreshed =
-                                repository.find(actor.tenantId(), id)
-                                        .orElseThrow(
-                                                () ->
-                                                        new ProcessRejectedException(
-                                                                "P007 shift record not found"));
+                        ShiftRecord refreshed = repository
+                                .find(actor.tenantId(), id)
+                                .orElseThrow(() -> new ProcessRejectedException("P007 shift record not found"));
                         validateServerFacts(actor, refreshed);
                         required(
-                                repository.markApproved(
-                                        actor.tenantId(), id, actor.employeeId()),
+                                repository.markApproved(actor.tenantId(), id, actor.employeeId()),
                                 "P007 change approval fact failed");
                         current = aggregate(actor.tenantId(), id);
                     }
@@ -344,137 +280,86 @@ public final class ShiftChangeService {
                 case "S08" -> {
                     require(action, "LINK_DEPENDENCIES");
                     required(
-                            repository.markDependencies(
-                                    actor.tenantId(), id, actor.employeeId()),
+                            repository.markDependencies(actor.tenantId(), id, actor.employeeId()),
                             "P007 attendance/catering/shuttle linkage failed");
                     current = aggregate(actor.tenantId(), id);
                 }
                 case "S09" -> {
                     require(action, "CLOSE_DAY");
                     required(
-                            repository.markDayClosed(
-                                    actor.tenantId(), id, actor.employeeId()),
+                            repository.markDayClosed(actor.tenantId(), id, actor.employeeId()),
                             "P007 day-close fact failed");
                     current = aggregate(actor.tenantId(), id);
                 }
-                default ->
-                        throw new ProcessRejectedException(
-                                "P007 action is not allowed from current source node");
+                default -> throw new ProcessRejectedException("P007 action is not allowed from current source node");
             }
 
             ShiftRecord moved =
-                    advance(
-                            actor,
-                            current.record(),
-                            node,
-                            action,
-                            scope(key, "workflow"),
-                            command.reason());
+                    advance(actor, current.record(), node, action, scope(key, "workflow"), command.reason());
             if ("S04".equals(node)) {
                 required(
-                        repository.markPublished(
-                                actor.tenantId(), id, actor.employeeId()),
+                        repository.markPublished(actor.tenantId(), id, actor.employeeId()),
                         "P007 schedule publication fact failed");
             }
             return aggregate(actor.tenantId(), moved.id());
         });
     }
 
-    private void validateServerFacts(
-            DatabaseSecurityContext actor, ShiftRecord record) {
-        if (!repository.isActiveEmployeeInOrg(
-                actor.tenantId(),
-                record.ownerCenterId(),
-                record.targetEmployeeId())) {
-            throw new ProcessRejectedException(
-                    "P007 qualification validation failed: inactive/out-of-scope employee");
+    private void validateServerFacts(DatabaseSecurityContext actor, ShiftRecord record) {
+        if (!repository.isActiveEmployeeInOrg(actor.tenantId(), record.ownerCenterId(), record.targetEmployeeId())) {
+            throw new ProcessRejectedException("P007 qualification validation failed: inactive/out-of-scope employee");
         }
         if (repository.hasOverlappingShift(
-                actor.tenantId(),
-                record.targetEmployeeId(),
-                record.startAt(),
-                record.endAt(),
-                record.id())) {
+                actor.tenantId(), record.targetEmployeeId(), record.startAt(), record.endAt(), record.id())) {
             throw new ProcessRejectedException("P007 schedule time conflict");
         }
         if (repository.hasAttendanceConflict(
-                actor.tenantId(),
-                record.targetEmployeeId(),
-                record.startAt(),
-                record.endAt())) {
-            throw new ProcessRejectedException(
-                    "P007 schedule conflicts with active leave or overtime fact");
+                actor.tenantId(), record.targetEmployeeId(), record.startAt(), record.endAt())) {
+            throw new ProcessRejectedException("P007 schedule conflicts with active leave or overtime fact");
         }
 
         UUID replacement = record.replacementEmployeeId();
         if (replacement != null) {
             if (replacement.equals(record.targetEmployeeId())) {
-                throw new ProcessRejectedException(
-                        "P007 replacement employee must differ from target employee");
+                throw new ProcessRejectedException("P007 replacement employee must differ from target employee");
             }
-            if (!repository.isActiveEmployeeInOrg(
-                    actor.tenantId(), record.ownerCenterId(), replacement)) {
-                throw new ProcessRejectedException(
-                        "P007 replacement employee is inactive or out of scope");
+            if (!repository.isActiveEmployeeInOrg(actor.tenantId(), record.ownerCenterId(), replacement)) {
+                throw new ProcessRejectedException("P007 replacement employee is inactive or out of scope");
             }
             if (repository.hasOverlappingShift(
-                    actor.tenantId(),
-                    replacement,
-                    record.startAt(),
-                    record.endAt(),
-                    record.id())) {
-                throw new ProcessRejectedException(
-                        "P007 replacement schedule time conflict");
+                    actor.tenantId(), replacement, record.startAt(), record.endAt(), record.id())) {
+                throw new ProcessRejectedException("P007 replacement schedule time conflict");
             }
-            if (repository.hasAttendanceConflict(
-                    actor.tenantId(),
-                    replacement,
-                    record.startAt(),
-                    record.endAt())) {
-                throw new ProcessRejectedException(
-                        "P007 replacement conflicts with active leave or overtime fact");
+            if (repository.hasAttendanceConflict(actor.tenantId(), replacement, record.startAt(), record.endAt())) {
+                throw new ProcessRejectedException("P007 replacement conflicts with active leave or overtime fact");
             }
         }
     }
 
     private ShiftRecord advance(
-            DatabaseSecurityContext actor,
-            ShiftRecord record,
-            String node,
-            String action,
-            String key,
-            String reason) {
-        WorkflowRuntimeService.Result runtime =
-                workflow.get(actor.tenantId(), record.workflowInstanceId());
-        if (!node.equals(runtime.instance().currentNodeCode())
-                || !node.equals(record.currentNodeCode())) {
-            throw new ProcessRejectedException(
-                    "P007 stale workflow projection");
+            DatabaseSecurityContext actor, ShiftRecord record, String node, String action, String key, String reason) {
+        WorkflowRuntimeService.Result runtime = workflow.get(actor.tenantId(), record.workflowInstanceId());
+        if (!node.equals(runtime.instance().currentNodeCode()) || !node.equals(record.currentNodeCode())) {
+            throw new ProcessRejectedException("P007 stale workflow projection");
         }
         if (runtime.task() == null) {
             throw new ProcessRejectedException("P007 workflow task missing");
         }
-        tasks.claim(
-                new WorkflowTaskAssignmentService.ClaimCommand(
-                        actor.tenantId(),
-                        runtime.task().id(),
-                        actor.employeeId()));
-        WorkflowRuntimeService.Result moved =
-                workflow.act(
-                        new WorkflowRuntimeService.ActionCommand(
-                                actor.tenantId(),
-                                actor.employeeId(),
-                                actor.identityId(),
-                                record.workflowInstanceId(),
-                                runtime.task().id(),
-                                node,
-                                action,
-                                reason,
-                                key));
-        Instant closed =
-                "END".equals(moved.instance().currentNodeCode())
-                        ? moved.instance().finishedAt()
-                        : null;
+        tasks.claim(new WorkflowTaskAssignmentService.ClaimCommand(
+                actor.tenantId(), runtime.task().id(), actor.employeeId()));
+        WorkflowRuntimeService.Result moved = workflow.act(new WorkflowRuntimeService.ActionCommand(
+                actor.tenantId(),
+                actor.employeeId(),
+                actor.identityId(),
+                record.workflowInstanceId(),
+                runtime.task().id(),
+                node,
+                action,
+                reason,
+                key));
+        Instant closed = "END".equals(moved.instance().currentNodeCode())
+                ? moved.instance().finishedAt()
+                : null;
         required(
                 repository.moveStatus(
                         actor.tenantId(),
@@ -484,75 +369,53 @@ public final class ShiftChangeService {
                         closed,
                         actor.employeeId()),
                 "P007 concurrent status transition conflict");
-        ShiftRecord result =
-                repository.find(actor.tenantId(), record.id())
-                        .orElseThrow(
-                                () ->
-                                        new ProcessRejectedException(
-                                                "P007 shift record not found"));
-        emit(
-                actor,
-                result,
-                action,
-                moved.instance().currentNodeCode(),
-                List.of(record.targetEmployeeId()));
+        ShiftRecord result = repository
+                .find(actor.tenantId(), record.id())
+                .orElseThrow(() -> new ProcessRejectedException("P007 shift record not found"));
+        emit(actor, result, action, moved.instance().currentNodeCode(), List.of(record.targetEmployeeId()));
         return result;
     }
 
-    public Optional<Aggregate> find(
-            DatabaseSecurityContext actor, UUID id) {
+    public Optional<Aggregate> find(DatabaseSecurityContext actor, UUID id) {
         requireActor(actor);
-        return tx.required(
-                actor, () -> repository.find(actor.tenantId(), id).map(Aggregate::new));
+        return tx.required(actor, () -> repository.find(actor.tenantId(), id).map(Aggregate::new));
     }
 
     public List<Aggregate> list(DatabaseSecurityContext actor) {
         requireActor(actor);
-        return tx.required(
-                actor,
-                () ->
-                        repository.list(actor.tenantId()).stream()
-                                .map(Aggregate::new)
-                                .toList());
+        return tx.required(actor, () -> repository.list(actor.tenantId()).stream()
+                .map(Aggregate::new)
+                .toList());
     }
 
     private Aggregate aggregate(UUID tenantId, UUID id) {
-        return new Aggregate(
-                repository.find(tenantId, id)
-                        .orElseThrow(
-                                () ->
-                                        new ProcessRejectedException(
-                                                "P007 shift record not found")));
+        return new Aggregate(repository
+                .find(tenantId, id)
+                .orElseThrow(() -> new ProcessRejectedException("P007 shift record not found")));
     }
 
     private void emit(
-            DatabaseSecurityContext actor,
-            ShiftRecord record,
-            String event,
-            String node,
-            List<UUID> recipients) {
+            DatabaseSecurityContext actor, ShiftRecord record, String event, String node, List<UUID> recipients) {
         ObjectNode payload = mapper.createObjectNode();
         payload.put("shiftRequestId", record.id().toString());
         payload.put("businessNo", record.businessNo());
         payload.put("event", event);
         payload.put("nodeCode", node);
         payload.set("recipientEmployeeIds", uuidArray(recipients));
-        outbox.enqueue(
-                new TransactionalOutboxService.Command(
-                        actor.tenantId(),
-                        actor.employeeId(),
-                        "P007_SHIFT",
-                        record.id(),
-                        "P007_SHIFT_EVENT",
-                        1,
-                        json(payload),
-                        "p007:" + record.id() + ":" + record.versionNo()));
+        outbox.enqueue(new TransactionalOutboxService.Command(
+                actor.tenantId(),
+                actor.employeeId(),
+                "P007_SHIFT",
+                record.id(),
+                "P007_SHIFT_EVENT",
+                1,
+                json(payload),
+                "p007:" + record.id() + ":" + record.versionNo()));
     }
 
     private static BigDecimal hours(Instant start, Instant end) {
         if (start == null || end == null || !end.isAfter(start)) {
-            throw new ProcessRejectedException(
-                    "P007 endAt must be after startAt");
+            throw new ProcessRejectedException("P007 endAt must be after startAt");
         }
         return BigDecimal.valueOf(Duration.between(start, end).toMinutes())
                 .divide(BigDecimal.valueOf(60), 6, RoundingMode.HALF_UP);
@@ -564,10 +427,8 @@ public final class ShiftChangeService {
         req(command.changeAction(), "changeAction");
         req(command.changeReason(), "changeReason");
         req(command.periodOrCourseNo(), "periodOrCourseNo");
-        if (command.targetEmployeeId() == null
-                || command.ownerCenterId() == null) {
-            throw new ProcessRejectedException(
-                    "P007 employee and center are required");
+        if (command.targetEmployeeId() == null || command.ownerCenterId() == null) {
+            throw new ProcessRejectedException("P007 employee and center are required");
         }
         hours(command.startAt(), command.endAt());
     }
@@ -575,8 +436,7 @@ public final class ShiftChangeService {
     private static String changeAction(String raw) {
         String action = safe(raw);
         if (!CHANGE_ACTIONS.contains(action)) {
-            throw new ProcessRejectedException(
-                    "P007 changeAction is not source-backed");
+            throw new ProcessRejectedException("P007 changeAction is not source-backed");
         }
         return action;
     }
@@ -589,8 +449,7 @@ public final class ShiftChangeService {
                 || actor.orgId() == null
                 || actor.userId() == null
                 || actor.positionId() == null) {
-            throw new ProcessRejectedException(
-                    "P007 authenticated employee context required");
+            throw new ProcessRejectedException("P007 authenticated employee context required");
         }
     }
 
@@ -602,15 +461,13 @@ public final class ShiftChangeService {
 
     private static void require(String actual, String expected) {
         if (!expected.equals(actual)) {
-            throw new ProcessRejectedException(
-                    "P007 action not allowed from current source node");
+            throw new ProcessRejectedException("P007 action not allowed from current source node");
         }
     }
 
     private static void req(String value, String field) {
         if (value == null || value.isBlank()) {
-            throw new ProcessRejectedException(
-                    "P007 required field missing: " + field);
+            throw new ProcessRejectedException("P007 required field missing: " + field);
         }
     }
 
@@ -624,13 +481,11 @@ public final class ShiftChangeService {
 
     private static String scope(String key, String suffix) {
         if (key == null || key.isBlank()) {
-            throw new ProcessRejectedException(
-                    "P007 idempotency key required");
+            throw new ProcessRejectedException("P007 idempotency key required");
         }
         String scoped = key + ":" + suffix;
         if (scoped.length() > 128) {
-            throw new ProcessRejectedException(
-                    "P007 idempotency key too long");
+            throw new ProcessRejectedException("P007 idempotency key too long");
         }
         return scoped;
     }
@@ -639,27 +494,13 @@ public final class ShiftChangeService {
         return value == null || value.isBlank() ? null : value.trim();
     }
 
-    private static WorkflowFormService.FieldValue text(
-            String code, String value) {
-        return new WorkflowFormService.FieldValue(
-                code,
-                "TEXT",
-                value,
-                null,
-                null,
-                null,
-                null,
-                null,
-                "P1",
-                false);
+    private static WorkflowFormService.FieldValue text(String code, String value) {
+        return new WorkflowFormService.FieldValue(code, "TEXT", value, null, null, null, null, null, "P1", false);
     }
 
     private ArrayNode uuidArray(List<UUID> ids) {
         ArrayNode result = mapper.createArrayNode();
-        ids.stream()
-                .filter(Objects::nonNull)
-                .distinct()
-                .forEach(id -> result.add(id.toString()));
+        ids.stream().filter(Objects::nonNull).distinct().forEach(id -> result.add(id.toString()));
         return result;
     }
 
@@ -667,8 +508,7 @@ public final class ShiftChangeService {
         try {
             return mapper.writeValueAsString(node);
         } catch (JsonProcessingException exception) {
-            throw new ProcessRejectedException(
-                    "P007 JSON serialization failed", exception);
+            throw new ProcessRejectedException("P007 JSON serialization failed", exception);
         }
     }
 
@@ -684,9 +524,7 @@ public final class ShiftChangeService {
             case "S08" -> "考勤与餐饮班车联动";
             case "S09" -> "日结";
             case "END" -> "已关闭";
-            default ->
-                    throw new ProcessRejectedException(
-                            "P007 unknown workflow node: " + node);
+            default -> throw new ProcessRejectedException("P007 unknown workflow node: " + node);
         };
     }
 
@@ -695,52 +533,27 @@ public final class ShiftChangeService {
 
         Optional<FormRef> form(UUID tenantId);
 
-        List<UUID> permissionCandidates(
-                UUID tenantId, String permission, UUID orgId);
+        List<UUID> permissionCandidates(UUID tenantId, String permission, UUID orgId);
 
-        boolean isActiveEmployeeInOrg(
-                UUID tenantId, UUID orgId, UUID employeeId);
+        boolean isActiveEmployeeInOrg(UUID tenantId, UUID orgId, UUID employeeId);
 
-        boolean hasOverlappingShift(
-                UUID tenantId,
-                UUID employeeId,
-                Instant start,
-                Instant end,
-                UUID excludeId);
+        boolean hasOverlappingShift(UUID tenantId, UUID employeeId, Instant start, Instant end, UUID excludeId);
 
-        boolean hasAttendanceConflict(
-                UUID tenantId, UUID employeeId, Instant start, Instant end);
+        boolean hasAttendanceConflict(UUID tenantId, UUID employeeId, Instant start, Instant end);
 
         void insert(ShiftRecord record, UUID actor);
 
-        int bindAndMove(
-                UUID tenantId,
-                UUID id,
-                int version,
-                UUID workflowId,
-                String status,
-                UUID actor);
+        int bindAndMove(UUID tenantId, UUID id, int version, UUID workflowId, String status, UUID actor);
 
-        int moveStatus(
-                UUID tenantId,
-                UUID id,
-                int version,
-                String status,
-                Instant closedAt,
-                UUID actor);
+        int moveStatus(UUID tenantId, UUID id, int version, String status, Instant closedAt, UUID actor);
 
-        int markValidated(
-                UUID tenantId,
-                UUID id,
-                BigDecimal continuousHours,
-                UUID actor);
+        int markValidated(UUID tenantId, UUID id, BigDecimal continuousHours, UUID actor);
 
         int markPublished(UUID tenantId, UUID id, UUID actor);
 
         int markConfirmed(UUID tenantId, UUID id, UUID actor);
 
-        int setReplacement(
-                UUID tenantId, UUID id, UUID replacement, UUID actor);
+        int setReplacement(UUID tenantId, UUID id, UUID replacement, UUID actor);
 
         int markApproved(UUID tenantId, UUID id, UUID actor);
 
@@ -767,10 +580,7 @@ public final class ShiftChangeService {
             Instant startAt,
             Instant endAt) {}
 
-    public record ActionCommand(
-            int expectedVersion,
-            UUID replacementEmployeeId,
-            String reason) {}
+    public record ActionCommand(int expectedVersion, UUID replacementEmployeeId, String reason) {}
 
     public record ShiftRecord(
             UUID id,
@@ -809,40 +619,39 @@ public final class ShiftChangeService {
     public record Aggregate(ShiftRecord record) {
         public Aggregate metadataOnly() {
             ShiftRecord source = record;
-            return new Aggregate(
-                    new ShiftRecord(
-                            source.id(),
-                            source.tenantId(),
-                            source.businessNo(),
-                            source.workflowInstanceId(),
-                            source.workflowInstanceNo(),
-                            source.currentNodeCode(),
-                            source.status(),
-                            source.versionNo(),
-                            null,
-                            null,
-                            source.ownerCenterId(),
-                            null,
-                            null,
-                            null,
-                            source.changeAction(),
-                            null,
-                            null,
-                            source.periodOrCourseNo(),
-                            source.startAt(),
-                            source.endAt(),
-                            source.durationHours(),
-                            source.qualificationCheckedAt(),
-                            source.continuousWorkHours(),
-                            source.conflictCheckedAt(),
-                            source.publishedAt(),
-                            source.employeeConfirmedAt(),
-                            source.approvedAt(),
-                            source.attendanceLinkedAt(),
-                            source.cateringLinkedAt(),
-                            source.shuttleLinkedAt(),
-                            source.dayClosedAt(),
-                            source.updatedAt()));
+            return new Aggregate(new ShiftRecord(
+                    source.id(),
+                    source.tenantId(),
+                    source.businessNo(),
+                    source.workflowInstanceId(),
+                    source.workflowInstanceNo(),
+                    source.currentNodeCode(),
+                    source.status(),
+                    source.versionNo(),
+                    null,
+                    null,
+                    source.ownerCenterId(),
+                    null,
+                    null,
+                    null,
+                    source.changeAction(),
+                    null,
+                    null,
+                    source.periodOrCourseNo(),
+                    source.startAt(),
+                    source.endAt(),
+                    source.durationHours(),
+                    source.qualificationCheckedAt(),
+                    source.continuousWorkHours(),
+                    source.conflictCheckedAt(),
+                    source.publishedAt(),
+                    source.employeeConfirmedAt(),
+                    source.approvedAt(),
+                    source.attendanceLinkedAt(),
+                    source.cateringLinkedAt(),
+                    source.shuttleLinkedAt(),
+                    source.dayClosedAt(),
+                    source.updatedAt()));
         }
     }
 }

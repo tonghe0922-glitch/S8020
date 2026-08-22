@@ -24,7 +24,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/phase05/signatures/envelopes")
-public final class SignatureEnvelopeController {
+public class SignatureEnvelopeController {
     private static final String READ = "phase05.p017.read";
     private static final String WRITE = "phase05.p017.write";
     private static final String CALLBACK = "phase05.p017.provider-callback";
@@ -57,10 +57,10 @@ public final class SignatureEnvelopeController {
 
     @GetMapping("/{id}")
     public SignatureEnvelopeService.Envelope get(
-            @AuthenticationPrincipal SessionPrincipal principal,
-            @PathVariable UUID id) {
+            @AuthenticationPrincipal SessionPrincipal principal, @PathVariable UUID id) {
         require(authorization.authorizeAction(principal.context(), READ));
-        return signatures.find(context(principal), id)
+        return signatures
+                .find(context(principal), id)
                 .orElseThrow(() -> new IllegalArgumentException("signature envelope not found"));
     }
 
@@ -83,7 +83,12 @@ public final class SignatureEnvelopeController {
         require(authorization.authorizeAction(principal.context(), CALLBACK));
         audit.recordOperation(principal.context(), "P017_PROVIDER_CALLBACK_ATTEMPT", "document.signature_envelope", id);
         return signatures.verifyCallback(
-                context(principal), id, request.expectedVersion(), providerEventKey, hash(request.evidence()), request.evidence());
+                context(principal),
+                id,
+                request.expectedVersion(),
+                providerEventKey,
+                hash(request.evidence()),
+                request.evidence());
     }
 
     private static DatabaseSecurityContext context(SessionPrincipal principal) {
@@ -100,15 +105,14 @@ public final class SignatureEnvelopeController {
 
     private String hash(Object value) {
         try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(mapper.writeValueAsBytes(value)));
+            return HexFormat.of()
+                    .formatHex(MessageDigest.getInstance("SHA-256").digest(mapper.writeValueAsBytes(value)));
         } catch (JsonProcessingException | NoSuchAlgorithmException ex) {
             throw new IllegalArgumentException("request cannot be hashed", ex);
         }
     }
 
-    public record AdvanceRequest(int expectedVersion, String requestedStatus) {
-    }
+    public record AdvanceRequest(int expectedVersion, String requestedStatus) {}
 
-    public record CallbackRequest(int expectedVersion, SignatureEnvelopeService.CallbackEvidence evidence) {
-    }
+    public record CallbackRequest(int expectedVersion, SignatureEnvelopeService.CallbackEvidence evidence) {}
 }
