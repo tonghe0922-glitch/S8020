@@ -1,16 +1,20 @@
 name: S8020 one-shot remediation
 
 on:
-  push:
+  pull_request:
     branches:
-      - fix/s8020-bootstrap-hardening
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
 
 permissions:
   contents: write
 
 jobs:
   apply-remediation:
-    if: github.actor == 'tonghe0922-glitch'
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'fix/s8020-bootstrap-hardening'
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -50,7 +54,7 @@ jobs:
           git diff --check
           python3 scripts/quality/spring_proxyability.py
           python3 scripts/quality/phase11_duplication_guard.py
-          python3 scripts/quality/flyway_versions.py --base-ref "${{ github.event.before }}"
+          python3 scripts/quality/flyway_versions.py --base-ref "${{ github.event.pull_request.base.sha }}"
           python3 scripts/quality/md_linkrot.py
           bash ./mvnw -B -ntp spotless:check
 
