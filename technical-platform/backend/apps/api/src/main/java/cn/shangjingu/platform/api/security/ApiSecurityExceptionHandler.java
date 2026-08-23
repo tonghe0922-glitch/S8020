@@ -79,6 +79,6 @@ public class ApiSecurityExceptionHandler {
         return problems.response(
                 HttpStatus.BAD_REQUEST,
                 "invalid_request",
-                "请求参数无效：" + (exception.getMessage() == null ? "请检查输入内容" : exception.getMessage()));
+                "请求参数无效：" + PublicProblemDetail.localized(exception, "请检查输入内容。"));
     }
 }
