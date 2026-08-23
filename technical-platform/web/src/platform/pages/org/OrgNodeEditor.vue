@@ -42,11 +42,15 @@ function integer(event: Event): number {
 
     <div class="org-editor__grid">
       <label>
-        <span>组织编码</span>
+        <span>组织编码（系统自动生成）</span>
         <input
-          required maxlength="64" :disabled="disabled" :value="modelValue.orgCode"
-          @input="update('orgCode', eventValue($event))"
+          class="is-readonly"
+          disabled
+          readonly
+          :value="modelValue.orgCode || '保存后自动生成（如 S06-ORG-060）'"
+          aria-describedby="org-code-help"
         >
+        <small id="org-code-help">组织编码由服务端统一分配，不能手工修改。</small>
       </label>
       <label>
         <span>组织名称</span>
@@ -129,6 +133,8 @@ function integer(event: Event): number {
 .org-editor label { display: grid; gap: .35rem; font-size: .82rem; font-weight: 650; }
 .org-editor input, .org-editor select, .org-editor textarea { width: 100%; border: 1px solid var(--color-border, #e8ddd3); border-radius: .7rem; padding: .68rem .75rem; background: #fff; color: inherit; font: inherit; }
 .org-editor textarea { resize: vertical; }
+.org-editor small { color: var(--color-text-muted, #776b62); font-size: .72rem; font-weight: 500; line-height: 1.5; }
+.org-editor input.is-readonly { background: #f6f2ee; color: var(--color-text-muted, #776b62); opacity: 1; }
 .org-editor__wide { grid-column: 1 / -1; }
 .org-editor footer span { color: var(--color-text-muted, #776b62); font-size: .82rem; }
 .org-editor__primary, .org-editor__ghost { border: 0; border-radius: .7rem; padding: .68rem 1rem; font: inherit; font-weight: 750; cursor: pointer; }
