@@ -45,7 +45,7 @@ describe('组织架构与中文体验整改契约', () => {
 
   it('全局错误映射提供中文兜底提示', () => {
     const apiError = source('../../../api/api-error.ts')
-    expect(apiError).toContain('操作未成功')
+    expect(apiError).toContain('请求未成功')
     expect(apiError).toContain('请联系管理员')
   })
 
