@@ -45,8 +45,11 @@ public class WorkflowApiExceptionHandler {
             case NOT_FOUND -> "未找到相关流程数据。";
             case FORBIDDEN -> "当前身份暂无执行此流程操作的权限。";
             case NO_ELIGIBLE_APPROVER -> "当前流程未配置可用审批人，请联系管理员。";
-            case CONFLICT, INVALID_DEFINITION, IMMUTABLE_PUBLISHED_VERSION, ILLEGAL_ACTION, STALE_VERSION ->
-                    "当前流程状态或版本不允许执行此操作，请刷新后重试。";
+            case CONFLICT,
+                    INVALID_DEFINITION,
+                    IMMUTABLE_PUBLISHED_VERSION,
+                    ILLEGAL_ACTION,
+                    STALE_VERSION -> "当前流程状态或版本不允许执行此操作，请刷新后重试。";
         };
     }
 }

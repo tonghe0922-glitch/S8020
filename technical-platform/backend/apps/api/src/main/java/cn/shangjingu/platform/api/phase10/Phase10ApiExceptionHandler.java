@@ -27,9 +27,7 @@ public class Phase10ApiExceptionHandler {
     @ExceptionHandler(OptimisticLockingFailureException.class)
     public ResponseEntity<Map<String, Object>> optimisticLock(OptimisticLockingFailureException exception) {
         return problem(
-                HttpStatus.CONFLICT,
-                "STALE_VERSION",
-                PublicProblemDetail.localized(exception, "数据版本已发生变化，请刷新后重试。"));
+                HttpStatus.CONFLICT, "STALE_VERSION", PublicProblemDetail.localized(exception, "数据版本已发生变化，请刷新后重试。"));
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
