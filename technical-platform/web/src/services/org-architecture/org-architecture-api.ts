@@ -46,8 +46,14 @@ function encoded(value: string): string {
   return encodeURIComponent(value)
 }
 
-export function createOrgArchitectureApi(session: SessionStore): OrgArchitectureApi {
-  const request = session.request
+type SessionRequest = SessionStore['request']
+
+type NodeApi = Pick<OrgArchitectureApi,
+  'tree' | 'directory' | 'createNode' | 'updateNode' | 'toggleNode' | 'deleteNode'>
+
+type DraftApi = Omit<OrgArchitectureApi, keyof NodeApi>
+
+function createNodeApi(request: SessionRequest): NodeApi {
   return {
     tree: () => request('/api/v1/org/tree'),
     directory: () => request('/api/v1/org/directory'),
@@ -63,6 +69,11 @@ export function createOrgArchitectureApi(session: SessionStore): OrgArchitecture
     deleteNode: (nodeId) => request(`/api/v1/org/nodes/${encoded(nodeId)}`, {
       method: 'DELETE', idempotencyKey: idempotencyKey('node-delete'),
     }),
+  }
+}
+
+function createDraftApi(request: SessionRequest): DraftApi {
+  return {
     draft: (draftId) => request(`/api/v1/org/drafts/${encoded(draftId)}`),
     latestEditableDraft: () => request('/api/v1/org/drafts/latest-editable'),
     pendingDrafts: () => request('/api/v1/org/drafts/pending'),
@@ -94,5 +105,12 @@ export function createOrgArchitectureApi(session: SessionStore): OrgArchitecture
     abandonDraft: (draftId, expectedVersion) => request(`/api/v1/org/drafts/${encoded(draftId)}/abandon`, {
       method: 'POST', body: { expectedVersion }, idempotencyKey: idempotencyKey('draft-abandon'),
     }),
+  }
+}
+
+export function createOrgArchitectureApi(session: SessionStore): OrgArchitectureApi {
+  return {
+    ...createNodeApi(session.request),
+    ...createDraftApi(session.request),
   }
 }

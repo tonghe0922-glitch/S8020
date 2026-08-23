@@ -74,17 +74,20 @@ async function loadPending(): Promise<void> {
   pending.value = await api.pendingDrafts()
 }
 
+async function restoreEditableDraft(): Promise<void> {
+  if (!canEdit.value) return
+  try {
+    activate(await api.latestEditableDraft())
+  } catch (cause) {
+    if (!(cause instanceof ApiClientError) || cause.status !== 404) throw cause
+  }
+}
+
 async function load(): Promise<void> {
   loading.value = true
   clearFeedback()
   try {
-    if (canEdit.value) {
-      try {
-        activate(await api.latestEditableDraft())
-      } catch (cause) {
-        if (!(cause instanceof ApiClientError) || cause.status !== 404) throw cause
-      }
-    }
+    await restoreEditableDraft()
     await loadPending()
     if (!draft.value && pending.value[0]) activate(pending.value[0])
   } catch (cause) {

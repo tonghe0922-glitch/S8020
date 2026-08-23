@@ -6,7 +6,7 @@ import { usePortalSessionStore } from '../../../session'
 import OrgArchitectureTree from './OrgArchitectureTree.vue'
 import { architectureError } from './org-architecture-view-model'
 
-const props = defineProps<{ mode: 'architecture' | 'directory' }>()
+defineProps<{ mode: 'architecture' | 'directory' }>()
 const session = usePortalSessionStore()
 const api = createOrgArchitectureApi(session)
 const data = ref<OrgArchitectureDirectory>({ versionNo: 0, publishedAt: null, organizations: [], members: [] })
