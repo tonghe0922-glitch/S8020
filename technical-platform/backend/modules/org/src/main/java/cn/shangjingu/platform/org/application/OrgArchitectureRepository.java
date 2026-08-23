@@ -11,8 +11,6 @@ public interface OrgArchitectureRepository {
 
     Optional<NodeView> node(UUID tenantId, UUID nodeId);
 
-    String allocateOrgCode(UUID tenantId);
-
     NodeView createNode(UUID tenantId, UUID actorId, NodeCommand command);
 
     NodeView updateNode(UUID tenantId, UUID actorId, UUID nodeId, NodeCommand command);
