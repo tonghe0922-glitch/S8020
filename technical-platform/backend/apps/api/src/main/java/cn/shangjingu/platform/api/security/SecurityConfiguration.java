@@ -26,7 +26,7 @@ public class SecurityConfiguration {
                 .exceptionHandling(exceptions ->
                         exceptions.authenticationEntryPoint(problemHandler).accessDeniedHandler(problemHandler))
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers("/actuator/health", "/actuator/info")
+                        .requestMatchers("/actuator/health", "/actuator/info", "/error")
                         .permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/login", "/api/v1/auth/refresh")
                         .permitAll()
@@ -55,7 +55,11 @@ public class SecurityConfiguration {
                                 "/api/v1/processes/P010/**",
                                 "/api/v1/processes/P011/**")
                         .authenticated()
-                        .requestMatchers("/api/v1/phase05/**", "/api/v1/workflow/**")
+                        .requestMatchers(
+                                "/api/v1/phase05/**",
+                                "/api/v1/workflow/**",
+                                "/api/v1/org/**",
+                                "/api/v1/authz/**")
                         .authenticated()
                         .requestMatchers("/api/**")
                         .denyAll()
