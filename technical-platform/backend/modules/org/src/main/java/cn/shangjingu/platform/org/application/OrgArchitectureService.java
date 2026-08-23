@@ -17,10 +17,13 @@ import org.springframework.stereotype.Service;
 public class OrgArchitectureService {
     private final TenantTransactionRunner transactions;
     private final OrgArchitectureRepository repository;
+    private final OrgCodeAllocator codeAllocator;
 
-    public OrgArchitectureService(TenantTransactionRunner transactions, OrgArchitectureRepository repository) {
+    public OrgArchitectureService(
+            TenantTransactionRunner transactions, OrgArchitectureRepository repository, OrgCodeAllocator codeAllocator) {
         this.transactions = transactions;
         this.repository = repository;
+        this.codeAllocator = codeAllocator;
     }
 
     public List<NodeView> tree(DatabaseSecurityContext actor) {
@@ -37,7 +40,7 @@ public class OrgArchitectureService {
         return transactions.required(actor, () -> {
             var replay = repository.nodeCommandResult(actor.tenantId(), "ORG_NODE_CREATE", key);
             if (replay.isPresent()) return new Mutation<>(null, replay.get());
-            NodeCommand managed = withOrgCode(command, repository.allocateOrgCode(actor.tenantId()));
+            NodeCommand managed = withOrgCode(command, codeAllocator.allocate(actor.tenantId()));
             OrgArchitectureValidator.validate(managed);
             NodeView after = repository.createNode(actor.tenantId(), requireEmployeeActor(actor), managed);
             appendDirectVersion(actor, "ADDED", after, "新增组织：" + after.orgName());
@@ -331,7 +334,7 @@ public class OrgArchitectureService {
             Objects.requireNonNull(node, "snapshot node");
             String code = canonicalCodes.get(node.id());
             if (code == null || code.isBlank()) {
-                code = repository.allocateOrgCode(tenantId);
+                code = codeAllocator.allocate(tenantId);
                 canonicalCodes.put(node.id(), code);
             }
             assigned.add(withOrgCode(node, code));
