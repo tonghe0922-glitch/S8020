@@ -28,10 +28,7 @@ public class OrgArchitectureApiExceptionHandler {
 
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<Map<String, Object>> conflict(DataIntegrityViolationException exception) {
-        return problems.response(
-                HttpStatus.CONFLICT,
-                "ORG_ARCHITECTURE_CONFLICT",
-                "组织架构数据存在关联或唯一性冲突，请检查后重试。");
+        return problems.response(HttpStatus.CONFLICT, "ORG_ARCHITECTURE_CONFLICT", "组织架构数据存在关联或唯一性冲突，请检查后重试。");
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
