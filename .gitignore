@@ -34,6 +34,10 @@ build/
 .gradle/
 .mvn/timing.properties
 
+# Python
+__pycache__/
+*.py[cod]
+
 # Logs / temp
 *.log
 logs/
