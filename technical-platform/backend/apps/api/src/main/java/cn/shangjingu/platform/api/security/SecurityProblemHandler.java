@@ -26,7 +26,7 @@ public class SecurityProblemHandler implements AuthenticationEntryPoint, AccessD
     public void commence(
             HttpServletRequest request, HttpServletResponse response, AuthenticationException authenticationException)
             throws IOException, ServletException {
-        problems.write(response, HttpStatus.UNAUTHORIZED, "unauthorized", "Authentication is required.");
+        problems.write(response, HttpStatus.UNAUTHORIZED, "unauthorized", "当前操作需要登录认证，请先登录。");
     }
 
     @Override
@@ -50,11 +50,10 @@ public class SecurityProblemHandler implements AuthenticationEntryPoint, AccessD
                         response,
                         HttpStatus.SERVICE_UNAVAILABLE,
                         "security_audit_unavailable",
-                        "Security audit persistence is unavailable.");
+                        "安全审计服务暂不可用，请联系管理员。");
                 return;
             }
         }
-        problems.write(
-                response, HttpStatus.FORBIDDEN, "forbidden", "The current identity is not authorized for this action.");
+        problems.write(response, HttpStatus.FORBIDDEN, "forbidden", "当前身份暂无执行此操作的权限。");
     }
 }
