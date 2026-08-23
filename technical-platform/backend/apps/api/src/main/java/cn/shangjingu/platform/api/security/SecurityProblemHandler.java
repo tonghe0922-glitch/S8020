@@ -47,10 +47,7 @@ public class SecurityProblemHandler implements AuthenticationEntryPoint, AccessD
                         "DENIED");
             } catch (SecurityAuditUnavailableException exception) {
                 problems.write(
-                        response,
-                        HttpStatus.SERVICE_UNAVAILABLE,
-                        "security_audit_unavailable",
-                        "安全审计服务暂不可用，请联系管理员。");
+                        response, HttpStatus.SERVICE_UNAVAILABLE, "security_audit_unavailable", "安全审计服务暂不可用，请联系管理员。");
                 return;
             }
         }

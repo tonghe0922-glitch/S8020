@@ -21,10 +21,7 @@ public class ApiSecurityExceptionHandler {
 
     @ExceptionHandler(LoginRejectedException.class)
     ResponseEntity<Map<String, Object>> loginRejected(LoginRejectedException exception) {
-        return problems.response(
-                HttpStatus.UNAUTHORIZED,
-                "authentication_rejected",
-                "账号认证失败，请检查公司名称、登录账号、密码或验证码。");
+        return problems.response(HttpStatus.UNAUTHORIZED, "authentication_rejected", "账号认证失败，请检查公司名称、登录账号、密码或验证码。");
     }
 
     @ExceptionHandler(SessionRejectedException.class)
@@ -40,8 +37,7 @@ public class ApiSecurityExceptionHandler {
 
     @ExceptionHandler(SessionStoreUnavailableException.class)
     ResponseEntity<Map<String, Object>> sessionStoreUnavailable(SessionStoreUnavailableException exception) {
-        return problems.response(
-                HttpStatus.SERVICE_UNAVAILABLE, "session_store_unavailable", "会话存储服务暂时不可用，请联系运维人员处理。");
+        return problems.response(HttpStatus.SERVICE_UNAVAILABLE, "session_store_unavailable", "会话存储服务暂时不可用，请联系运维人员处理。");
     }
 
     @ExceptionHandler(StepUpRejectedException.class)
@@ -75,10 +71,7 @@ public class ApiSecurityExceptionHandler {
 
     @ExceptionHandler(SecurityAuditUnavailableException.class)
     ResponseEntity<Map<String, Object>> auditUnavailable(SecurityAuditUnavailableException exception) {
-        return problems.response(
-                HttpStatus.SERVICE_UNAVAILABLE,
-                "security_audit_unavailable",
-                "安全审计服务暂时不可用，请联系系统管理员。");
+        return problems.response(HttpStatus.SERVICE_UNAVAILABLE, "security_audit_unavailable", "安全审计服务暂时不可用，请联系系统管理员。");
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

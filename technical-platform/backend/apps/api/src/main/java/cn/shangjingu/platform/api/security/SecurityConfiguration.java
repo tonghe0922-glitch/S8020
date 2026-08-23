@@ -56,10 +56,7 @@ public class SecurityConfiguration {
                                 "/api/v1/processes/P011/**")
                         .authenticated()
                         .requestMatchers(
-                                "/api/v1/phase05/**",
-                                "/api/v1/workflow/**",
-                                "/api/v1/org/**",
-                                "/api/v1/authz/**")
+                                "/api/v1/phase05/**", "/api/v1/workflow/**", "/api/v1/org/**", "/api/v1/authz/**")
                         .authenticated()
                         .requestMatchers("/api/**")
                         .denyAll()
