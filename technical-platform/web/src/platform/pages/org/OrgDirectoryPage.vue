@@ -44,14 +44,13 @@ onMounted(() => void load())
 
 <template>
   <section class="directory-page" :aria-busy="loading">
-    <header>
-      <div>
-        <p>工作端 · 全员只读</p>
-        <h1>{{ mode === 'architecture' ? '企业架构' : '企业通讯录' }}</h1>
-        <span>正式版本 V{{ data.versionNo }} · {{ data.publishedAt ? new Date(data.publishedAt).toLocaleString('zh-CN') : '尚未发布' }}</span>
+    <div class="directory-page__header-compact">
+      <h1>{{ mode === 'architecture' ? '企业架构' : '企业通讯录' }}</h1>
+      <div class="directory-page__header-actions">
+        <span>{{ data.organizations.length }} 个组织 · {{ data.members.length }} 位在岗成员</span>
+        <button type="button" :disabled="loading" @click="load">刷新数据</button>
       </div>
-      <button type="button" :disabled="loading" @click="load">刷新最新版本</button>
-    </header>
+    </div>
 
     <p v-if="error" class="directory-page__error" role="alert">{{ error }}</p>
 
@@ -106,10 +105,9 @@ onMounted(() => void load())
 
 <style scoped>
 .directory-page { display: grid; gap: 1rem; padding: clamp(1rem, 2vw, 1.7rem); }
-.directory-page > header { display: flex; align-items: end; justify-content: space-between; gap: 1rem; padding: 1.4rem; border: 1px solid var(--color-border, #e8ddd3); border-radius: 1.1rem; background: linear-gradient(135deg, #fff8f1, #fff); }
-.directory-page header p { margin: 0 0 .35rem; color: var(--color-primary, #d76b2f); font-size: .76rem; font-weight: 800; letter-spacing: .1em; }
-.directory-page header h1 { margin: 0 0 .35rem; }
-.directory-page header span { color: var(--color-text-muted, #776b62); }
+.directory-page__header-compact { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding-bottom: .8rem; border-bottom: 1px solid var(--color-border, #e8ddd3); }
+.directory-page__header-compact h1 { margin: 0; font-size: clamp(1.35rem, 2.2vw, 1.8rem); }
+.directory-page__header-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: .75rem; color: var(--color-text-muted, #776b62); font-size: .82rem; }
 .directory-page button { border: 1px solid var(--color-border, #e8ddd3); border-radius: .7rem; padding: .65rem .9rem; background: #fff; font: inherit; font-weight: 700; cursor: pointer; }
 .directory-page__architecture { display: grid; grid-template-columns: minmax(20rem, 45%) 1fr; gap: 1rem; align-items: start; }
 .directory-page__architecture > * { min-width: 0; border: 1px solid var(--color-border, #e8ddd3); border-radius: 1rem; background: #fff; padding: 1rem; }
@@ -130,5 +128,5 @@ onMounted(() => void load())
 .directory-page th { background: #faf7f4; color: var(--color-text-muted, #776b62); font-size: .76rem; }
 .directory-page__privacy { margin: 0; color: var(--color-text-muted, #776b62); font-size: .78rem; }
 .directory-page__error { margin: 0; padding: .75rem 1rem; border-radius: .75rem; background: #fff0ee; color: #8f2d24; }
-@media (max-width: 820px) { .directory-page__architecture { grid-template-columns: 1fr; } .directory-page__filters { grid-template-columns: 1fr; } .directory-page > header { align-items: start; flex-direction: column; } }
+@media (max-width: 820px) { .directory-page__architecture { grid-template-columns: 1fr; } .directory-page__filters { grid-template-columns: 1fr; } .directory-page__header-compact { align-items: flex-start; flex-direction: column; } .directory-page__header-actions { justify-content: flex-start; } }
 </style>

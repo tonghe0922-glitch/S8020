@@ -50,10 +50,21 @@ export function isApiProblem(value: unknown): value is ApiProblem {
     && isString(value.requestId)
 }
 
+function publicProblemDetail(status: number, problem: ApiProblem | undefined): string {
+  const detail = problem?.detail.trim()
+  if (detail && /[\u3400-\u9fff]/u.test(detail)) return detail
+  if (status === 401) return '登录状态无效，请重新登录。'
+  if (status === 403) return '当前身份暂无执行此操作的权限。'
+  if (status === 404) return '未找到所请求的数据。'
+  if (status === 409) return '数据已发生变化，请刷新后重试。'
+  if (status >= 500) return '系统服务暂时不可用，请稍后重试并保留请求编号。'
+  return `请求未成功（状态码 ${status}），请检查输入后重试。`
+}
+
 export function httpError(status: number, body: unknown): ApiClientError {
   const problem = isApiProblem(body) ? body : undefined
   const retryable = status === 502 || status === 503 || status === 504
-  return new ApiClientError(problem?.detail ?? `HTTP ${status}`, {
+  return new ApiClientError(publicProblemDetail(status, problem), {
     kind: 'http',
     status,
     code: problem?.code,
@@ -94,11 +105,11 @@ export function protocolError(message: string, cause?: unknown): ApiClientError 
   })
 }
 
-const AUTHENTICATION_REJECTED_MESSAGE = '租户编码、账号、密码或 MFA 验证码不正确；若信息确认无误，请联系管理员检查账号和在职任职状态。'
-const SESSION_STORE_UNAVAILABLE_MESSAGE = '会话存储（Redis）不可用，请联系管理员并按《首次部署与登录排障》检查 Redis 服务。'
+const AUTHENTICATION_REJECTED_MESSAGE = '公司名称、登录账号、密码或动态验证码不正确；若信息确认无误，请联系管理员检查账号和在职任职状态。'
+const SESSION_STORE_UNAVAILABLE_MESSAGE = '会话存储服务暂时不可用，请联系管理员处理。'
 const SECURITY_AUDIT_UNAVAILABLE_MESSAGE = '安全审计服务不可用，系统已阻止本次登录；请联系管理员并提供下方请求编号。'
 const FORBIDDEN_MESSAGE = '账号身份或在职任职状态已失效，或当前身份无权进入该端口，请联系管理员核验。'
-const BACKEND_UNREACHABLE_MESSAGE = '无法连接后端服务。请确认 API 已启动并正确加载 .env，再按 docs/BOOTSTRAP.md 的登录排障步骤检查网络。'
+const BACKEND_UNREACHABLE_MESSAGE = '无法连接系统服务，请检查网络连接；若持续失败，请联系管理员处理。'
 const DEPENDENCY_UNAVAILABLE_MESSAGE = '登录依赖服务暂时不可用，请联系管理员并提供下方请求编号。'
 
 const LOGIN_FAILURE_CODE_MESSAGES: Readonly<Record<string, string>> = {

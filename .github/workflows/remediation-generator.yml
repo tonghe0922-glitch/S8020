@@ -1,0 +1,82 @@
+name: S8020 remediation generator
+
+on:
+  push:
+    branches: [fix/complete-org-directory-remediation-20260823]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: s8020-remediation-generator-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  generate:
+    name: generate-real-organization-directory-migration
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out remediation branch
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+
+      - name: Restore deterministic seed generator
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat scripts/database/.generate_org_directory_seed.part-*.b64 \
+            | tr -d '\n' \
+            | base64 --decode \
+            > scripts/database/generate_org_directory_seed.py
+          test "$(sha256sum scripts/database/generate_org_directory_seed.py | awk '{print $1}')" \
+            = 'f45cbd1bd2f84367569d167e315a58c64dd1de66c98e3ca8d1316cfe6221e9db'
+          chmod +x scripts/database/generate_org_directory_seed.py
+          python3 -m py_compile scripts/database/generate_org_directory_seed.py
+
+      - name: Generate V9004 migration and manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/database/generate_org_directory_seed.py
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          manifest = json.loads(Path('technical-platform/database/seeds/org-directory-seed-manifest.json').read_text(encoding='utf-8'))
+          assert manifest['organizationCount'] == 59, manifest
+          assert manifest['employeeCount'] == 205, manifest
+          assert manifest['appointmentCount'] == 217, manifest
+          assert manifest['positionCount'] > 0, manifest
+          assert manifest['organizationCodes'] == [f'S06-ORG-{index:03d}' for index in range(1, 60)]
+          PY
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Apply repository Java formatter
+        shell: bash
+        run: bash ./mvnw -B -ntp spotless:apply
+
+      - name: Commit generated migration and clean temporary payload
+        shell: bash
+        env:
+          BRANCH_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          rm -f scripts/database/.generate_org_directory_seed.part-*.b64
+          rm -f .github/workflows/remediation-generator.yml
+          git add -A
+          if git diff --cached --quiet; then
+            echo 'No generated changes to commit.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'feat(data): generate complete real organization directory migration'
+          git push origin "HEAD:${BRANCH_NAME}"

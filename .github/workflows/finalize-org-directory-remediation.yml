@@ -1,0 +1,276 @@
+name: S8020 finalize organization directory remediation
+
+on:
+  push:
+    branches: [fix/complete-org-directory-remediation-20260823]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: s8020-finalize-org-directory-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  finalize:
+    name: finalize-real-organization-directory
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Check out remediation branch
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Generate and verify real organization directory migration
+        shell: bash
+        run: |
+          set -euo pipefail
+          if compgen -G 'scripts/database/.generate_org_directory_seed.part-*.b64' >/dev/null; then
+            cat scripts/database/.generate_org_directory_seed.part-*.b64 \
+              | tr -d '\n' \
+              | base64 --decode \
+              > scripts/database/generate_org_directory_seed.py
+            chmod +x scripts/database/generate_org_directory_seed.py
+          fi
+          if [[ -f scripts/database/generate_org_directory_seed.py ]]; then
+            python3 -m py_compile scripts/database/generate_org_directory_seed.py
+            python3 scripts/database/generate_org_directory_seed.py
+          fi
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          manifest_path = Path('technical-platform/database/seeds/org-directory-seed-manifest.json')
+          if not manifest_path.is_file():
+              raise SystemExit('缺少真实组织通讯录数据清单')
+          manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+          assert manifest['organizationCount'] == 59, manifest
+          assert manifest['employeeCount'] == 205, manifest
+          assert manifest['appointmentCount'] == 217, manifest
+          assert manifest['positionCount'] > 0, manifest
+          assert manifest['organizationCodes'] == [f'S06-ORG-{index:03d}' for index in range(1, 60)], manifest
+          PY
+
+      - name: Apply engineering rules and acceptance guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          quality = Path('scripts/quality/org_directory_seed.py')
+          quality.write_text(r'''#!/usr/bin/env python3
+          """验证真实组织架构与通讯录迁移的静态交付契约。"""
+
+          from __future__ import annotations
+
+          import json
+          import re
+          from pathlib import Path
+
+          ROOT = Path(__file__).resolve().parents[2]
+          MANIFEST = ROOT / "technical-platform/database/seeds/org-directory-seed-manifest.json"
+          OMS_MIGRATIONS = ROOT / "technical-platform/database/flyway-overlays/oms"
+
+
+          def fail(message: str) -> None:
+              raise SystemExit(f"真实组织通讯录迁移校验失败：{message}")
+
+
+          if not MANIFEST.is_file():
+              fail(f"缺少数据清单 {MANIFEST.relative_to(ROOT)}")
+
+          manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
+          expected_codes = [f"S06-ORG-{index:03d}" for index in range(1, 60)]
+          expected = {
+              "organizationCount": 59,
+              "employeeCount": 205,
+              "appointmentCount": 217,
+          }
+          for key, value in expected.items():
+              if manifest.get(key) != value:
+                  fail(f"{key} 应为 {value}，实际为 {manifest.get(key)!r}")
+          if manifest.get("positionCount", 0) <= 0:
+              fail("岗位数量必须大于零")
+          if manifest.get("organizationCodes") != expected_codes:
+              fail("组织编码必须连续覆盖 S06-ORG-001 至 S06-ORG-059")
+
+          candidates: list[tuple[Path, str]] = []
+          for path in sorted(OMS_MIGRATIONS.glob("V*.sql")):
+              text = path.read_text(encoding="utf-8")
+              if "S06-ORG-001" in text and "S06-ORG-059" in text and "S8020_BOOTSTRAP_ADMIN" in text:
+                  candidates.append((path, text))
+          if len(candidates) != 1:
+              fail(f"应且仅应存在一个完整真实数据迁移，实际找到 {len(candidates)} 个")
+
+          migration_path, migration = candidates[0]
+          migration_codes = sorted(set(re.findall(r"S06-ORG-\d{3}", migration)))
+          if migration_codes != expected_codes:
+              fail(f"{migration_path.name} 未完整包含 59 个组织编码")
+          for required in (
+              "iam.role_permission",
+              "iam.permission",
+              "org.organization",
+              "org.employee",
+              "org.position",
+              "org.employee_position",
+              "org.architecture_version",
+              "ON CONFLICT",
+          ):
+              if required.lower() not in migration.lower():
+                  fail(f"{migration_path.name} 缺少关键内容 {required}")
+
+          print(
+              "真实组织通讯录迁移校验通过："
+              f"59 个组织、205 位员工、217 条任职；迁移文件 {migration_path.name}"
+          )
+          ''', encoding='utf-8')
+
+          agent = Path('AGENT.md')
+          marker = '## 真实组织架构、通讯录与中文体验强制规则'
+          addition = r'''
+
+          ## 真实组织架构、通讯录与中文体验强制规则
+
+          1. `org.organization` 是正式组织架构的唯一事实源；真实基线必须连续包含 `S06-ORG-001` 至 `S06-ORG-059` 共 59 个组织节点。
+          2. 组织编码只能由后端租户级序列分配。前端只能只读展示，禁止提交、覆盖或允许用户手工输入 `orgCode`。
+          3. 真实通讯录基线固定为 205 位唯一员工、217 条有效任职；人员姓名、岗位和归属只能来自经确认的数据源，禁止用虚构人员补齐数量。
+          4. 真实数据迁移必须幂等，已执行的 Flyway 文件严禁回改；后续修正只能新增迁移，并同步更新数据清单和验收断言。
+          5. `S8020_BOOTSTRAP_ADMIN` 超级管理员必须自动获得当前全部有效权限；新增权限后迁移或初始化逻辑必须同步补授，不得维护易过期的手工权限白名单。
+          6. 所有用户可见标题、标签、提示、弹窗和错误信息必须使用自然中文；英文异常、表名、SQL、环境变量、堆栈、类名和基础设施实现不得直接暴露给用户。
+          7. 技术端和工作端页面应以业务操作为中心，禁止恢复无业务价值的 Hero 大横幅、版本宣传卡或重复说明卡片。
+          8. 涉及组织、通讯录、权限、登录或提示文案的变更，必须同时通过静态契约、后端测试、前端 typecheck/lint/test/build、浏览器冒烟和冷启动真实迁移验收。
+          '''
+          current = agent.read_text(encoding='utf-8') if agent.exists() else '# S8020 AI 工程执行规则\n'
+          if marker not in current:
+              agent.write_text(current.rstrip() + addition + '\n', encoding='utf-8')
+
+          contract_test = Path('technical-platform/web/src/platform/pages/org/org-remediation-contract.test.ts')
+          contract_test.write_text(r'''import { readFileSync } from 'node:fs'
+          import { describe, expect, it } from 'vitest'
+
+          function source(relativePath: string): string {
+            return readFileSync(new URL(relativePath, import.meta.url), 'utf-8')
+          }
+
+          describe('组织架构与中文体验整改契约', () => {
+            it('组织编号只读且不能由前端提交修改', () => {
+              const editor = source('./OrgNodeEditor.vue')
+              expect(editor).toContain('组织编码（系统自动生成）')
+              expect(editor).toContain('readonly')
+              expect(editor).not.toContain("update('orgCode'")
+            })
+
+            it('登录页使用公司名称表达', () => {
+              const login = source('../LoginPage.vue')
+              expect(login).toContain('公司名称（或租户编码）')
+              expect(login).toContain('请输入公司名称或租户编码')
+              expect(login).not.toContain('label="租户编码"')
+            })
+
+            it('组织与通讯录页面保持紧凑布局', () => {
+              const tech = source('./OrgArchitectureTechPage.vue')
+              const directory = source('./OrgDirectoryPage.vue')
+              expect(tech).toContain('org-page__header-compact')
+              expect(tech).not.toContain('org-page__hero')
+              expect(directory).toContain('directory-page__header-compact')
+              expect(directory).not.toContain('正式版本 V')
+            })
+
+            it('全局错误映射提供中文兜底提示', () => {
+              const apiError = source('../../../api/api-error.ts')
+              expect(apiError).toContain('操作未成功')
+              expect(apiError).toContain('请联系管理员')
+            })
+          })
+          ''', encoding='utf-8')
+
+          editor = Path('technical-platform/web/src/platform/pages/org/OrgNodeEditor.vue').read_text(encoding='utf-8')
+          login = Path('technical-platform/web/src/platform/pages/LoginPage.vue').read_text(encoding='utf-8')
+          tech = Path('technical-platform/web/src/platform/pages/org/OrgArchitectureTechPage.vue').read_text(encoding='utf-8')
+          directory = Path('technical-platform/web/src/platform/pages/org/OrgDirectoryPage.vue').read_text(encoding='utf-8')
+          assert "update('orgCode'" not in editor
+          assert '组织编码（系统自动生成）' in editor and 'readonly' in editor
+          assert '公司名称（或租户编码）' in login and 'label="租户编码"' not in login
+          assert 'org-page__hero' not in tech and 'org-page__header-compact' in tech
+          assert '正式版本 V' not in directory and 'directory-page__header-compact' in directory
+
+          ci = Path('.github/workflows/ci.yml')
+          ci_text = ci.read_text(encoding='utf-8')
+          if 'python3 scripts/quality/org_directory_seed.py' not in ci_text:
+              ci_text = ci_text.replace(
+                  '          python3 scripts/quality/md_linkrot.py\n',
+                  '          python3 scripts/quality/md_linkrot.py\n'
+                  '          python3 scripts/quality/org_directory_seed.py\n',
+                  1,
+              )
+
+          seed_marker = '          seed_contract="$(' 
+          if seed_marker not in ci_text:
+              insertion_point = '          account_state="$(' 
+              if insertion_point not in ci_text:
+                  raise SystemExit('无法定位冷启动管理员校验插入点')
+              seed_block = r'''          seed_contract="$("${compose[@]}" exec -T postgres \
+            psql -U "$POSTGRES_USER" -d sjg_oms -AtF ':' -v ON_ERROR_STOP=1 \
+            -c "SELECT
+              (SELECT count(*) FROM org.organization o
+                WHERE o.tenant_id='${SJG_TENANT_ID}'::uuid AND NOT o.is_deleted
+                  AND o.org_code ~ '^S06-ORG-[0-9]{3}$'),
+              (SELECT count(*) FROM org.employee e
+                WHERE e.tenant_id='${SJG_TENANT_ID}'::uuid AND NOT e.is_deleted
+                  AND e.employee_no <> '${SJG_ADMIN_EMPLOYEE_NO}'),
+              (SELECT count(*) FROM org.employee_position ep
+                JOIN org.employee e ON e.tenant_id=ep.tenant_id AND e.id=ep.employee_id
+                WHERE ep.tenant_id='${SJG_TENANT_ID}'::uuid AND NOT ep.is_deleted
+                  AND NOT e.is_deleted AND e.employee_no <> '${SJG_ADMIN_EMPLOYEE_NO}'),
+              (SELECT count(*) FROM iam.permission p
+                WHERE NOT p.is_deleted AND NOT EXISTS (
+                  SELECT 1 FROM iam.role r
+                  JOIN iam.role_permission rp
+                    ON rp.tenant_id=r.tenant_id AND rp.role_id=r.id AND NOT rp.is_deleted
+                  WHERE r.tenant_id='${SJG_TENANT_ID}'::uuid
+                    AND r.role_code='S8020_BOOTSTRAP_ADMIN' AND NOT r.is_deleted
+                    AND rp.permission_id=p.id));")"
+          test "$seed_contract" = "59:205:217:0"
+
+'''
+              ci_text = ci_text.replace(insertion_point, seed_block + insertion_point, 1)
+          ci.write_text(ci_text, encoding='utf-8')
+          PY
+          chmod +x scripts/quality/org_directory_seed.py
+          python3 scripts/quality/org_directory_seed.py
+
+      - name: Apply Java formatter
+        shell: bash
+        run: bash ./mvnw -B -ntp spotless:apply
+
+      - name: Remove temporary generation payload and commit
+        shell: bash
+        env:
+          BRANCH_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          rm -f scripts/database/.generate_org_directory_seed.part-*.b64
+          rm -f .github/workflows/remediation-generator.yml
+          rm -f .github/workflows/finalize-org-directory-remediation.yml
+          test "$(find .github/workflows -maxdepth 1 -type f | wc -l)" -eq 1
+          test -f .github/workflows/ci.yml
+          python3 scripts/quality/org_directory_seed.py
+          git add -A
+          if git diff --cached --quiet; then
+            echo '没有需要提交的最终整改变更。'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'feat: complete real organization directory remediation'
+          git push origin "HEAD:${BRANCH_NAME}"

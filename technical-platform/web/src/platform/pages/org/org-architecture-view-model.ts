@@ -31,7 +31,11 @@ export function draftStatusLabel(value: OrgArchitectureDraftStatus): string {
 }
 
 export function architectureError(cause: unknown): string {
-  return cause instanceof Error ? cause.message : '组织架构请求失败'
+  if (!(cause instanceof Error)) return '组织架构操作未成功，请稍后重试。'
+  const message = cause.message.trim()
+  return /[\u3400-\u9fff]/u.test(message)
+    ? message
+    : '组织架构操作未成功，请保留请求编号并联系管理员。'
 }
 
 export function emptyNodeCommand(parentId: string | null = null): OrgArchitectureNodeCommand {

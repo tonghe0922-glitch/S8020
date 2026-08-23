@@ -124,18 +124,16 @@ onMounted(() => void load())
 
 <template>
   <section class="org-page">
-    <header class="org-page__hero">
-      <div>
-        <p>技术端 · 单一事实源</p>
-        <h1>组织架构配置</h1>
-        <span>直接配置正式组织；保存后工作端和企业通讯录读取同一数据库。</span>
-      </div>
+    <div class="org-page__header-compact">
+      <h1>组织架构配置</h1>
       <div class="org-page__metrics" aria-label="组织架构指标">
-        <strong>{{ nodes.length }}</strong><span>组织节点</span>
-        <strong>{{ activeCount }}</strong><span>启用节点</span>
-        <strong>{{ memberCount }}</strong><span>有效任职</span>
+        <span>节点总数 <strong>{{ nodes.length }}</strong></span>
+        <span aria-hidden="true">·</span>
+        <span>启用节点 <strong>{{ activeCount }}</strong></span>
+        <span aria-hidden="true">·</span>
+        <span>在岗任职 <strong>{{ memberCount }}</strong></span>
       </div>
-    </header>
+    </div>
 
     <p v-if="error" class="org-page__feedback is-error" role="alert">{{ error }}</p>
     <p v-if="notice" class="org-page__feedback is-success" role="status">{{ notice }}</p>
@@ -173,13 +171,10 @@ onMounted(() => void load())
 
 <style scoped>
 .org-page { display: grid; gap: 1.1rem; padding: clamp(1rem, 2vw, 1.8rem); }
-.org-page__hero { display: flex; align-items: end; justify-content: space-between; gap: 1.5rem; padding: 1.5rem; border-radius: 1.2rem; background: linear-gradient(135deg, #fff8f1, #fff); border: 1px solid var(--color-border, #e8ddd3); }
-.org-page__hero p { margin: 0 0 .35rem; color: var(--color-primary, #d76b2f); font-size: .78rem; font-weight: 800; letter-spacing: .1em; }
-.org-page__hero h1 { margin: 0 0 .45rem; font-size: clamp(1.65rem, 3vw, 2.35rem); }
-.org-page__hero span { color: var(--color-text-muted, #776b62); }
-.org-page__metrics { display: grid; grid-template-columns: repeat(3, auto); gap: .15rem 1rem; text-align: center; }
-.org-page__metrics strong { font-size: 1.5rem; }
-.org-page__metrics span { grid-row: 2; color: var(--color-text-muted, #776b62); font-size: .72rem; }
+.org-page__header-compact { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding-bottom: .8rem; border-bottom: 1px solid var(--color-border, #e8ddd3); }
+.org-page__header-compact h1 { margin: 0; font-size: clamp(1.35rem, 2.2vw, 1.8rem); }
+.org-page__metrics { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: .45rem; color: var(--color-text-muted, #776b62); font-size: .82rem; }
+.org-page__metrics strong { color: var(--color-primary, #d76b2f); font-size: 1rem; }
 .org-page__toolbar { display: flex; flex-wrap: wrap; gap: .55rem; }
 .org-page__toolbar button { border: 1px solid var(--color-border, #e8ddd3); border-radius: .7rem; padding: .6rem .85rem; background: #fff; font: inherit; font-weight: 700; cursor: pointer; }
 .org-page__toolbar button:hover { border-color: var(--color-primary, #d76b2f); }
@@ -191,5 +186,5 @@ onMounted(() => void load())
 .org-page__feedback { margin: 0; padding: .75rem 1rem; border-radius: .75rem; }
 .org-page__feedback.is-error { background: #fff0ee; color: #8f2d24; }
 .org-page__feedback.is-success { background: #eef8f1; color: #20633a; }
-@media (max-width: 980px) { .org-page__workspace { grid-template-columns: 1fr; } .org-page__hero { align-items: start; flex-direction: column; } }
+@media (max-width: 980px) { .org-page__workspace { grid-template-columns: 1fr; } .org-page__header-compact { align-items: flex-start; flex-direction: column; } .org-page__metrics { justify-content: flex-start; } }
 </style>
