@@ -20,7 +20,9 @@ public class OrgArchitectureService {
     private final OrgCodeAllocator codeAllocator;
 
     public OrgArchitectureService(
-            TenantTransactionRunner transactions, OrgArchitectureRepository repository, OrgCodeAllocator codeAllocator) {
+            TenantTransactionRunner transactions,
+            OrgArchitectureRepository repository,
+            OrgCodeAllocator codeAllocator) {
         this.transactions = transactions;
         this.repository = repository;
         this.codeAllocator = codeAllocator;
@@ -60,8 +62,7 @@ public class OrgArchitectureService {
             NodeView before = requiredNode(actor.tenantId(), nodeId);
             NodeCommand managed = withOrgCode(command, before.orgCode());
             OrgArchitectureValidator.validate(managed);
-            NodeView after = repository.updateNode(
-                    actor.tenantId(), requireEmployeeActor(actor), nodeId, managed);
+            NodeView after = repository.updateNode(actor.tenantId(), requireEmployeeActor(actor), nodeId, managed);
             appendDirectVersion(actor, "UPDATED", after, "调整组织：" + after.orgName());
             repository.recordNodeCommand(
                     actor.tenantId(), actor.userId(), nodeId, "ORG_NODE_UPDATE", key, before, after);
@@ -158,7 +159,8 @@ public class OrgArchitectureService {
             DraftView before = requiredDraft(actor.tenantId(), draftId);
             requireEditableBy(actor, before);
             List<NodeView> published = repository.tree(actor.tenantId());
-            List<NodeView> assigned = assignSnapshotCodes(actor.tenantId(), published, before.snapshot(), command.snapshot());
+            List<NodeView> assigned =
+                    assignSnapshotCodes(actor.tenantId(), published, before.snapshot(), command.snapshot());
             List<NodeView> normalized = OrgArchitectureValidator.normalizeSnapshot(assigned);
             List<ChangeLine> changes = OrgArchitectureDiffCalculator.calculate(published, normalized);
             DraftView after = repository.updateDraft(
@@ -294,15 +296,11 @@ public class OrgArchitectureService {
     }
 
     private NodeView requiredNode(UUID tenantId, UUID nodeId) {
-        return repository
-                .node(tenantId, nodeId)
-                .orElseThrow(() -> new IllegalArgumentException("组织节点不存在"));
+        return repository.node(tenantId, nodeId).orElseThrow(() -> new IllegalArgumentException("组织节点不存在"));
     }
 
     private DraftView requiredDraft(UUID tenantId, UUID draftId) {
-        return repository
-                .draft(tenantId, draftId)
-                .orElseThrow(() -> new IllegalArgumentException("组织架构草稿不存在"));
+        return repository.draft(tenantId, draftId).orElseThrow(() -> new IllegalArgumentException("组织架构草稿不存在"));
     }
 
     private static void requireEditableBy(DatabaseSecurityContext actor, DraftView draft) {
@@ -317,8 +315,7 @@ public class OrgArchitectureService {
     private void requireCurrentBase(UUID tenantId, DraftView draft) {
         long current = repository.currentVersion(tenantId);
         if (draft.baseVersion() != current) {
-            throw new OptimisticLockingFailureException(
-                    "正式组织架构已在草稿创建后发生变化，请刷新后重新创建草稿");
+            throw new OptimisticLockingFailureException("正式组织架构已在草稿创建后发生变化，请刷新后重新创建草稿");
         }
     }
 

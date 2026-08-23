@@ -121,8 +121,7 @@ public class RemediatedOrgArchitectureRepository extends JdbcOrgArchitectureRepo
                     tenantId,
                     existing.id());
             if (members != null && members > 0) {
-                throw new IllegalArgumentException(
-                        "组织“" + existing.orgName() + "”存在在岗成员，不能从正式架构中移除");
+                throw new IllegalArgumentException("组织“" + existing.orgName() + "”存在在岗成员，不能从正式架构中移除");
             }
             jdbc.update(
                     """
