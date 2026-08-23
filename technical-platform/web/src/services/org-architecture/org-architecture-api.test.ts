@@ -13,16 +13,17 @@ describe('organization architecture API client', () => {
     await api.createDraft('季度组织调整')
     await api.publishDraft('draft-id', 4)
 
-    expect(request).toHaveBeenNthCalledWith(1, '/api/v1/org/drafts', expect.objectContaining({
-      method: 'POST',
-      body: { title: '季度组织调整' },
-      idempotencyKey: expect.stringContaining('org-architecture:draft-create:'),
-    }))
-    expect(request).toHaveBeenNthCalledWith(2, '/api/v1/org/drafts/draft-id/publish', expect.objectContaining({
-      method: 'POST',
-      body: { expectedVersion: 4 },
-      idempotencyKey: expect.stringContaining('org-architecture:draft-publish:'),
-    }))
+    const [createDraftPath, createDraftOptions] = request.mock.calls[0] ?? []
+    expect(createDraftPath).toBe('/api/v1/org/drafts')
+    expect(createDraftOptions?.method).toBe('POST')
+    expect(createDraftOptions?.body).toEqual({ title: '季度组织调整' })
+    expect(createDraftOptions?.idempotencyKey?.startsWith('org-architecture:draft-create:')).toBe(true)
+
+    const [publishPath, publishOptions] = request.mock.calls[1] ?? []
+    expect(publishPath).toBe('/api/v1/org/drafts/draft-id/publish')
+    expect(publishOptions?.method).toBe('POST')
+    expect(publishOptions?.body).toEqual({ expectedVersion: 4 })
+    expect(publishOptions?.idempotencyKey?.startsWith('org-architecture:draft-publish:')).toBe(true)
   })
 
   it('keeps the all-employee directory endpoint read-only', async () => {
