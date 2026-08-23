@@ -61,12 +61,35 @@ async function submit(): Promise<void> {
           <p>{{ props.portal.description }}</p>
         </template>
         <form class="platform-login-form" @submit.prevent="submit">
-          <SgjInput v-model="tenantCode" label="租户编码" name="tenantCode" autocomplete="organization" required />
-          <SgjInput v-model="loginName" label="登录账号" name="username" autocomplete="username" required />
-          <SgjInput v-model="password" label="密码" name="password" type="password" autocomplete="current-password" required />
+          <SgjInput
+            v-model="tenantCode"
+            label="公司名称（或租户编码）"
+            placeholder="请输入公司名称或租户编码"
+            name="tenantCode"
+            autocomplete="organization"
+            required
+          />
+          <SgjInput
+            v-model="loginName"
+            label="登录账号"
+            placeholder="请输入登录账号"
+            name="username"
+            autocomplete="username"
+            required
+          />
+          <SgjInput
+            v-model="password"
+            label="密码"
+            placeholder="请输入登录密码"
+            name="password"
+            type="password"
+            autocomplete="current-password"
+            required
+          />
           <SgjInput
             v-model="mfaCode"
-            label="MFA 验证码（已启用时填写）"
+            label="动态验证码（已启用时填写）"
+            placeholder="请输入 6 位动态验证码"
             name="mfaCode"
             inputmode="numeric"
             autocomplete="one-time-code"
@@ -84,7 +107,6 @@ async function submit(): Promise<void> {
     </div>
   </SgjPortalShell>
 </template>
-
 
 <style scoped>
 .platform-login-layout {
