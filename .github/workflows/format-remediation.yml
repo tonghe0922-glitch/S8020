@@ -5,7 +5,7 @@ on:
     branches: [main]
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: s8020-format-${{ github.ref }}
@@ -13,13 +13,14 @@ concurrency:
 
 jobs:
   format:
-    name: generate-palantir-format-output
+    name: commit-palantir-format-output
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
-      - name: Check out repository
+      - name: Check out pull request branch
         uses: actions/checkout@v5
         with:
+          ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
 
       - name: Set up Java 21
@@ -33,17 +34,20 @@ jobs:
         shell: bash
         run: bash ./mvnw -B -ntp spotless:apply
 
-      - name: Package exact formatted sources
+      - name: Commit exact formatter output
         shell: bash
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
         run: |
           set -euo pipefail
-          zip -q /tmp/s8020-formatted-java.zip \
+          git add \
             technical-platform/backend/modules/org/src/main/java/cn/shangjingu/platform/org/application/OrgArchitectureService.java \
             technical-platform/backend/modules/org/src/main/java/cn/shangjingu/platform/org/infrastructure/RemediatedOrgArchitectureRepository.java
-
-      - name: Upload exact formatted sources
-        uses: actions/upload-artifact@v4
-        with:
-          name: s8020-formatted-java-${{ github.sha }}
-          path: /tmp/s8020-formatted-java.zip
-          retention-days: 1
+          if git diff --cached --quiet; then
+            echo 'Formatter produced no changes.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'style: apply repository Java formatter'
+          git push origin "HEAD:${HEAD_REF}"
