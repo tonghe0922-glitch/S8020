@@ -1,0 +1,77 @@
+name: Apply organization detail parity payload
+
+on:
+  push:
+    branches: [feat/replicate-org-detail-pages-20260824]
+    paths: [.github/workflows/apply-org-detail-parity.yml]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apply-org-detail-parity-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apply:
+    name: restore-verify-and-commit-org-detail-pages
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22.12.0'
+
+      - name: Install pnpm
+        run: npm install --global pnpm@10.34.0
+
+      - name: Restore high-fidelity page payload
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PAYLOAD_BLOB_SHA: c9e76e9e194869a45d2703fe7b9eadcfdb64b89c
+          PAYLOAD_SHA256: 72985b25adf46cfa9a48dbc5d1f9f7b490d8fef3f58643d707d3626c355f382f
+        run: |
+          set -euo pipefail
+          gh api "/repos/$GITHUB_REPOSITORY/git/blobs/$PAYLOAD_BLOB_SHA" --jq .content \
+            | tr -d '\n' \
+            | base64 --decode \
+            > /tmp/org-detail-parity.tar.gz
+          echo "$PAYLOAD_SHA256  /tmp/org-detail-parity.tar.gz" | sha256sum --check -
+          tar -xzf /tmp/org-detail-parity.tar.gz -C .
+          test -f technical-platform/web/src/platform/pages/org/OrgArchitectureTechPage.vue
+          test -f technical-platform/web/src/platform/pages/org/OrgArchitectureManagePage.vue
+          test -f technical-platform/web/src/platform/pages/org/OrgDirectoryPage.vue
+          test -f technical-platform/web/src/platform/pages/org/org-architecture-prototype-parity.test.ts
+          test "$(find technical-platform/web/src/platform/pages/org -name '*.pyc' -o -name '__pycache__' | wc -l)" -eq 0
+
+      - name: Verify frontend quality and both portals
+        working-directory: technical-platform/web
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm install --frozen-lockfile
+          pnpm typecheck
+          pnpm lint
+          pnpm test
+          pnpm build
+
+      - name: Commit verified implementation and remove temporary workflow
+        shell: bash
+        env:
+          BRANCH_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          rm -f .github/workflows/apply-org-detail-parity.yml
+          git add -A
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'feat: high-fidelity organization detail pages'
+          git push origin "HEAD:${BRANCH_NAME}"
