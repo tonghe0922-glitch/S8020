@@ -4,24 +4,28 @@ on:
   push:
     branches: [feat/replicate-org-detail-pages-20260824]
     paths: [.github/workflows/apply-org-detail-parity.yml]
+  pull_request:
+    branches: [main]
+    paths: [.github/workflows/apply-org-detail-parity.yml]
 
 permissions:
   contents: write
 
 concurrency:
-  group: apply-org-detail-parity-${{ github.ref }}
+  group: apply-org-detail-parity-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
   apply:
     name: restore-verify-and-commit-org-detail-pages
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
       - name: Check out feature branch
         uses: actions/checkout@v5
         with:
-          ref: ${{ github.ref_name }}
+          ref: ${{ github.head_ref || github.ref_name }}
           fetch-depth: 0
 
       - name: Set up Node.js 22
@@ -66,7 +70,7 @@ jobs:
       - name: Commit verified implementation and remove temporary workflow
         shell: bash
         env:
-          BRANCH_NAME: ${{ github.ref_name }}
+          BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
         run: |
           set -euo pipefail
           rm -f .github/workflows/apply-org-detail-parity.yml
