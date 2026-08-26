@@ -1,0 +1,64 @@
+name: Fix organization code label contract
+
+on:
+  push:
+    branches: [feat/replicate-org-detail-pages-20260824]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: fix-org-code-label-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  patch-verify-commit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v5
+        with:
+          ref: feat/replicate-org-detail-pages-20260824
+          fetch-depth: 0
+
+      - name: Restore explicit server-managed label
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('technical-platform/web/src/platform/pages/org/OrgNodeEditor.vue')
+          source = path.read_text(encoding='utf-8')
+          old = '<span>组织编码</span>'
+          new = '<span>组织编码（系统自动生成）</span>'
+          if source.count(old) != 1:
+              raise SystemExit(f'expected exactly one organization code label, found {source.count(old)}')
+          path.write_text(source.replace(old, new), encoding='utf-8')
+          PY
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22.12.0'
+
+      - name: Verify full frontend contract
+        shell: bash
+        working-directory: technical-platform/web
+        run: |
+          npm install --global pnpm@10.34.0
+          pnpm install --frozen-lockfile
+          pnpm typecheck
+          pnpm lint
+          pnpm test
+
+      - name: Commit verified fix and remove temporary workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm .github/workflows/fix-org-code-label.yml
+          git add technical-platform/web/src/platform/pages/org/OrgNodeEditor.vue
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'fix(org-ui): restore explicit server-managed code label'
+          git push origin HEAD:feat/replicate-org-detail-pages-20260824
