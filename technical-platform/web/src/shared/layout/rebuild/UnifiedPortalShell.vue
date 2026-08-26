@@ -15,10 +15,12 @@ import type { ShellSearchItem } from './types'
 const props = withDefaults(defineProps<{
   portal: PortalDefinition
   pageTitle: string
+  showPageTitle?: boolean
   searchItems?: readonly ShellSearchItem[]
   contentId?: string
   alertVisible?: boolean
 }>(), {
+  showPageTitle: true,
   searchItems: () => [],
   contentId: 'sgj-main-content',
   alertVisible: false,
@@ -241,7 +243,7 @@ watch(() => route.fullPath, closeTransientNavigation)
           返回上一层
         </button>
       </div>
-      <h1 class="rebuild-shell__page-title">{{ pageTitle }}</h1>
+      <h1 v-if="showPageTitle" class="rebuild-shell__page-title">{{ pageTitle }}</h1>
       <div class="rebuild-shell__content"><slot /></div>
     </main>
 
