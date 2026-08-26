@@ -1,0 +1,143 @@
+name: Compact enterprise architecture page
+
+on:
+  push:
+    branches:
+      - fix/compact-enterprise-architecture-20260826
+    paths:
+      - .github/workflows/compact-enterprise-architecture.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch-verify-commit:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v5
+        with:
+          ref: fix/compact-enterprise-architecture-20260826
+          fetch-depth: 0
+
+      - name: Remove duplicated architecture heading area
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path_value: str, old: str, new: str) -> None:
+              path = Path(path_value)
+              text = path.read_text(encoding='utf-8')
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{path}: expected exactly one replacement target, found {count}')
+              path.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          directory = 'technical-platform/web/src/platform/pages/org/OrgDirectoryPage.vue'
+          replace_once(
+              directory,
+              '    <header class="directory-page__header-compact">',
+              '    <header v-if="mode === \'directory\'" class="directory-page__header-compact">',
+          )
+          replace_once(
+              directory,
+              '  color: #273248;\n}\n.directory-page__header-compact',
+              '  color: #273248;\n}\n.directory-page.is-architecture { padding-top: .35rem; }\n.directory-page__header-compact',
+          )
+
+          shell = 'technical-platform/web/src/shared/layout/rebuild/UnifiedPortalShell.vue'
+          replace_once(
+              shell,
+              '  pageTitle: string\n  searchItems?: readonly ShellSearchItem[]',
+              '  pageTitle: string\n  showPageTitle?: boolean\n  searchItems?: readonly ShellSearchItem[]',
+          )
+          replace_once(
+              shell,
+              "  searchItems: () => [],\n  contentId: 'sgj-main-content',",
+              "  showPageTitle: true,\n  searchItems: () => [],\n  contentId: 'sgj-main-content',",
+          )
+          replace_once(
+              shell,
+              '      <h1 class="rebuild-shell__page-title">{{ pageTitle }}</h1>',
+              '      <h1 v-if="showPageTitle" class="rebuild-shell__page-title">{{ pageTitle }}</h1>',
+          )
+
+          layout = 'technical-platform/web/src/platform/AuthenticatedPortalLayout.vue'
+          replace_once(
+              layout,
+              '\nfunction showFailure',
+              "\nconst showPageTitle=computed(()=>route.name!=='org-directory-architecture')\nfunction showFailure",
+          )
+          replace_once(
+              layout,
+              '<template><UnifiedPortalShell :portal="props.portal" :page-title="pageTitle" :search-items="navigationItems"',
+              '<template><UnifiedPortalShell :portal="props.portal" :page-title="pageTitle" :show-page-title="showPageTitle" :search-items="navigationItems"',
+          )
+
+          shell_test = 'technical-platform/web/src/shared/layout/rebuild/UnifiedPortalShell.test.ts'
+          replace_once(shell_test, '}[] = []) {', '}[] = [], showPageTitle = true) {')
+          replace_once(
+              shell_test,
+              "      pageTitle: '工作台',\n      searchItems,",
+              "      pageTitle: '工作台',\n      showPageTitle,\n      searchItems,",
+          )
+          shell_test_path = Path(shell_test)
+          shell_test_text = shell_test_path.read_text(encoding='utf-8')
+          insert_at = shell_test_text.rfind('\n})')
+          if insert_at < 0:
+              raise SystemExit(f'{shell_test_path}: describe closure not found')
+          shell_test_text = shell_test_text[:insert_at] + """
+
+  it('keeps breadcrumbs while suppressing a duplicated visual page title', async () => {
+    const { wrapper } = await mountedShell([], false)
+
+    expect(wrapper.get('.rebuild-shell__breadcrumbs').text()).toContain('工作台')
+    expect(wrapper.find('.rebuild-shell__page-title').exists()).toBe(false)
+    expect(wrapper.get('[data-test="page-content"]').text()).toBe('页面内容')
+  })
+""" + shell_test_text[insert_at:]
+          shell_test_path.write_text(shell_test_text, encoding='utf-8')
+
+          remediation_test = 'technical-platform/web/src/platform/pages/org/org-remediation-ui.test.ts'
+          replace_once(
+              remediation_test,
+              "    const directory = source('./OrgDirectoryPage.vue')\n",
+              "    const directory = source('./OrgDirectoryPage.vue')\n    const layout = source('../../AuthenticatedPortalLayout.vue')\n",
+          )
+          replace_once(
+              remediation_test,
+              "    expect(directory).toContain('directory-page__header-compact')\n    expect(directory).not.toContain('正式版本 V')",
+              "    expect(directory).toContain('directory-page__header-compact')\n    expect(directory).toContain(`v-if=\"mode === 'directory'\"`)\n    expect(directory).toContain('directory-page.is-architecture { padding-top: .35rem; }')\n    expect(layout).toContain(`route.name!=='org-directory-architecture'`)\n    expect(layout).toContain(':show-page-title=\"showPageTitle\"')\n    expect(directory).not.toContain('正式版本 V')",
+          )
+          PY
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22.12.0
+
+      - name: Install and verify frontend
+        shell: bash
+        working-directory: technical-platform/web
+        run: |
+          set -euo pipefail
+          npm install --global pnpm@10.34.0
+          pnpm install --frozen-lockfile
+          pnpm typecheck
+          pnpm lint
+          pnpm test
+          pnpm build
+
+      - name: Commit verified change and remove temporary workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm .github/workflows/compact-enterprise-architecture.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --check
+          git commit -m 'fix(org-ui): remove duplicated enterprise architecture header'
+          git push origin HEAD:fix/compact-enterprise-architecture-20260826
