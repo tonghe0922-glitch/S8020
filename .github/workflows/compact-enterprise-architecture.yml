@@ -90,17 +90,20 @@ jobs:
           insert_at = shell_test_text.rfind('\n})')
           if insert_at < 0:
               raise SystemExit(f'{shell_test_path}: describe closure not found')
-          shell_test_text = shell_test_text[:insert_at] + """
-
-  it('keeps breadcrumbs while suppressing a duplicated visual page title', async () => {
-    const { wrapper } = await mountedShell([], false)
-
-    expect(wrapper.get('.rebuild-shell__breadcrumbs').text()).toContain('工作台')
-    expect(wrapper.find('.rebuild-shell__page-title').exists()).toBe(false)
-    expect(wrapper.get('[data-test="page-content"]').text()).toBe('页面内容')
-  })
-""" + shell_test_text[insert_at:]
-          shell_test_path.write_text(shell_test_text, encoding='utf-8')
+          new_test = (
+              "\n\n"
+              "  it('keeps breadcrumbs while suppressing a duplicated visual page title', async () => {\n"
+              "    const { wrapper } = await mountedShell([], false)\n"
+              "\n"
+              "    expect(wrapper.get('.rebuild-shell__breadcrumbs').text()).toContain('工作台')\n"
+              "    expect(wrapper.find('.rebuild-shell__page-title').exists()).toBe(false)\n"
+              "    expect(wrapper.get('[data-test=\"page-content\"]').text()).toBe('页面内容')\n"
+              "  })\n"
+          )
+          shell_test_path.write_text(
+              shell_test_text[:insert_at] + new_test + shell_test_text[insert_at:],
+              encoding='utf-8',
+          )
 
           remediation_test = 'technical-platform/web/src/platform/pages/org/org-remediation-ui.test.ts'
           replace_once(
