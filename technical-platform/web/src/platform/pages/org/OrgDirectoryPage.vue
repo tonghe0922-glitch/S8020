@@ -39,26 +39,44 @@ const filteredMembers = computed(() => {
   })
 })
 
+function organizationMatchesKeyword(node: OrgArchitectureNode, keyword: string): boolean {
+  if (!keyword) return true
+  return [node.orgName, node.orgCode, orgTypeLabel(node.orgType)]
+    .some((value) => value.toLocaleLowerCase('zh-CN').includes(keyword))
+}
+
+function organizationMatchesType(node: OrgArchitectureNode): boolean {
+  return !typeFilter.value || node.orgType === typeFilter.value
+}
+
+function organizationMatchesFilters(node: OrgArchitectureNode, keyword: string): boolean {
+  return organizationMatchesKeyword(node, keyword) && organizationMatchesType(node)
+}
+
+function addOrganizationTrail(
+  node: OrgArchitectureNode,
+  nodeMap: ReadonlyMap<string, OrgArchitectureNode>,
+  visibleIds: Set<string>,
+): void {
+  visibleIds.add(node.id)
+  let current = node
+  while (current.parentId) {
+    visibleIds.add(current.parentId)
+    const parent = nodeMap.get(current.parentId)
+    if (!parent) return
+    current = parent
+  }
+}
+
 const displayedOrganizations = computed(() => {
   const keyword = props.mode === 'architecture' ? query.value.trim().toLocaleLowerCase('zh-CN') : ''
   if (!keyword && !typeFilter.value) return data.value.organizations
 
   const nodeMap = new Map(data.value.organizations.map((node) => [node.id, node]))
   const visibleIds = new Set<string>()
-  for (const node of data.value.organizations) {
-    const matchesKeyword = !keyword || [node.orgName, node.orgCode, orgTypeLabel(node.orgType)]
-      .some((value) => value.toLocaleLowerCase('zh-CN').includes(keyword))
-    const matchesType = !typeFilter.value || node.orgType === typeFilter.value
-    if (!matchesKeyword || !matchesType) continue
-    visibleIds.add(node.id)
-    let current = node
-    while (current.parentId) {
-      visibleIds.add(current.parentId)
-      const parent = nodeMap.get(current.parentId)
-      if (!parent) break
-      current = parent
-    }
-  }
+  data.value.organizations
+    .filter((node) => organizationMatchesFilters(node, keyword))
+    .forEach((node) => addOrganizationTrail(node, nodeMap, visibleIds))
   return data.value.organizations.filter((node) => visibleIds.has(node.id))
 })
 

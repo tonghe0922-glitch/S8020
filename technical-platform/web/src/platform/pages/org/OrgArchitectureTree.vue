@@ -44,27 +44,46 @@ watch(
   { immediate: true },
 )
 
+function matchesQuery(node: OrgArchitectureNode, keyword: string): boolean {
+  if (!keyword) return true
+  return [node.orgName, node.orgCode, orgTypeLabel(node.orgType)]
+    .some((value) => value.toLocaleLowerCase('zh-CN').includes(keyword))
+}
+
+function matchesType(node: OrgArchitectureNode): boolean {
+  return !props.typeFilter || node.orgType === props.typeFilter
+}
+
+function matchesStatus(node: OrgArchitectureNode): boolean {
+  return !props.statusFilter || node.status === props.statusFilter
+}
+
+function matchesFilters(node: OrgArchitectureNode, keyword: string): boolean {
+  return matchesQuery(node, keyword) && matchesType(node) && matchesStatus(node)
+}
+
+function filteringActive(keyword: string): boolean {
+  return Boolean(keyword || props.typeFilter || props.statusFilter)
+}
+
+function addAncestors(nodeId: string, visibleIds: Set<string>): void {
+  let current = nodeMap.value.get(nodeId)
+  while (current?.parentId) {
+    visibleIds.add(current.parentId)
+    current = nodeMap.value.get(current.parentId)
+  }
+}
+
 const matchingIds = computed(() => {
   const keyword = props.query.trim().toLocaleLowerCase('zh-CN')
-  const directMatches = new Set<string>()
-  for (const node of props.nodes) {
-    const matchesQuery = !keyword || [node.orgName, node.orgCode, orgTypeLabel(node.orgType)]
-      .some((value) => value.toLocaleLowerCase('zh-CN').includes(keyword))
-    const matchesType = !props.typeFilter || node.orgType === props.typeFilter
-    const matchesStatus = !props.statusFilter || node.status === props.statusFilter
-    if (matchesQuery && matchesType && matchesStatus) directMatches.add(node.id)
-  }
-  if (!keyword && !props.typeFilter && !props.statusFilter) return directMatches
+  const directMatches = new Set(
+    props.nodes.filter((node) => matchesFilters(node, keyword)).map((node) => node.id),
+  )
+  if (!filteringActive(keyword)) return directMatches
 
-  const visible = new Set(directMatches)
-  for (const id of directMatches) {
-    let current = nodeMap.value.get(id)
-    while (current?.parentId) {
-      visible.add(current.parentId)
-      current = nodeMap.value.get(current.parentId)
-    }
-  }
-  return visible
+  const visibleIds = new Set(directMatches)
+  directMatches.forEach((nodeId) => addAncestors(nodeId, visibleIds))
+  return visibleIds
 })
 
 interface TreeRow {

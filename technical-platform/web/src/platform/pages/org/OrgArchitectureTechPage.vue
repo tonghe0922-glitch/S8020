@@ -20,6 +20,11 @@ import {
 
 type DetailTab = 'overview' | 'members' | 'permissions'
 
+interface OrgArchitectureTreeHandle {
+  expandAll: () => void
+  collapseAll: () => void
+}
+
 const session = usePortalSessionStore()
 const api = createOrgArchitectureApi(session)
 const router = useRouter()
@@ -35,7 +40,7 @@ const loading = ref(false)
 const saving = ref(false)
 const error = ref('')
 const notice = ref('')
-const treeRef = ref<InstanceType<typeof OrgArchitectureTree> | null>(null)
+const treeRef = ref<OrgArchitectureTreeHandle | null>(null)
 
 const nodes = computed(() => data.value.organizations)
 const selected = computed(() => nodes.value.find((node) => node.id === selectedId.value) ?? null)
