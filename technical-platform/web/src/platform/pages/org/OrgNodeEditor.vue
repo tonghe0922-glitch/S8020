@@ -57,7 +57,7 @@ function integer(event: Event): number {
 
       <div class="org-editor__grid">
         <label>
-          <span>组织编码</span>
+          <span>组织编码（系统自动生成）</span>
           <input
             class="is-readonly"
             disabled
