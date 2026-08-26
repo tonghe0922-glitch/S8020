@@ -13,7 +13,7 @@ async function mountedShell(searchItems: readonly {
   sourceKey: string
   label: string
   routePath: string
-}[] = []) {
+}[] = [], showPageTitle = true) {
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [
@@ -28,6 +28,7 @@ async function mountedShell(searchItems: readonly {
     props: {
       portal: PORTALS.work,
       pageTitle: '工作台',
+      showPageTitle,
       searchItems,
     },
     slots: {
@@ -76,4 +77,13 @@ describe('rebuild unified portal shell', () => {
     await flushPromises()
     expect(routePath(router)).toBe('/tasks')
   })
+
+  it('keeps breadcrumbs while suppressing a duplicated visual page title', async () => {
+    const { wrapper } = await mountedShell([], false)
+
+    expect(wrapper.get('.rebuild-shell__breadcrumbs').text()).toContain('工作台')
+    expect(wrapper.find('.rebuild-shell__page-title').exists()).toBe(false)
+    expect(wrapper.get('[data-test="page-content"]').text()).toBe('页面内容')
+  })
+
 })

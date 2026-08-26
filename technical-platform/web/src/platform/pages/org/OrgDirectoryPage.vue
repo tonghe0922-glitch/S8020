@@ -179,12 +179,12 @@ onMounted(() => void load())
 
 <template>
   <section class="directory-page" :class="{ 'is-architecture': mode === 'architecture' }" :aria-busy="loading">
-    <header class="directory-page__header-compact">
+    <header v-if="mode === 'directory'" class="directory-page__header-compact">
       <div class="directory-page__heading">
-        <p>{{ mode === 'architecture' ? '中心事务 / 企业信息 / 组织架构' : '中心事务 / 企业信息 / 企业通讯录' }}</p>
+        <p>中心事务 / 企业信息 / 企业通讯录</p>
         <div>
-          <h1>{{ mode === 'architecture' ? '企业组织架构' : '企业通讯录' }}</h1>
-          <span>{{ mode === 'architecture' ? '查看企业组织层级、职责边界与在岗成员' : '按组织、姓名、工号或岗位查找在岗同事' }}</span>
+          <h1>企业通讯录</h1>
+          <span>按组织、姓名、工号或岗位查找在岗同事</span>
         </div>
       </div>
       <div class="directory-page__header-actions">
@@ -368,6 +368,7 @@ onMounted(() => void load())
   background: #f5f6f8;
   color: #273248;
 }
+.directory-page.is-architecture { padding-top: .35rem; }
 .directory-page__header-compact { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0; border-bottom: 0; }
 .directory-page__heading { display: grid; gap: .28rem; }
 .directory-page__heading > p { margin: 0; color: #9aa3b2; font-size: .64rem; }
