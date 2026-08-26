@@ -45,6 +45,21 @@ jobs:
           )
           replace_once(
               directory,
+              "        <p>{{ mode === 'architecture' ? '中心事务 / 企业信息 / 组织架构' : '中心事务 / 企业信息 / 企业通讯录' }}</p>",
+              '        <p>中心事务 / 企业信息 / 企业通讯录</p>',
+          )
+          replace_once(
+              directory,
+              "          <h1>{{ mode === 'architecture' ? '企业组织架构' : '企业通讯录' }}</h1>",
+              '          <h1>企业通讯录</h1>',
+          )
+          replace_once(
+              directory,
+              "          <span>{{ mode === 'architecture' ? '查看企业组织层级、职责边界与在岗成员' : '按组织、姓名、工号或岗位查找在岗同事' }}</span>",
+              '          <span>按组织、姓名、工号或岗位查找在岗同事</span>',
+          )
+          replace_once(
+              directory,
               '  color: #273248;\n}\n.directory-page__header-compact',
               '  color: #273248;\n}\n.directory-page.is-architecture { padding-top: .35rem; }\n.directory-page__header-compact',
           )
